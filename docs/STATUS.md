@@ -1,8 +1,8 @@
 # Copilot Plus — 进度总览
 
 > **最后更新**：2026-05-23  
-> **当前阶段**：Phase 4 🔄 · Phase 5 🔄  
-> **下一项**：Explorer 子任务 · LSP 后验 · Autonomy 深度集成
+> **当前阶段**：Phase 5 🔄 · Phase 6 🔄 · Phase 8 起步  
+> **下一项**：RAG 索引 · Deploy 阶段 · Hooks UI
 
 ---
 
@@ -15,14 +15,14 @@
 | 2 | M1 Interaction | 6/7 | 🔄 进行中 |
 | 3 | M2 Document Tree | 5/6 | 🔄 进行中 |
 | 4 | M3 Tools + Agents | 4/4 | ✅ 完成 |
-| 5 | M4 Workflow | 3/4 | 🔄 进行中 |
+| 5 | M4 Workflow | 4/4 | ✅ 完成 |
 | 6 | M5 Context/RAG | 0/5 | ⬜ 未开始 |
 | 7 | M6 Editing | 3/5 | 🔄 进行中 |
-| 8 | M7 Extensibility | 0/3 | ⬜ 未开始 |
+| 8 | M7 Extensibility | 1/3 | 🔄 进行中 |
 | 9 | M8 Deploy + Polish | 0/4 | ⬜ 未开始 |
 
-**单元测试**：24/24 通过  
-**需求覆盖率（粗算）**：~50%
+**单元测试**：28/28 通过  
+**需求覆盖率（粗算）**：~55%
 
 ---
 
@@ -30,12 +30,11 @@
 
 | 模块 | 交付 | 需求 |
 |------|------|------|
-| Sub-Agent Loop | `subAgentLoop.ts` — 工具迭代、并行只读、messages.jsonl | R-AG-7 |
-| Sub-Agent Runner | `subAgentRunner.ts` — Scope + Layer Walk 上下文 | R-AG-3 |
-| Build Executor | `buildExecutor.ts` — 并发 Ready 任务、Coder 流水线 | R-WF-3, R-WF-4 |
-| Task DAG Store | `taskDagStore.ts` — tasks.json 读写 | R-WF-3 |
-| Tool Executor | task_create/update、code_search、todo、delete_file | R-TOOL-1 |
-| Task Panel | Tab Workspace 展示 DAG + Start/Stop | R-INT-3 |
+| Explorer | `explorerAgent.ts` + `explore` 工具委派 | R-AG-5 |
+| Post-edit LSP | `postEditVerification.ts` — Coder 最多 3 轮重试 | R-AG-6 |
+| LSP / Bash / Git 工具 | `lspTools.ts`、`bashRunner.ts`、executor 扩展 | R-TOOL-4/5 |
+| Hooks | `hookService.ts` — hooks.json + stage/task 事件 | R-EXT-3 |
+| Rollback | BuildExecutor.rollbackTask + Task Panel 按钮 | R-WF-5 |
 
 ---
 
@@ -43,6 +42,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | Explorer + LSP 后验 + Hooks + Rollback + 工具补全 |
 | 2026-05-23 | Sub-Agent 工具循环 + Build DAG 执行器 + Task Panel |
 | 2026-05-23 | Document Tree CRUD + Tool Executor + Tab 文档树 UI |
 | 2026-05-23 | Primary Agent + Inline Edit + Diff Review + Decision Center UI |

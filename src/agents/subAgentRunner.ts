@@ -66,10 +66,20 @@ export class SubAgentRunner {
     let lastAnswer = '';
     for (const role of BUILD_PIPELINE) {
       onStatus?.(`Running ${role} for ${task.id}`);
-      const stepTask: TaskNode = {
+      let stepTask: TaskNode = {
         ...task,
         description: `${task.description}\n\nBuild step: ${role}`,
       };
+
+      if (role === 'Coder') {
+        const coderResult = await this.runCoderWithVerification(stepTask, buildId, token, onStatus);
+        if (!coderResult.ok) {
+          return coderResult;
+        }
+        lastAnswer = coderResult.finalAnswer;
+        continue;
+      }
+
       const result = await this.runRole(role, stepTask, buildId, token, onStatus);
       if (!result.ok) {
         return result;
@@ -78,6 +88,46 @@ export class SubAgentRunner {
     }
 
     return { ok: true, finalAnswer: lastAnswer, failed: false };
+  }
+
+  /** R-AG-6 — up to 3 Coder rounds on LSP regression */
+  private async runCoderWithVerification(
+    task: TaskNode,
+    buildId: string,
+    token: vscode.CancellationToken,
+    onStatus?: (message: string) => void
+  ): Promise<SubAgentRunResult> {
+    this.app.postEdit.clear();
+    let stepTask = task;
+
+    for (let round = 1; round <= 3; round++) {
+      const result = await this.runRole('Coder', stepTask, buildId, token, onStatus);
+      if (!result.ok) {
+        return result;
+      }
+
+      const verification = await this.app.postEdit.verify();
+      if (verification.ok || verification.skipped) {
+        return result;
+      }
+
+      if (round >= 3) {
+        return {
+          ok: false,
+          finalAnswer: result.finalAnswer,
+          failed: true,
+          reason: 'lsp_regression',
+        };
+      }
+
+      onStatus?.(`LSP regression detected — Coder retry ${round + 1}/3`);
+      stepTask = {
+        ...stepTask,
+        description: `${stepTask.description}\n\n## regression_diagnostics\n${JSON.stringify(verification.regression_diagnostics, null, 2)}`,
+      };
+    }
+
+    return { ok: false, finalAnswer: '', failed: true, reason: 'lsp_regression' };
   }
 
   private async buildTaskPrompt(role: string, task: TaskNode, buildId: string): Promise<string> {

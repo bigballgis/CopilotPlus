@@ -47,7 +47,7 @@ export class TabWorkspaceProvider {
     });
 
     this.panel.webview.onDidReceiveMessage(
-      (msg: { type: string; tab?: TabId; path?: string; action?: string }) => {
+      (msg: { type: string; tab?: TabId; path?: string; action?: string; taskId?: string }) => {
         if (msg.type === 'selectTab' && msg.tab) {
           this.activeTab = msg.tab;
           void this.refresh();
@@ -56,7 +56,7 @@ export class TabWorkspaceProvider {
           void this.app.docs.openInEditor(msg.path);
         }
         if (msg.type === 'buildAction' && msg.action) {
-          void this.handleBuildAction(msg.action);
+          void this.handleBuildAction(msg.action, msg.taskId);
         }
       }
     );
@@ -74,7 +74,7 @@ export class TabWorkspaceProvider {
     }
   }
 
-  private async handleBuildAction(action: string): Promise<void> {
+  private async handleBuildAction(action: string, taskId?: string): Promise<void> {
     if (action === 'start') {
       await this.app.stages.transition('Build');
       await this.app.buildExecutor.start();
@@ -82,6 +82,8 @@ export class TabWorkspaceProvider {
       this.app.buildExecutor.stop();
     } else if (action === 'create') {
       await this.app.buildExecutor.createBuild();
+    } else if (action === 'rollback' && taskId) {
+      await this.app.buildExecutor.rollbackTask(taskId);
     }
     await this.refresh();
   }
@@ -106,8 +108,8 @@ export class TabWorkspaceProvider {
         function openDoc(path) {
           vscode.postMessage({ type: 'openDoc', path });
         }
-        function buildAction(action) {
-          vscode.postMessage({ type: 'buildAction', action });
+        function buildAction(action, taskId) {
+          vscode.postMessage({ type: 'buildAction', action, taskId });
         }
       </script>`;
     return getWebviewHtml(this.panel!.webview, this.extensionUri, body);
@@ -139,16 +141,19 @@ function renderTaskPanel(build?: BuildSnapshot): string {
 
   const tasks = build?.dag?.tasks ?? [];
   const taskRows = tasks
-    .map(
-      (t) =>
-        `<tr><td>${escapeHtml(t.id)}</td><td>${escapeHtml(t.title)}</td><td>${escapeHtml(t.agent)}</td><td>${escapeHtml(t.status)}</td></tr>`
-    )
+    .map((t) => {
+      const rollback =
+        t.status === 'Done' || t.status === 'Failed'
+          ? `<button type="button" onclick="buildAction('rollback','${escapeHtml(t.id)}')">Rollback</button>`
+          : '';
+      return `<tr><td>${escapeHtml(t.id)}</td><td>${escapeHtml(t.title)}</td><td>${escapeHtml(t.agent)}</td><td>${escapeHtml(t.status)}</td><td>${rollback}</td></tr>`;
+    })
     .join('');
 
   const table =
     tasks.length > 0
       ? `<table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr><th align="left">Id</th><th align="left">Title</th><th align="left">Agent</th><th align="left">Status</th></tr></thead>
+      <thead><tr><th align="left">Id</th><th align="left">Title</th><th align="left">Agent</th><th align="left">Status</th><th align="left">Actions</th></tr></thead>
       <tbody>${taskRows}</tbody></table>`
       : '<p>No tasks yet. Create a build or run Task_Planner during Design.</p>';
 

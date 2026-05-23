@@ -3,6 +3,8 @@
 import * as vscode from 'vscode';
 import { createPlatformServices, PlatformServices } from '../platform/services';
 import { PrimaryAgent } from '../agents/primaryAgent';
+import { ExplorerAgent } from '../agents/explorerAgent';
+import { PostEditTracker } from '../agents/postEditVerification';
 import { DiffReviewService } from '../editing/diffReview';
 import { CheckpointService } from '../editing/checkpoint';
 import { ProposedContentProvider } from '../editing/proposedContentProvider';
@@ -12,18 +14,22 @@ import { StageManager } from '../workflow/stageManager';
 import { DocumentTreeService } from '../docs/documentTreeService';
 import { ToolExecutor } from '../tools/executor';
 import { BuildExecutor } from '../workflow/buildExecutor';
+import { HookService } from '../extensibility/hookService';
 
 export class AppServices {
   readonly platform: PlatformServices;
   readonly primaryAgent: PrimaryAgent;
   readonly checkpoints: CheckpointService;
+  readonly postEdit: PostEditTracker;
   readonly diffReview: DiffReviewService;
   readonly inlineEdit: InlineEditService;
   readonly decisions: DecisionCenter;
+  readonly hooks: HookService;
   readonly stages: StageManager;
   readonly proposedContent: ProposedContentProvider;
   readonly docs: DocumentTreeService;
   readonly tools: ToolExecutor;
+  readonly explorer: ExplorerAgent;
   readonly buildExecutor: BuildExecutor;
 
   private constructor(
@@ -35,17 +41,21 @@ export class AppServices {
     this.proposedContent = proposedContent;
     this.primaryAgent = new PrimaryAgent(context.extensionUri, platform);
     this.checkpoints = new CheckpointService();
+    this.postEdit = new PostEditTracker();
     this.diffReview = new DiffReviewService(this.checkpoints, proposedContent);
     this.inlineEdit = new InlineEditService(platform, this.diffReview);
     this.decisions = new DecisionCenter();
-    this.stages = new StageManager();
+    this.hooks = new HookService(context);
+    this.stages = new StageManager(this.hooks);
     this.docs = new DocumentTreeService(this.diffReview);
     this.tools = new ToolExecutor(this, this.docs);
+    this.explorer = new ExplorerAgent(this, context.extensionUri);
     this.buildExecutor = new BuildExecutor(this, context.extensionUri);
   }
 
   async initialize(): Promise<void> {
     this.checkpoints.setRetention(this.platform.getSettings().checkpointRetention);
+    await this.hooks.initialize();
     await this.stages.load();
     this.docs.startWatching(this.context);
     void this.docs.ensureDefaultSystem();

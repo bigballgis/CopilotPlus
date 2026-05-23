@@ -6,11 +6,14 @@ import * as path from 'path';
 import type { WorkflowStage } from '../shared/types';
 import { COPILOT_PLUS_HOME } from '../shared/constants';
 import { canTransition as isAllowedTransition } from './stageTransitions';
+import type { HookService } from '../extensibility/hookService';
 
 const ALLOWED: WorkflowStage[] = ['Design', 'Build', 'Deploy'];
 
 export class StageManager {
   private stage: WorkflowStage = 'Design';
+
+  constructor(private readonly hooks?: HookService) {}
 
   async load(): Promise<WorkflowStage> {
     const file = this.statePath();
@@ -38,8 +41,11 @@ export class StageManager {
       void vscode.window.showWarningMessage(`Transition ${this.stage} → ${to} is not allowed.`);
       return false;
     }
+    const from = this.stage;
+    await this.hooks?.fire('stage.exited', { from, to });
     this.stage = to;
     await this.save();
+    await this.hooks?.fire('stage.entered', { stage: to, from });
     return true;
   }
 

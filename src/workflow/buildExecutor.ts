@@ -173,6 +173,39 @@ export class BuildExecutor {
     this.notify();
   }
 
+  async rollbackTask(taskId: string): Promise<boolean> {
+    const buildId = this.activeBuildId;
+    if (!buildId) {
+      void vscode.window.showErrorMessage('No active build.');
+      return false;
+    }
+    const dag = await this.store.load(buildId);
+    const task = dag?.tasks.find((t) => t.id === taskId);
+    if (!task || (task.status !== 'Done' && task.status !== 'Failed')) {
+      void vscode.window.showWarningMessage(`Task ${taskId} cannot be rolled back.`);
+      return false;
+    }
+
+    const token = new vscode.CancellationTokenSource().token;
+    this.setMessage(`Rolling back ${taskId}`);
+    this.notify();
+
+    const result = await this.runner.runRole('Rollback_Operator', task, buildId, token, (msg) =>
+      this.setMessage(msg)
+    );
+    if (!result.ok) {
+      await this.store.updateTaskStatus(buildId, taskId, 'Failed');
+      this.notify();
+      return false;
+    }
+
+    await this.store.updateTaskStatus(buildId, taskId, 'RolledBack');
+    await this.app.hooks.fire('rollback.completed', { buildId, taskId });
+    this.setMessage(`Task ${taskId} rolled back`);
+    this.notify();
+    return true;
+  }
+
   private async runLoop(): Promise<void> {
     const token = this.cancelSource!.token;
     const maxConcurrent = this.app.platform.getSettings().maxConcurrentTasks;
@@ -232,6 +265,7 @@ export class BuildExecutor {
   ): Promise<void> {
     this.running.add(task.id);
     await this.store.updateTaskStatus(buildId, task.id, 'Running');
+    await this.app.hooks.fire('task.started', { buildId, taskId: task.id, agent: task.agent });
     this.setMessage(`Running ${task.id} (${task.agent})`);
     this.notify();
 
@@ -241,11 +275,21 @@ export class BuildExecutor {
       );
       const nextStatus = result.ok ? 'Done' : 'Failed';
       await this.store.updateTaskStatus(buildId, task.id, nextStatus);
+      await this.app.hooks.fire(result.ok ? 'task.completed' : 'task.failed', {
+        buildId,
+        taskId: task.id,
+        reason: result.reason,
+      });
       if (!result.ok && result.reason) {
         this.setMessage(`Task ${task.id} failed: ${result.reason}`);
       }
     } catch (err) {
       await this.store.updateTaskStatus(buildId, task.id, 'Failed');
+      await this.app.hooks.fire('task.failed', {
+        buildId,
+        taskId: task.id,
+        reason: err instanceof Error ? err.message : String(err),
+      });
       this.setMessage(
         `Task ${task.id} error: ${err instanceof Error ? err.message : String(err)}`
       );

@@ -10,8 +10,24 @@ import { parseFrontmatter, validateFrontmatter } from '../docs/frontmatter';
 import { applyEdits, type PatchEdit } from './applyPatchLogic';
 import { SUB_AGENT_ALLOWLISTS } from './registry';
 import { isToolVisible } from '../platform/toolPermissions';
+import { runBash } from './bashRunner';
+import {
+  getDefinition,
+  getDiagnostics,
+  getHover,
+  getReferences,
+} from './lspTools';
+import { matchesCommandDenyList } from '../platform/configuration';
 
 export type ToolResult = { ok: true; data: unknown } | { ok: false; reason: string; pattern?: string };
+
+const EXPLORER_PARENT_ROLES = new Set([
+  'Coder',
+  'Tester',
+  'Reviewer',
+  'Architect',
+  'Designer',
+]);
 
 export class ToolExecutor {
   constructor(
@@ -21,15 +37,23 @@ export class ToolExecutor {
 
   getEffectiveTools(role: string): string[] {
     const base = SUB_AGENT_ALLOWLISTS[role] ?? [];
-    return base.filter((toolId) => {
+    const tools = base.filter((toolId) => {
       const perm = this.app.platform.resolveToolPermission(toolId);
       return isToolVisible(perm.effective);
     });
+    if (EXPLORER_PARENT_ROLES.has(role)) {
+      tools.push('explore');
+    }
+    return tools;
   }
 
   async invoke(role: string, toolId: string, args: Record<string, unknown>): Promise<ToolResult> {
     if (!this.getEffectiveTools(role).includes(toolId)) {
       return { ok: false, reason: 'tool_denied' };
+    }
+
+    if (toolId === 'explore') {
+      return this.explore(args);
     }
 
     const perm = this.app.platform.resolveToolPermission(
@@ -81,6 +105,26 @@ export class ToolExecutor {
         return this.todoWrite(args);
       case 'todoread':
         return this.todoRead(args);
+      case 'bash':
+        return this.bash(args);
+      case 'lsp_diagnostics':
+        return this.lspDiagnostics(args);
+      case 'lsp_definition':
+        return this.lspDefinition(args);
+      case 'lsp_references':
+        return this.lspReferences(args);
+      case 'lsp_hover':
+        return this.lspHover(args);
+      case 'git_status':
+        return this.gitStatus();
+      case 'git_diff':
+        return this.gitDiff(args);
+      case 'git_commit':
+        return this.gitCommit(args);
+      case 'run_tests':
+        return this.runTests(args);
+      case 'checkpoint_restore':
+        return this.checkpointRestore(args);
       case 'question':
         return this.question(args);
       default:
@@ -238,6 +282,9 @@ export class ToolExecutor {
       content,
       'write_file'
     );
+    if (ok) {
+      await this.app.postEdit.recordEdit(rel);
+    }
     return ok ? { ok: true, data: { path: rel } } : { ok: false, reason: 'user_rejected' };
   }
 
@@ -256,6 +303,9 @@ export class ToolExecutor {
       return { ok: false, reason: result.reason };
     }
     const ok = await this.app.diffReview.reviewFullFile(uri, original, result.content, 'apply_patch');
+    if (ok) {
+      await this.app.postEdit.recordEdit(rel);
+    }
     return ok ? { ok: true, data: { path: rel } } : { ok: false, reason: 'user_rejected' };
   }
 
@@ -276,6 +326,7 @@ export class ToolExecutor {
       return { ok: false, reason: 'user_rejected' };
     }
     await fs.unlink(uri.fsPath).catch(() => undefined);
+    await this.app.postEdit.recordEdit(rel);
     return { ok: true, data: { path: rel, deleted: true } };
   }
 
@@ -375,6 +426,119 @@ export class ToolExecutor {
       return { ok: true, data: JSON.parse(raw) };
     } catch {
       return { ok: true, data: [] };
+    }
+  }
+
+  private async explore(args: Record<string, unknown>): Promise<ToolResult> {
+    const query = String(args.query ?? '');
+    const thoroughness = String(args.thoroughness ?? 'medium') as 'quick' | 'medium' | 'thorough';
+    const buildId = this.app.buildExecutor.getActiveBuildId() ?? 'explore';
+    const taskId = String(args.task_id ?? 'parent');
+    const token = new vscode.CancellationTokenSource().token;
+    const result = await this.app.explorer.investigate(query, thoroughness, buildId, taskId, token);
+    return { ok: true, data: result };
+  }
+
+  private async bash(args: Record<string, unknown>): Promise<ToolResult> {
+    const command = String(args.command ?? '');
+    const root = this.workspaceRoot();
+    if (!root) {
+      return { ok: false, reason: 'no_workspace' };
+    }
+    const deny = matchesCommandDenyList(
+      command,
+      this.app.platform.getSettings().commandDenyList
+    );
+    if (deny) {
+      return { ok: false, reason: 'command_denied' };
+    }
+    const timeout = Math.min(Number(args.timeout_ms) || 60_000, 600_000);
+    const result = await runBash(command, root, timeout, args.cwd ? String(args.cwd) : undefined);
+    return { ok: true, data: result };
+  }
+
+  private async lspDiagnostics(args: Record<string, unknown>): Promise<ToolResult> {
+    const paths = args.paths as string[] | undefined;
+    const diags = await getDiagnostics(paths);
+    return { ok: true, data: { diagnostics: diags } };
+  }
+
+  private async lspDefinition(args: Record<string, unknown>): Promise<ToolResult> {
+    const rel = String(args.path ?? '');
+    const line = Number(args.line ?? 1);
+    const character = Number(args.character ?? 0);
+    const locations = await getDefinition(rel, line, character);
+    return { ok: true, data: { locations } };
+  }
+
+  private async lspReferences(args: Record<string, unknown>): Promise<ToolResult> {
+    const rel = String(args.path ?? '');
+    const line = Number(args.line ?? 1);
+    const character = Number(args.character ?? 0);
+    const locations = await getReferences(rel, line, character);
+    return { ok: true, data: { locations } };
+  }
+
+  private async lspHover(args: Record<string, unknown>): Promise<ToolResult> {
+    const rel = String(args.path ?? '');
+    const line = Number(args.line ?? 1);
+    const character = Number(args.character ?? 0);
+    const hover = await getHover(rel, line, character);
+    return { ok: true, data: hover ?? { contents: '' } };
+  }
+
+  private async gitStatus(): Promise<ToolResult> {
+    return this.gitCommand('git status --porcelain=v1');
+  }
+
+  private async gitDiff(args: Record<string, unknown>): Promise<ToolResult> {
+    const staged = args.staged ? '--cached' : '';
+    return this.gitCommand(`git diff ${staged}`.trim());
+  }
+
+  private async gitCommit(args: Record<string, unknown>): Promise<ToolResult> {
+    const message = String(args.message ?? 'Copilot Plus commit');
+    return this.gitCommand(`git add -A && git commit -m ${JSON.stringify(message)}`);
+  }
+
+  private async gitCommand(command: string): Promise<ToolResult> {
+    const root = this.workspaceRoot();
+    if (!root) {
+      return { ok: false, reason: 'no_workspace' };
+    }
+    const result = await runBash(command, root);
+    if (result.exit_code === 0) {
+      return { ok: true, data: result };
+    }
+    return { ok: false, reason: result.stderr || 'git_failed' };
+  }
+
+  private async runTests(args: Record<string, unknown>): Promise<ToolResult> {
+    const command =
+      String(args.command ?? '') ||
+      vscode.workspace.getConfiguration('copilotPlus').get<string>('workflow.testCommand') ||
+      'npm run test:unit';
+    const root = this.workspaceRoot();
+    if (!root) {
+      return { ok: false, reason: 'no_workspace' };
+    }
+    const result = await runBash(command, root, Number(args.timeout_ms) || 120_000);
+    if (result.exit_code === 0) {
+      return { ok: true, data: result };
+    }
+    return { ok: false, reason: result.stderr || 'tests_failed' };
+  }
+
+  private async checkpointRestore(args: Record<string, unknown>): Promise<ToolResult> {
+    const id = String(args.checkpoint_id ?? args.id ?? '');
+    if (!id) {
+      return { ok: false, reason: 'missing_checkpoint_id' };
+    }
+    try {
+      const restored = await this.app.checkpoints.restore(id);
+      return { ok: true, data: { restored } };
+    } catch (e) {
+      return { ok: false, reason: e instanceof Error ? e.message : String(e) };
     }
   }
 
