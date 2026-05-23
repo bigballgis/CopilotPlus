@@ -1,18 +1,23 @@
 import * as vscode from 'vscode';
 import { activatePlatform } from './platform/activation';
-import type { PlatformServices } from './platform/services';
+import type { AppServices } from './app/appServices';
 
-let services: PlatformServices | undefined;
+let app: AppServices | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const result = await activatePlatform(context);
-  services = result.services;
+  app = result.app;
 }
 
 export function deactivate(): void {
-  services = undefined;
+  app = undefined;
 }
 
-export function getPlatformServices(): PlatformServices | undefined {
-  return services;
+export function getAppServices(): AppServices | undefined {
+  return app;
+}
+
+/** @deprecated use getAppServices().platform */
+export function getPlatformServices() {
+  return app?.platform;
 }

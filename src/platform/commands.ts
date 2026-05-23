@@ -1,21 +1,22 @@
 /** Command registration — R-PLAT-1.4 */
 
 import * as vscode from 'vscode';
-import type { PlatformServices } from './services';
+import type { AppServices } from '../app/appServices';
 import { openWorkspace, getTabWorkspace } from '../interaction/workspace';
 
 export function registerCommands(
   context: vscode.ExtensionContext,
-  services: PlatformServices
+  app: AppServices
 ): vscode.Disposable[] {
   const disposables: vscode.Disposable[] = [];
+  const { platform: services } = app;
 
   const register = (id: string, handler: (...args: unknown[]) => unknown) => {
     disposables.push(vscode.commands.registerCommand(id, handler));
   };
 
-  register('copilotPlus.openWorkspace', () => openWorkspace(context, services));
-  register('copilotPlus.inlineEdit', () => vscode.commands.executeCommand('copilotPlus.openWorkspace'));
+  register('copilotPlus.openWorkspace', () => openWorkspace(context, app));
+  register('copilotPlus.inlineEdit', () => app.inlineEdit.invoke());
   register('copilotPlus.knowledge.init', () =>
     vscode.window.showInformationMessage('AGENTS.md init — Phase 9 (KNOW).')
   );
@@ -46,6 +47,12 @@ export function registerCommands(
   register('copilotPlus.openSettings', () =>
     vscode.commands.executeCommand('workbench.action.openSettings', '@ext:copilot-plus.copilot-plus')
   );
+
+  register('copilotPlus.workflow.setStage', async (stage: unknown) => {
+    if (stage === 'Design' || stage === 'Build' || stage === 'Deploy') {
+      await app.stages.transition(stage);
+    }
+  });
 
   return disposables;
 }

@@ -1,21 +1,24 @@
 /** Conversation Pane — R-INT-2 */
 
 import * as vscode from 'vscode';
-import type { PlatformServices } from '../platform/services';
+import type { AppServices } from '../app/appServices';
 import { getWebviewHtml } from './webviewHtml';
 import { SessionStore } from './sessionStore';
 import type { WorkflowStage } from '../shared/types';
 
 export class ConversationPaneProvider {
   private panel: vscode.WebviewPanel | undefined;
-  private stage: WorkflowStage = 'Design';
   private readonly sessions: SessionStore;
+  private cancelSource: vscode.CancellationTokenSource | undefined;
+  private sessionTokens = 0;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
-    private readonly services: PlatformServices
+    context: vscode.ExtensionContext,
+    private readonly app: AppServices
   ) {
-    this.sessions = new SessionStore();
+    this.sessions = new SessionStore(context);
+    void this.sessions.load();
   }
 
   async show(column: vscode.ViewColumn): Promise<void> {
@@ -40,28 +43,66 @@ export class ConversationPaneProvider {
       if (msg.type === 'submit' && msg.text) {
         await this.handleSubmit(msg.text);
       }
+      if (msg.type === 'cancel') {
+        this.cancelSource?.cancel();
+      }
+      if (msg.type === 'newSession') {
+        await this.sessions.startNewSession();
+        this.sessionTokens = 0;
+        this.reload();
+      }
     });
   }
 
-  setStage(stage: WorkflowStage): void {
-    this.stage = stage;
+  syncStage(_stage: WorkflowStage): void {
+    this.reload();
+  }
+
+  private reload(): void {
     if (this.panel) {
       this.panel.webview.html = this.render();
     }
   }
 
   private async handleSubmit(text: string): Promise<void> {
-    if (this.stage !== 'Design') {
+    const stage = this.app.stages.getStage();
+    if (stage !== 'Design') {
       return;
     }
-    if (this.services.network.isOffline()) {
+    if (this.app.platform.network.isOffline()) {
       void vscode.window.showWarningMessage('Offline — cannot send model request.');
       return;
     }
+
     await this.sessions.appendUserMessage(text);
     this.postMessage({ type: 'userMessage', text });
-    // Primary agent invocation — Phase 4
-    this.postMessage({ type: 'assistantMessage', text: `[Primary Agent stub] Received: ${text}` });
+
+    this.cancelSource?.cancel();
+    this.cancelSource = new vscode.CancellationTokenSource();
+    this.postMessage({ type: 'streamStart' });
+
+    try {
+      const history = this.sessions.getMessages().slice(0, -1);
+      const result = await this.app.primaryAgent.runDesignTurn(
+        text,
+        history,
+        this.cancelSource.token,
+        (chunk) => this.postMessage({ type: 'streamChunk', text: chunk })
+      );
+
+      if (result.cancelled) {
+        this.postMessage({ type: 'streamCancelled' });
+        return;
+      }
+
+      await this.sessions.appendAssistantMessage(result.text);
+      this.sessionTokens += result.inputTokens + result.outputTokens;
+      this.postMessage({ type: 'streamEnd', text: result.text, tokens: this.sessionTokens });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.postMessage({ type: 'error', message });
+      void vscode.window.showErrorMessage(message);
+    }
   }
 
   private postMessage(msg: unknown): void {
@@ -69,38 +110,70 @@ export class ConversationPaneProvider {
   }
 
   private render(): string {
-    const readOnly = this.stage !== 'Design';
-    const model = this.services.models.getSelected()?.name ?? 'none';
+    const stage = this.app.stages.getStage();
+    const readOnly = stage !== 'Design';
+    const model = this.app.platform.models.getSelected()?.name ?? 'none';
     const banner = readOnly
-      ? `<div class="banner" role="status">Direct input unavailable in ${this.stage} stage.</div>`
+      ? `<div class="banner" role="status">Direct input unavailable in ${stage} stage.</div>`
       : '';
     const body = `
       ${banner}
       <header style="margin-bottom:8px;font-size:12px;opacity:0.85">
-        Model: ${escapeHtml(model)} · Stage: ${this.stage} · Tokens: 0
+        Model: ${escapeHtml(model)} · Stage: ${stage} · Tokens: <span id="token-count">${this.sessionTokens}</span>
       </header>
       <div id="messages" role="log" aria-live="polite" aria-relevant="additions" style="min-height:200px;border:1px solid var(--vscode-panel-border);padding:8px;margin-bottom:8px"></div>
       <textarea id="input" rows="3" style="width:100%;box-sizing:border-box" ${readOnly ? 'disabled aria-disabled="true"' : 'aria-label="Design conversation input"'} placeholder="Describe your design…"></textarea>
-      <button id="send" type="button" ${readOnly ? 'disabled' : ''} aria-label="Send message">Send</button>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="send" type="button" ${readOnly ? 'disabled' : ''} aria-label="Send message">Send</button>
+        <button id="cancel" type="button" ${readOnly ? 'disabled' : ''} aria-label="Cancel request">Cancel</button>
+        <button id="newSession" type="button" aria-label="New session">New Session</button>
+      </div>
       <script nonce="">
         const vscode = acquireVsCodeApi();
         const messages = document.getElementById('messages');
         const input = document.getElementById('input');
+        const tokenCount = document.getElementById('token-count');
+        let streaming = false;
+        let streamNode = null;
+        let streamBuf = '';
+
         document.getElementById('send').onclick = () => {
+          if (streaming) return;
           const text = input.value.trim();
           if (!text) return;
           const div = document.createElement('div');
           div.textContent = 'You: ' + text;
           messages.appendChild(div);
           input.value = '';
+          streaming = true;
+          streamBuf = '';
           vscode.postMessage({ type: 'submit', text });
+        };
+        document.getElementById('cancel').onclick = () => vscode.postMessage({ type: 'cancel' });
+        document.getElementById('newSession').onclick = () => {
+          messages.innerHTML = '';
+          tokenCount.textContent = '0';
+          vscode.postMessage({ type: 'newSession' });
         };
         window.addEventListener('message', e => {
           const m = e.data;
-          if (m.type === 'assistantMessage') {
-            const div = document.createElement('div');
-            div.textContent = 'Assistant: ' + m.text;
-            messages.appendChild(div);
+          if (m.type === 'streamStart') {
+            streamNode = document.createElement('div');
+            streamNode.textContent = 'Assistant: ';
+            messages.appendChild(streamNode);
+          }
+          if (m.type === 'streamChunk' && streamNode) {
+            streamBuf += m.text;
+            streamNode.textContent = 'Assistant: ' + streamBuf;
+          }
+          if (m.type === 'streamEnd') {
+            streaming = false;
+            if (typeof m.tokens === 'number') tokenCount.textContent = String(m.tokens);
+            streamNode = null;
+          }
+          if (m.type === 'streamCancelled' || m.type === 'error') {
+            streaming = false;
+            streamNode = null;
           }
         });
       </script>`;

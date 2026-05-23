@@ -47,6 +47,11 @@
         "command": "copilotPlus.docs.assignOrphan",
         "title": "Copilot Plus: Assign Orphan Code",
         "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.openDecisionCenter",
+        "title": "Copilot Plus: Open Decision Center",
+        "category": "Copilot Plus"
       }
     ],
     "keybindings": [
