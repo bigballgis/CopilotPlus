@@ -141,7 +141,7 @@
 | 序号 | 需求 | 状态 |
 |------|------|------|
 | 8.1 | R-EXT-1 Skills runtime | ✅ |
-| 8.2 | R-EXT-2 MCP | ✅ stdio + HTTP/SSE |
+| 8.2 | R-EXT-2 MCP | ✅ stdio + HTTP/SSE + legacy GET/SSE |
 | 8.3 | R-EXT-3 Hooks | ✅ |
 
 ---

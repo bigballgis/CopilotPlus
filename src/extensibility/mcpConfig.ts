@@ -1,9 +1,13 @@
 /** MCP configuration parsing — R-EXT-2 */
 
+export type McpHttpTransport = 'streamable' | 'legacy_sse';
+
 export interface McpServerConfig {
   id: string;
   command?: string;
   url?: string;
+  /** HTTP transport when `url` is set. Default: streamable POST+SSE body. */
+  httpTransport?: McpHttpTransport;
   args?: string[];
   env?: Record<string, string>;
   enabled: boolean;
@@ -84,12 +88,21 @@ function parseServerEntry(
     return { ok: false, reason: `ambiguous_transport:${id}` };
   }
 
+  const httpTransport = parseHttpTransport(obj.httpTransport);
+  if (httpTransport === 'invalid') {
+    return { ok: false, reason: `invalid_http_transport:${id}` };
+  }
+  if (httpTransport && !url) {
+    return { ok: false, reason: `http_transport_without_url:${id}` };
+  }
+
   return {
     ok: true,
     server: {
       id,
       command,
       url,
+      httpTransport: httpTransport ?? undefined,
       args: Array.isArray(obj.args) ? obj.args.map(String) : undefined,
       env:
         typeof obj.env === 'object' && obj.env !== null
@@ -102,6 +115,23 @@ function parseServerEntry(
       agent_allowlist: normalizeAllowlist(obj.agent_allowlist),
     },
   };
+}
+
+function parseHttpTransport(value: unknown): McpHttpTransport | undefined | 'invalid' {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+  if (typeof value !== 'string') {
+    return 'invalid';
+  }
+  const normalized = value.trim().toLowerCase().replace(/-/g, '_');
+  if (normalized === 'streamable' || normalized === 'streamable_http' || normalized === 'http') {
+    return 'streamable';
+  }
+  if (normalized === 'legacy_sse' || normalized === 'legacy' || normalized === 'sse') {
+    return 'legacy_sse';
+  }
+  return 'invalid';
 }
 
 function normalizeAllowlist(value: unknown): string[] {

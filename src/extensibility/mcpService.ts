@@ -14,6 +14,7 @@ import {
 import type { McpTransportClient } from './mcpClient';
 import { McpStdioClient } from './mcpStdioClient';
 import { McpHttpClient } from './mcpHttpClient';
+import { McpLegacySseClient } from './mcpLegacySseClient';
 
 export type McpConnectionState = 'connected' | 'connecting' | 'disconnected' | 'error';
 
@@ -192,7 +193,11 @@ export class McpService {
     }
 
     try {
-      const client = server.config.url ? new McpHttpClient() : new McpStdioClient();
+      const client = server.config.url
+        ? server.config.httpTransport === 'legacy_sse'
+          ? new McpLegacySseClient()
+          : new McpHttpClient()
+        : new McpStdioClient();
       if (!server.config.url && !server.config.command) {
         server.state = 'error';
         server.lastError = 'missing_transport';

@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：Polish / 后续增强  
-> **下一项**：MCP legacy GET/SSE 长连接（或 NES 委派模式缓存）
+> **下一项**：NES 委派模式缓存（或 LSP symbol 细粒度 cache invalidation）
 
 ---
 
@@ -12,8 +12,8 @@
 |-------|------|------|------|
 | 0–9 | 全部 Phase | — | ✅ 完成 |
 
-**单元测试**：98/98 通过  
-**需求覆盖率（粗算）**：~93%
+**单元测试**：104/104 通过  
+**需求覆盖率（粗算）**：~94%
 
 ---
 
@@ -21,10 +21,11 @@
 
 | 模块 | 交付 | 需求 |
 |------|------|------|
+| MCP legacy SSE | GET 长连接 + endpoint 事件 + POST 消息 + pending 匹配 | R-EXT-2 |
 | Response Cache 失效 | 按文件 + Skills auto_attach + 外部保存检测 | R-EDIT-8.5 |
 | propose_memory 工具 | Sub-Agent 工具 + Decision 三路选项 | R-KNOW-3 |
 | i18n + a11y | `l10n/bundle.l10n.json` + 全量 `t()` 迁移 + CI 审计 | R-PLAT-9 |
-| MCP HTTP/SSE | POST JSON-RPC + SSE 解析 + Session-Id | R-EXT-2 |
+| MCP HTTP/SSE | POST JSON-RPC + SSE 解析 + Session-Id + legacy GET/SSE | R-EXT-2 |
 | Response Cache | 1h TTL + rebase + LRU 100MB | R-EDIT-8 |
 | CI headless 验证 | fixture + transcript 校验 + headless 脚本 | R-DEP-7 |
 | Enterprise ONNX | manifest 驱动 token_ids + vocab bundle 下载 | R-CTX-5 |
@@ -43,6 +44,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | MCP legacy GET/SSE 长连接（endpoint 事件 + POST 消息） |
 | 2026-05-23 | Response Cache 失效接线（文件编辑 + Skills auto_attach） |
 | 2026-05-23 | propose_memory 工具（Coder/Tester/Reviewer/Committer/Deployer） |
 | 2026-05-23 | 全量 i18n（bundle.l10n.json）+ webview a11y 审计 |

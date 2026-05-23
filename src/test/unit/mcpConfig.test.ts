@@ -29,6 +29,23 @@ describe('R-EXT-2 MCP config', () => {
     assert.deepEqual(parseMcpToolId(id), { serverId: 'demo', toolName: 'query' });
   });
 
+  it('parses legacy_sse http transport for url servers', () => {
+    const parsed = parseMcpConfig({
+      servers: [{ id: 'remote', url: 'http://localhost:3000/sse', httpTransport: 'legacy_sse' }],
+    });
+    assert.equal(parsed.ok, true);
+    if (parsed.ok) {
+      assert.equal(parsed.config.servers[0].httpTransport, 'legacy_sse');
+    }
+  });
+
+  it('rejects http transport without url', () => {
+    const parsed = parseMcpConfig({
+      servers: [{ id: 'bad', command: 'node', httpTransport: 'legacy_sse' }],
+    });
+    assert.equal(parsed.ok, false);
+  });
+
   it('respects allowlists', () => {
     const server = {
       id: 's',
