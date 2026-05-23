@@ -239,6 +239,8 @@ ${intent === 'generate'
     const layerBlock = layerWalk
       .map((l) => `### ${l.documentPath}\n${l.content}`)
       .join('\n\n');
+    const scopeFile = scopeEntry?.relativePath ?? task.scope_doc.replace(/^\.copilotPlus\/docs\//, 'src/');
+    const knowledgeBlock = await this.app.knowledge.buildContextBlock(scopeFile, task.id);
 
     return `
 Workflow stage: ${role === 'Deployer' ? 'Deploy' : 'Build'}
@@ -257,6 +259,9 @@ ${skillBlock || '(none)'}
 
 ## Layer walk
 ${layerBlock || '(empty)'}
+
+## Project memory
+${knowledgeBlock || '(none)'}
 
 ## Task inputs
 ${JSON.stringify(task.inputs, null, 2)}

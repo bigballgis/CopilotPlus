@@ -108,9 +108,9 @@ export class ToolExecutor {
       case 'doc_write':
         return this.docWrite(args);
       case 'apply_patch':
-        return this.applyPatch(args);
+        return this.applyPatch(args, role);
       case 'write_file':
-        return this.writeFile(args);
+        return this.writeFile(args, role);
       case 'delete_file':
         return this.deleteFile(args);
       case 'code_search':
@@ -289,8 +289,11 @@ export class ToolExecutor {
     return ok ? { ok: true, data: { path: docPath } } : { ok: false, reason: 'user_rejected' };
   }
 
-  private async writeFile(args: Record<string, unknown>): Promise<ToolResult> {
+  private async writeFile(args: Record<string, unknown>, role: string): Promise<ToolResult> {
     const rel = String(args.path ?? '');
+    if (this.app.knowledge.isAgentsPath(rel) && role !== 'Architect') {
+      return { ok: false, reason: 'agents_md_role_restricted' };
+    }
     const sens = this.checkSensitive(rel);
     if (sens) {
       return sens;
@@ -310,8 +313,11 @@ export class ToolExecutor {
     return ok ? { ok: true, data: { path: rel } } : { ok: false, reason: 'user_rejected' };
   }
 
-  private async applyPatch(args: Record<string, unknown>): Promise<ToolResult> {
+  private async applyPatch(args: Record<string, unknown>, role: string): Promise<ToolResult> {
     const rel = String(args.path ?? '');
+    if (this.app.knowledge.isAgentsPath(rel) && role !== 'Architect') {
+      return { ok: false, reason: 'agents_md_role_restricted' };
+    }
     const sens = this.checkSensitive(rel);
     if (sens) {
       return sens;

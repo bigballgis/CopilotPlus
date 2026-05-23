@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import type { PlatformServices } from '../platform/services';
 import { streamChat, estimateTokens } from '../platform/chatClient';
+import { PLAT5 } from '../platform/performanceBudget';
 import { DiffReviewService } from './diffReview';
 import { ResponseCacheService } from './responseCacheService';
 
@@ -113,11 +114,16 @@ export class InlineEditService {
     }
 
     try {
+      const timeoutSource = new vscode.CancellationTokenSource();
+      tokenSource.token.onCancellationRequested(() => timeoutSource.cancel());
+      const timer = setTimeout(() => timeoutSource.cancel(), PLAT5.inlineEditTimeoutMs);
+
       const result = await streamChat(
         model,
         [vscode.LanguageModelChatMessage.User(userMessage)],
-        tokenSource.token
+        timeoutSource.token
       );
+      clearTimeout(timer);
 
       let proposed = result.text.trim();
       if (proposed.startsWith('```')) {
@@ -144,6 +150,7 @@ export class InlineEditService {
         responseText: proposed,
       });
     } catch (err) {
+      clearTimeout(timer);
       const retry = 'Retry';
       const msg = err instanceof Error ? err.message : String(err);
       const choice = await vscode.window.showErrorMessage(`Inline Edit failed: ${msg}`, retry);

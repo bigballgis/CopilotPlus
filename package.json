@@ -155,6 +155,12 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "copilotPlus.controlConsole",
+        "contents": "Copilot Plus is ready.\n[Open Workspace](command:copilotPlus.openWorkspace)\n[Open Settings](command:copilotPlus.openSettings)"
+      }
+    ],
     "configuration": {
       "title": "Copilot Plus",
       "properties": {
@@ -206,6 +212,16 @@
         "copilotPlus.indexing.embeddingAddon.sha256": {
           "type": "string",
           "default": ""
+        },
+        "copilotPlus.knowledge.selfReflection.enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "copilotPlus.knowledge.selfReflection.minBuildTasks": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 50
         },
         "copilotPlus.context.summarization.mode": {
           "type": "string",
@@ -261,6 +277,12 @@
           "default": 75,
           "minimum": 0,
           "maximum": 2000
+        },
+        "copilotPlus.tabCompletion.timeoutMs": {
+          "type": "number",
+          "default": 1500,
+          "minimum": 500,
+          "maximum": 10000
         },
         "copilotPlus.nes.maxChain": {
           "type": "number",

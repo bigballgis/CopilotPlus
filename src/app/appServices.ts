@@ -25,6 +25,7 @@ import { ResponseCacheService } from '../editing/responseCacheService';
 import { ComposerService } from '../editing/composer';
 import { ConversationSummarizer } from '../context/conversationSummarizer';
 import { McpService } from '../extensibility/mcpService';
+import { KnowledgeService } from '../knowledge/knowledgeService';
 import type { CiSession } from '../cli/ciSession';
 
 export class AppServices {
@@ -52,6 +53,7 @@ export class AppServices {
   readonly composer: ComposerService;
   readonly responseCache: ResponseCacheService;
   readonly mcp: McpService;
+  readonly knowledge: KnowledgeService;
   private ciSession: CiSession | undefined;
 
   private constructor(
@@ -87,6 +89,7 @@ export class AppServices {
     this.summarizer = new ConversationSummarizer(this);
     this.composer = new ComposerService(this);
     this.mcp = new McpService(context);
+    this.knowledge = new KnowledgeService(context, platform);
   }
 
   async initialize(): Promise<void> {
@@ -94,6 +97,7 @@ export class AppServices {
     await this.hooks.initialize();
     await this.skills.initialize();
     await this.mcp.initialize();
+    await this.knowledge.initialize(this.context);
     await this.stages.load();
     await this.deploy.load();
     this.docs.startWatching(this.context);

@@ -229,7 +229,7 @@ export class BuildExecutor {
           const allDone = dag.tasks.every(
             (t) => t.status === 'Done' || t.status === 'Skipped' || t.status === 'RolledBack'
           );
-          this.status = allDone ? 'Completed' : this.status;
+          this.status = 'Completed';
           if (allDone) {
             await this.store.saveManifest(buildId, {
               id: buildId,
@@ -237,6 +237,7 @@ export class BuildExecutor {
               completedAt: new Date().toISOString(),
             });
             this.setMessage('Build completed');
+            void this.runSelfReflection(buildId, dag.tasks.length, 'Completed');
           }
           break;
         }
@@ -253,9 +254,25 @@ export class BuildExecutor {
       if (this.status === 'Running') {
         this.status = 'Paused';
       }
+      if (this.activeBuildId && this.status !== 'Completed') {
+        void this.runSelfReflection(this.activeBuildId, 0, this.status);
+      }
       this.running.clear();
       this.notify();
     }
+  }
+
+  private async runSelfReflection(
+    buildId: string,
+    taskCount: number,
+    outcome: string
+  ): Promise<void> {
+    const dag = await this.store.load(buildId);
+    const count = taskCount || dag?.tasks.length || 0;
+    const summary = dag?.tasks
+      .map((t) => `${t.id} ${t.agent} ${t.status}: ${t.title}`)
+      .join('\n') ?? this.lastMessage;
+    await this.app.knowledge.runSelfReflection(this.app, buildId, count, outcome, summary);
   }
 
   private async runTask(

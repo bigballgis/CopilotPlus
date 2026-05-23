@@ -18,9 +18,7 @@ export function registerCommands(
 
   register('copilotPlus.openWorkspace', () => openWorkspace(context, app));
   register('copilotPlus.inlineEdit', () => app.inlineEdit.invoke());
-  register('copilotPlus.knowledge.init', () =>
-    vscode.window.showInformationMessage('AGENTS.md init — Phase 9 (KNOW).')
-  );
+  register('copilotPlus.knowledge.init', () => app.knowledge.initAgentsMd(app));
   register('copilotPlus.docs.compact', async () => {
     const threshold = app.platform.getSettings().staleThresholdDays;
     const stale = app.docs.findStaleDocuments(threshold);

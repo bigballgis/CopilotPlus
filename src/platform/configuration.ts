@@ -8,6 +8,7 @@ export interface CopilotPlusSettings {
   tabCompletionMode: 'disabled' | 'delegate_to_copilot' | 'own';
   tabCompletionLanguages: string[];
   tabCompletionDelayMs: number;
+  tabCompletionTimeoutMs: number;
   nesMode: 'disabled' | 'delegate_to_copilot' | 'own';
   nesMaxChain: number;
   ragEnabled: boolean;
@@ -32,6 +33,8 @@ export interface CopilotPlusSettings {
   embeddingAddonUrl: string;
   embeddingAddonSha256: string;
   tierOverride: 'auto' | 's' | 'm' | 'l';
+  selfReflectionEnabled: boolean;
+  selfReflectionMinBuildTasks: number;
 }
 
 const DEFAULTS: CopilotPlusSettings = {
@@ -39,6 +42,7 @@ const DEFAULTS: CopilotPlusSettings = {
   tabCompletionMode: 'delegate_to_copilot',
   tabCompletionLanguages: [],
   tabCompletionDelayMs: 75,
+  tabCompletionTimeoutMs: 1_500,
   nesMode: 'delegate_to_copilot',
   nesMaxChain: 10,
   ragEnabled: true,
@@ -63,6 +67,8 @@ const DEFAULTS: CopilotPlusSettings = {
   embeddingAddonUrl: '',
   embeddingAddonSha256: '',
   tierOverride: 'auto',
+  selfReflectionEnabled: true,
+  selfReflectionMinBuildTasks: 3,
 };
 
 function clampInt(value: unknown, min: number, max: number, fallback: number): number {
@@ -97,6 +103,12 @@ export class ConfigurationService {
       ),
       tabCompletionLanguages: asStringArray(cfg.get('tabCompletion.enabledLanguages'), 200),
       tabCompletionDelayMs: clampInt(cfg.get('tabCompletion.triggerDelayMs'), 0, 2000, 75),
+      tabCompletionTimeoutMs: clampInt(
+        cfg.get('tabCompletion.timeoutMs'),
+        500,
+        10_000,
+        DEFAULTS.tabCompletionTimeoutMs
+      ),
       nesMode: this.enumValue(
         cfg.get('nes.mode'),
         ['disabled', 'delegate_to_copilot', 'own'] as const,
@@ -150,6 +162,16 @@ export class ConfigurationService {
         ['auto', 's', 'm', 'l'] as const,
         DEFAULTS.tierOverride,
         'context.tierOverride'
+      ),
+      selfReflectionEnabled: cfg.get<boolean>(
+        'knowledge.selfReflection.enabled',
+        DEFAULTS.selfReflectionEnabled
+      ),
+      selfReflectionMinBuildTasks: clampInt(
+        cfg.get('knowledge.selfReflection.minBuildTasks'),
+        1,
+        50,
+        DEFAULTS.selfReflectionMinBuildTasks
       ),
     };
   }

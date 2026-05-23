@@ -3,9 +3,9 @@
 import * as vscode from 'vscode';
 import type { AppServices } from '../app/appServices';
 import { streamChat } from '../platform/chatClient';
+import { PLAT5 } from '../platform/performanceBudget';
 
 const MAX_DISPLAY = 500;
-const REQUEST_TIMEOUT_MS = 5000;
 
 export function registerTabCompletion(context: vscode.ExtensionContext, app: AppServices): void {
   let copilotNoticeShown = false;
@@ -74,7 +74,8 @@ export function registerTabCompletion(context: vscode.ExtensionContext, app: App
 
       const timeout = new vscode.CancellationTokenSource();
       token.onCancellationRequested(() => timeout.cancel());
-      const timer = setTimeout(() => timeout.cancel(), REQUEST_TIMEOUT_MS);
+      const timeoutMs = settings.tabCompletionTimeoutMs || PLAT5.tabCompletionTimeoutDefaultMs;
+      const timer = setTimeout(() => timeout.cancel(), timeoutMs);
 
       try {
         const result = await streamChat(

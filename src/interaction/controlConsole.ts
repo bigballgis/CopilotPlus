@@ -5,6 +5,7 @@ import * as path from 'path';
 import type { AppServices } from '../app/appServices';
 import { getWebviewHtml } from './webviewHtml';
 import { resolveContextTier } from '../context/contextTier';
+import { PLAT5 } from '../platform/performanceBudget';
 
 export class ControlConsoleProvider implements vscode.WebviewViewProvider {
   static readonly viewId = 'copilotPlus.controlConsole';
@@ -58,6 +59,21 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
           webviewView.webview.html = this.render(webviewView.webview);
         });
       }
+      if (msg.type === 'initAgents') {
+        void this.app.knowledge.initAgentsMd(this.app).then(() => {
+          webviewView.webview.html = this.render(webviewView.webview);
+        });
+      }
+      if (msg.type === 'removeMemory' && typeof (msg as { id?: string }).id === 'string') {
+        void this.app.knowledge.removeSessionMemory((msg as { id: string }).id).then(() => {
+          webviewView.webview.html = this.render(webviewView.webview);
+        });
+      }
+      if (msg.type === 'pinMemory' && typeof (msg as { id?: string }).id === 'string') {
+        void this.app.knowledge.togglePinSessionMemory((msg as { id: string }).id).then(() => {
+          webviewView.webview.html = this.render(webviewView.webview);
+        });
+      }
     });
   }
 
@@ -101,14 +117,14 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
     const tier = resolveContextTier(model?.maxInputTokens, s.tierOverride);
     const addonUrl = s.embeddingAddonUrl;
     const downloadBtn = addonUrl
-      ? `<button type="button" onclick="vscode.postMessage({type:'downloadEmbeddingAddon'})">Download embedding add-on</button>`
+      ? `<button type="button" data-action="downloadEmbeddingAddon">Download embedding add-on</button>`
       : `<p style="font-size:11px;opacity:0.85">Mode B requires enterprise mirror URL in settings.</p>`;
     const skills = this.app.skills.getSkills();
     const skillRows = skills
       .map(
         (s) =>
           `<div style="font-size:12px;margin-bottom:4px">
-            <button type="button" onclick="vscode.postMessage({type:'toggleSkill',id:'${escapeHtml(s.id)}'})">${s.enabled ? 'Disable' : 'Enable'}</button>
+            <button type="button" data-action="toggleSkill" data-id="${escapeHtml(s.id)}">${s.enabled ? 'Disable' : 'Enable'}</button>
             ${escapeHtml(s.title)} <span style="opacity:0.7">(${escapeHtml(s.scope)})</span>
             ${s.valid ? '' : `<span style="color:var(--vscode-errorForeground)"> invalid</span>`}
           </div>`
@@ -119,7 +135,7 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
       .map((s) => {
         const reconnect =
           s.state === 'error' || s.state === 'disconnected'
-            ? `<button type="button" onclick="vscode.postMessage({type:'reconnectMcp',id:'${escapeHtml(s.config.id)}'})">Reconnect</button>`
+            ? `<button type="button" data-action="reconnectMcp" data-id="${escapeHtml(s.config.id)}">Reconnect</button>`
             : '';
         return `<div style="font-size:12px;margin-bottom:6px">
           <strong>${escapeHtml(s.config.id)}</strong> · ${escapeHtml(s.state)} · ${s.tools.length} tool(s)
@@ -128,12 +144,31 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
         </div>`;
       })
       .join('');
+    const memoryEntries = this.app.knowledge.getSessionEntries();
+    const memoryRows = memoryEntries
+      .slice(0, 12)
+      .map(
+        (m) =>
+          `<div style="font-size:12px;margin-bottom:4px">
+            <button type="button" data-action="pinMemory" data-id="${escapeHtml(m.id)}">${m.pinned ? 'Unpin' : 'Pin'}</button>
+            <button type="button" data-action="removeMemory" data-id="${escapeHtml(m.id)}">Remove</button>
+            ${escapeHtml(m.text.slice(0, 120))}
+            <span style="opacity:0.7"> (${escapeHtml(m.scope)})</span>
+          </div>`
+      )
+      .join('');
+    const reflectionRows = this.app.knowledge
+      .getReflectionSummaries()
+      .map((line) => `<div style="font-size:11px;margin-bottom:4px;opacity:0.9">${escapeHtml(line)}</div>`)
+      .join('');
     const body = `
       <div class="section" role="region" aria-label="Status">
         <h3>Status</h3>
         <div>Model: ${escapeHtml(model?.name ?? 'none')}</div>
         <div>Context tier: ${tier}</div>
         <div>Offline: ${this.app.platform.network.isOffline() ? 'yes' : 'no'}</div>
+        <div style="font-size:11px;opacity:0.85">Perf budget: activation ≤ ${PLAT5.activationTargetMs}ms</div>
+        <button type="button" data-action="initAgents">Initialize AGENTS.md</button>
       </div>
       <div class="section" role="region" aria-label="Workflow Stage">
         <h3>Workflow Stage</h3>
@@ -149,30 +184,47 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
         <div>Code: ${escapeHtml(idx.code)} (${idx.codeChunks} chunks)</div>
         <div>Docs: ${escapeHtml(idx.docs)} (${idx.docChunks} chunks)</div>
         ${idx.lastError ? `<div style="color:var(--vscode-errorForeground)">${escapeHtml(idx.lastError)}</div>` : ''}
-        <button type="button" onclick="vscode.postMessage({type:'rebuildIndex'})">Rebuild index</button>
+        <button type="button" data-action="rebuildIndex">Rebuild index</button>
         ${downloadBtn}
       </div>
       <div class="section" role="region" aria-label="Skills">
         <h3>Skills</h3>
         ${skills.length ? skillRows : '<p style="font-size:12px;opacity:0.85">No skills yet.</p>'}
-        <button type="button" onclick="vscode.postMessage({type:'createSkill'})">Create Skill</button>
+        <button type="button" data-action="createSkill">Create Skill</button>
       </div>
       <div class="section" role="region" aria-label="MCP Servers">
         <h3>MCP Servers</h3>
         ${mcpServers.length ? mcpRows : '<p style="font-size:12px;opacity:0.85">Configure .copilotPlus/mcp.json</p>'}
       </div>
+      <div class="section" role="region" aria-label="Memory">
+        <h3>Memory</h3>
+        ${memoryEntries.length ? memoryRows : '<p style="font-size:12px;opacity:0.85">No session memory entries.</p>'}
+        <h4 style="margin:8px 0 4px">Reflection summary</h4>
+        ${reflectionRows || '<p style="font-size:11px;opacity:0.85">No recent build reflections.</p>'}
+      </div>
       <div class="section" role="region" aria-label="Models">
         <h3>Models</h3>
-        <button type="button" aria-label="Select model" onclick="vscode.postMessage({type:'selectModel'})">Select model</button>
+        <button type="button" aria-label="Select model" data-action="selectModel">Select model</button>
       </div>
       <div class="section" role="region" aria-label="Settings">
         <h3>Settings</h3>
-        <button type="button" aria-label="Open settings" onclick="vscode.postMessage({type:'openSettings'})">Open Settings</button>
-      </div>
-      <script nonce="">
-        const vscode = acquireVsCodeApi();
-      </script>`;
-    return getWebviewHtml(webview, vscode.Uri.file(''), body);
+        <button type="button" aria-label="Open settings" data-action="openSettings">Open Settings</button>
+      </div>`;
+    const initScript = `
+      const vscode = acquireVsCodeApi();
+      document.querySelectorAll('[data-action]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const type = btn.getAttribute('data-action');
+          const id = btn.getAttribute('data-id');
+          if (id) {
+            vscode.postMessage({ type, id });
+          } else {
+            vscode.postMessage({ type });
+          }
+        });
+      });
+    `;
+    return getWebviewHtml(webview, body, initScript);
   }
 }
 
