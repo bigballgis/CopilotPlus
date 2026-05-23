@@ -183,8 +183,7 @@
           "type": "string",
           "enum": [
             "disabled",
-            "delegate_to_copilot",
-            "own"
+            "delegate_to_copilot"
           ],
           "default": "delegate_to_copilot"
         },

@@ -6,6 +6,7 @@ import type { AppServices } from '../app/appServices';
 import { getWebviewHtml } from './webviewHtml';
 import { resolveContextTier } from '../context/contextTier';
 import { PLAT5 } from '../platform/performanceBudget';
+import { describeNesDelegateStatus, getCopilotExtensionProbe } from '../editing/nesDelegate';
 import { t } from '../platform/l10n';
 
 export class ControlConsoleProvider implements vscode.WebviewViewProvider {
@@ -164,12 +165,22 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
       .getReflectionSummaries()
       .map((line) => `<div style="font-size:11px;margin-bottom:4px;opacity:0.9">${escapeHtml(line)}</div>`)
       .join('');
+    const nes = describeNesDelegateStatus(s, getCopilotExtensionProbe());
+    const nesLine =
+      nes.mode === 'disabled'
+        ? t('nes.statusDisabled')
+        : !nes.copilotDetected
+          ? t('nes.statusDelegateMissing')
+          : nes.copilotActive
+            ? t('nes.statusDelegateActive')
+            : t('nes.statusDelegateInactive');
     const body = `
       <div class="section" role="region" aria-label="${escapeHtml(t('controlConsole.aria.status'))}">
         <h3>${escapeHtml(t('controlConsole.aria.status'))}</h3>
         <div>Model: ${escapeHtml(model?.name ?? 'none')}</div>
         <div>Context tier: ${tier}</div>
         <div>Offline: ${this.app.platform.network.isOffline() ? t('common.yes') : t('common.no')}</div>
+        <div>${escapeHtml(nesLine)}</div>
         <div style="font-size:11px;opacity:0.85">Perf budget: activation ≤ ${PLAT5.activationTargetMs}ms</div>
         <button type="button" aria-label="${escapeHtml(t('controlConsole.initAgents'))}" data-action="initAgents">${escapeHtml(t('controlConsole.initAgents'))}</button>
       </div>

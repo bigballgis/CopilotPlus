@@ -14,6 +14,7 @@ import {
 } from '../interaction/decisionStatusBar';
 import { getTabWorkspace, openWorkspace } from '../interaction/workspace';
 import { registerTabCompletion } from '../editing/tabCompletion';
+import { registerNesDelegate } from '../editing/nesDelegate';
 
 export interface ActivationResult {
   app: AppServices | undefined;
@@ -54,6 +55,7 @@ export async function activatePlatform(context: vscode.ExtensionContext): Promis
       })
     );
     registerTabCompletion(context, app);
+    registerNesDelegate(context, app);
 
     for (const d of registrations) {
       context.subscriptions.push(d);

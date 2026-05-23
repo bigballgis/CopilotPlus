@@ -134,6 +134,12 @@ export const FALLBACK: Record<string, string> = {
   'diffReview.patchFailed': 'Patch failed: {0}',
   'tabCompletion.notice':
     'Copilot Plus Tab Completion (own) is active. Consider disabling duplicate inline suggestions in editor settings if ghost text overlaps.',
+  'nes.copilotMissing':
+    'Next Edit Suggestions delegate to GitHub Copilot, but the Copilot extension is not installed. NES will be unavailable until Copilot is installed.',
+  'nes.statusDisabled': 'NES: disabled',
+  'nes.statusDelegateActive': 'NES: delegated to Copilot (active)',
+  'nes.statusDelegateInactive': 'NES: delegated to Copilot (extension inactive)',
+  'nes.statusDelegateMissing': 'NES: delegated to Copilot (extension not installed)',
   'tabWorkspace.panelTitle': 'Copilot Plus — Workspace',
   'tabWorkspace.tablistAria': 'Copilot Plus workspace tabs',
   'tabWorkspace.tabAria': '{0} panel',

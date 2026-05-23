@@ -207,9 +207,18 @@ export class ResponseCacheService {
   }
 
   async invalidateForFile(relativePath: string): Promise<void> {
-    const norm = relativePath.replace(/\\/g, '/');
+    await this.invalidateForFiles([relativePath]);
+  }
+
+  async invalidateForFiles(relativePaths: readonly string[]): Promise<void> {
     const root = this.cacheRoot();
     if (!root) {
+      return;
+    }
+    const targets = new Set(
+      relativePaths.map((p) => p.replace(/\\/g, '/')).filter((p) => p.length > 0)
+    );
+    if (targets.size === 0) {
       return;
     }
     const index = await this.readIndex(root);
@@ -218,7 +227,7 @@ export class ResponseCacheService {
       try {
         const raw = await fs.readFile(path.join(root, `${item.key}.json`), 'utf8');
         const entry = JSON.parse(raw) as StoredResponseEntry;
-        if (entry.fileRelative.replace(/\\/g, '/') === norm) {
+        if (targets.has(entry.fileRelative.replace(/\\/g, '/'))) {
           await fs.rm(path.join(root, `${item.key}.json`), { force: true });
           index.totalBytes -= item.sizeBytes;
         } else {

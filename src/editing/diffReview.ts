@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { CheckpointService } from './checkpoint';
 import { ProposedContentProvider } from './proposedContentProvider';
 import { applyEdits, type PatchEdit } from '../tools/applyPatchLogic';
+import { runInternalEdit } from './editOrigin';
 import * as path from 'path';
 import { t } from '../platform/l10n';
 
@@ -114,7 +115,7 @@ export class DiffReviewService {
       new vscode.Range(0, 0, last.lineNumber, last.text.length),
       proposed
     );
-    const ok = await vscode.workspace.applyEdit(edit);
+    const ok = await runInternalEdit(async () => vscode.workspace.applyEdit(edit));
     if (ok) {
       void vscode.window.showInformationMessage(t('diffReview.applied'));
       this.onFileApplied?.(relativePath);
@@ -149,7 +150,8 @@ export class DiffReviewService {
       edit.createFile(fileUri, { overwrite: false });
       edit.insert(fileUri, new vscode.Position(0, 0), proposed);
     }
-    return vscode.workspace.applyEdit(edit).then((ok) => {
+    return runInternalEdit(async () => {
+      const ok = await vscode.workspace.applyEdit(edit);
       if (ok) {
         this.onFileApplied?.(relativePath);
       }
@@ -279,7 +281,7 @@ export class DiffReviewService {
         edit.createFile(item.fileUri, { overwrite: false });
         edit.insert(item.fileUri, new vscode.Position(0, 0), proposed);
       }
-      const ok = await vscode.workspace.applyEdit(edit);
+      const ok = await runInternalEdit(async () => vscode.workspace.applyEdit(edit));
       if (!ok) {
         await this.rollbackWritten(written);
         void vscode.window.showErrorMessage(t('diffReview.rollbackFailed', item.relativePath));
@@ -307,10 +309,10 @@ export class DiffReviewService {
         const doc = await vscode.workspace.openTextDocument(uri);
         const last = doc.lineAt(Math.max(0, doc.lineCount - 1));
         edit.replace(uri, new vscode.Range(0, 0, last.lineNumber, last.text.length), item.original);
-        await vscode.workspace.applyEdit(edit);
+        await runInternalEdit(async () => vscode.workspace.applyEdit(edit));
       } catch {
         edit.deleteFile(uri);
-        await vscode.workspace.applyEdit(edit);
+        await runInternalEdit(async () => vscode.workspace.applyEdit(edit));
       }
     }
   }

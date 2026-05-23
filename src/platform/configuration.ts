@@ -9,7 +9,7 @@ export interface CopilotPlusSettings {
   tabCompletionLanguages: string[];
   tabCompletionDelayMs: number;
   tabCompletionTimeoutMs: number;
-  nesMode: 'disabled' | 'delegate_to_copilot' | 'own';
+  nesMode: 'disabled' | 'delegate_to_copilot';
   nesMaxChain: number;
   ragEnabled: boolean;
   embeddingMode: EmbeddingMode;
@@ -111,7 +111,7 @@ export class ConfigurationService {
       ),
       nesMode: this.enumValue(
         cfg.get('nes.mode'),
-        ['disabled', 'delegate_to_copilot', 'own'] as const,
+        ['disabled', 'delegate_to_copilot'] as const,
         DEFAULTS.nesMode,
         'nes.mode'
       ),

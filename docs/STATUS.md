@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：Polish / 后续增强  
-> **下一项**：NES 委派模式缓存（或 LSP symbol 细粒度 cache invalidation）
+> **下一项**：Speculative decoding 并发预取（或 Composer cache 接入）
 
 ---
 
@@ -12,8 +12,8 @@
 |-------|------|------|------|
 | 0–9 | 全部 Phase | — | ✅ 完成 |
 
-**单元测试**：104/104 通过  
-**需求覆盖率（粗算）**：~94%
+**单元测试**：108/108 通过  
+**需求覆盖率（粗算）**：~95%
 
 ---
 
@@ -21,8 +21,10 @@
 
 | 模块 | 交付 | 需求 |
 |------|------|------|
+| NES 委派 + 缓存 | delegate 模式状态 + Copilot 检测 + 外部编辑 cache 失效 | R-EDIT-7 / R-EDIT-8 |
+| LSP symbol 失效 | 变更符号 references 文件批量 invalidation | R-EDIT-8.5(a) |
 | MCP legacy SSE | GET 长连接 + endpoint 事件 + POST 消息 + pending 匹配 | R-EXT-2 |
-| Response Cache 失效 | 按文件 + Skills auto_attach + 外部保存检测 | R-EDIT-8.5 |
+| Response Cache 失效 | 文件 + LSP symbol references + Skills auto_attach | R-EDIT-8.5 |
 | propose_memory 工具 | Sub-Agent 工具 + Decision 三路选项 | R-KNOW-3 |
 | i18n + a11y | `l10n/bundle.l10n.json` + 全量 `t()` 迁移 + CI 审计 | R-PLAT-9 |
 | MCP HTTP/SSE | POST JSON-RPC + SSE 解析 + Session-Id + legacy GET/SSE | R-EXT-2 |
@@ -44,6 +46,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | NES 委派模式 + LSP symbol Response Cache 失效 |
 | 2026-05-23 | MCP legacy GET/SSE 长连接（endpoint 事件 + POST 消息） |
 | 2026-05-23 | Response Cache 失效接线（文件编辑 + Skills auto_attach） |
 | 2026-05-23 | propose_memory 工具（Coder/Tester/Reviewer/Committer/Deployer） |
