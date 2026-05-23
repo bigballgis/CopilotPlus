@@ -1,0 +1,164 @@
+/** Configuration reader with validation — R-PLAT-4 */
+
+import * as vscode from 'vscode';
+import type { AutonomyLevel, EmbeddingMode } from '../shared/types';
+
+export interface CopilotPlusSettings {
+  telemetryEnabled: boolean;
+  tabCompletionMode: 'disabled' | 'delegate_to_copilot' | 'own';
+  tabCompletionLanguages: string[];
+  tabCompletionDelayMs: number;
+  nesMode: 'disabled' | 'delegate_to_copilot' | 'own';
+  nesMaxChain: number;
+  ragEnabled: boolean;
+  embeddingMode: EmbeddingMode;
+  respectGitignore: boolean;
+  deployMode: 'Manual' | 'Auto';
+  cacheEnabled: boolean;
+  speculativeEnabled: boolean;
+  speculativeMaxConcurrent: number;
+  autonomyLevel: AutonomyLevel;
+  commandDenyList: string[];
+  sensitiveFilePatterns: string[];
+  checkpointRetention: number;
+  sessionTokenCap: number;
+  toolPermissions: Record<string, 'allow' | 'ask' | 'deny'>;
+  decisionTimeoutSec: number;
+  maxConcurrentTasks: number;
+  defaultModels: Record<string, string>;
+}
+
+const DEFAULTS: CopilotPlusSettings = {
+  telemetryEnabled: false,
+  tabCompletionMode: 'delegate_to_copilot',
+  tabCompletionLanguages: [],
+  tabCompletionDelayMs: 75,
+  nesMode: 'delegate_to_copilot',
+  nesMaxChain: 10,
+  ragEnabled: true,
+  embeddingMode: 'auto',
+  respectGitignore: true,
+  deployMode: 'Manual',
+  cacheEnabled: true,
+  speculativeEnabled: true,
+  speculativeMaxConcurrent: 2,
+  autonomyLevel: 'Manual',
+  commandDenyList: [],
+  sensitiveFilePatterns: [],
+  checkpointRetention: 50,
+  sessionTokenCap: 100_000,
+  toolPermissions: {},
+  decisionTimeoutSec: 300,
+  maxConcurrentTasks: 3,
+  defaultModels: {},
+};
+
+function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  const n = typeof value === 'number' ? value : fallback;
+  if (!Number.isFinite(n)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, Math.trunc(n)));
+}
+
+function asStringArray(value: unknown, maxLen: number): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((v): v is string => typeof v === 'string').slice(0, maxLen);
+}
+
+export class ConfigurationService {
+  private readonly invalidKeys = new Set<string>();
+
+  constructor(private readonly invalidSettingHandler?: (key: string, reason: string) => void) {}
+
+  read(): CopilotPlusSettings {
+    const cfg = vscode.workspace.getConfiguration('copilotPlus');
+    return {
+      telemetryEnabled: cfg.get<boolean>('telemetry.enabled', DEFAULTS.telemetryEnabled),
+      tabCompletionMode: this.enumValue(
+        cfg.get('tabCompletion.mode'),
+        ['disabled', 'delegate_to_copilot', 'own'] as const,
+        DEFAULTS.tabCompletionMode,
+        'tabCompletion.mode'
+      ),
+      tabCompletionLanguages: asStringArray(cfg.get('tabCompletion.enabledLanguages'), 200),
+      tabCompletionDelayMs: clampInt(cfg.get('tabCompletion.triggerDelayMs'), 0, 2000, 75),
+      nesMode: this.enumValue(
+        cfg.get('nes.mode'),
+        ['disabled', 'delegate_to_copilot', 'own'] as const,
+        DEFAULTS.nesMode,
+        'nes.mode'
+      ),
+      nesMaxChain: clampInt(cfg.get('nes.maxChain'), 1, 50, 10),
+      ragEnabled: cfg.get<boolean>('rag.enabled', DEFAULTS.ragEnabled),
+      embeddingMode: this.enumValue(
+        cfg.get('indexing.embeddingMode'),
+        ['proposed_lm', 'local', 'sparse_only', 'auto'] as const,
+        DEFAULTS.embeddingMode,
+        'indexing.embeddingMode'
+      ),
+      respectGitignore: cfg.get<boolean>('indexing.respectGitignore', DEFAULTS.respectGitignore),
+      deployMode: this.enumValue(
+        cfg.get('deploy.mode'),
+        ['Manual', 'Auto'] as const,
+        DEFAULTS.deployMode,
+        'deploy.mode'
+      ),
+      cacheEnabled: cfg.get<boolean>('cache.enabled', DEFAULTS.cacheEnabled),
+      speculativeEnabled: cfg.get<boolean>('speculative.enabled', DEFAULTS.speculativeEnabled),
+      speculativeMaxConcurrent: clampInt(cfg.get('speculative.maxConcurrent'), 0, 4, 2),
+      autonomyLevel: this.enumValue(
+        cfg.get('workflow.autonomyLevel'),
+        ['Manual', 'Approve_Edits', 'Approve_Commands', 'Full_Auto'] as const,
+        DEFAULTS.autonomyLevel,
+        'workflow.autonomyLevel'
+      ),
+      commandDenyList: asStringArray(cfg.get('workflow.commandDenyList'), 500),
+      sensitiveFilePatterns: asStringArray(cfg.get('sensitiveFilePatterns'), 500),
+      checkpointRetention: clampInt(cfg.get('checkpoints.retentionCount'), 1, 1000, 50),
+      sessionTokenCap: clampInt(cfg.get('session.tokenCap'), 1000, 1_000_000, 100_000),
+      toolPermissions: (cfg.get<Record<string, 'allow' | 'ask' | 'deny'>>('tools.permissions') ?? {}),
+      decisionTimeoutSec: clampInt(cfg.get('decisions.timeoutSec'), 30, 1800, 300),
+      maxConcurrentTasks: clampInt(cfg.get('workflow.maxConcurrentTasks'), 1, 8, 3),
+      defaultModels: cfg.get<Record<string, string>>('models.defaults') ?? {},
+    };
+  }
+
+  onDidChange(callback: () => void): vscode.Disposable {
+    return vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('copilotPlus')) {
+        callback();
+      }
+    });
+  }
+
+  private enumValue<T extends string>(
+    value: unknown,
+    allowed: readonly T[],
+    fallback: T,
+    key: string
+  ): T {
+    if (typeof value === 'string' && (allowed as readonly string[]).includes(value)) {
+      return value as T;
+    }
+    if (value !== undefined && !this.invalidKeys.has(key)) {
+      this.invalidKeys.add(key);
+      this.invalidSettingHandler?.(key, `invalid value ${String(value)}`);
+    }
+    return fallback;
+  }
+}
+
+export function matchesCommandDenyList(command: string, patterns: string[]): boolean {
+  const lower = command.toLowerCase();
+  return patterns.some((pattern) => {
+    try {
+      const re = new RegExp(pattern.replace(/\*/g, '.*'), 'i');
+      return re.test(lower);
+    } catch {
+      return lower.includes(pattern.toLowerCase());
+    }
+  });
+}
