@@ -1,0 +1,32 @@
+---
+description: Copilot Plus core architecture and product constraints — always apply
+alwaysApply: true
+---
+
+# Copilot Plus — Core Rules
+
+## Product constraints (non-negotiable)
+
+- **Copilot only**: All LLM calls via `vscode.lm.selectChatModels({ vendor: 'copilot' })`. No API keys, no other vendors.
+- **Five-layer hierarchy**: System → Module → Feature → Component (`.copilotPlus/docs/`) → Code. Layer_Walk beats flat RAG.
+- **User designs, AI executes**: Conversation Pane input only in Design stage; Build/Deploy use panels + Decision Notifications.
+- **Diff before disk**: File mutations go through Diff Review UI + Checkpoint unless Autonomy_Level is Full_Auto.
+
+## Requirements traceability
+
+- Spec lives in `.kiro/specs/copilot-plus-extension/requirements/`.
+- Reference requirement IDs (`R-PLAT-1`, `R-DOCS-14`, etc.) in commits and PRs.
+- Read the module file before implementing its scope.
+
+## Code organization
+
+- Host code in `src/<module>/` matching requirement modules (platform, interaction, docs, …).
+- Shared types in `src/shared/`.
+- Webview UI in `webview-ui/` with typed `postMessage` protocol.
+- Bundled defaults in `resources/`; user overrides in `.copilotPlus/`.
+
+## Quality bar
+
+- `vscode.l10n` for all user-visible strings.
+- Respect Sensitive_File patterns; never leak secrets into telemetry.
+- Prefer minimal diffs; match existing patterns in the file being edited.

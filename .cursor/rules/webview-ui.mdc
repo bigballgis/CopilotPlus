@@ -1,0 +1,28 @@
+---
+description: Webview UI rules for Conversation Pane and Tab Workspace
+globs: webview-ui/**/*
+alwaysApply: false
+---
+
+# Webview UI
+
+## Stack
+
+- React + Vite in `webview-ui/` (separate from esbuild host bundle).
+- Acquire VS Code API once: `const vscode = acquireVsCodeApi()`.
+
+## Accessibility (R-PLAT-9)
+
+- Tab order for all interactive controls; visible focus rings.
+- `aria-live="polite"` for streaming completion announcements.
+- Non-empty `aria-label` on icon-only buttons.
+
+## Panels
+
+- Conversation Pane: Design stage only; read-only banner in Build/Deploy.
+- Tab Workspace tabs (fixed order): Task, Architecture, Requirement, Commit, Deploy.
+
+## State
+
+- Persist layout split ratio and last tab per workspace via host messages.
+- Never store secrets in webview `localStorage`.

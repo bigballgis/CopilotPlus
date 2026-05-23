@@ -1,0 +1,34 @@
+---
+description: TypeScript conventions for Copilot Plus extension host code
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+# Extension Host TypeScript
+
+## Patterns
+
+- Export `activate` / `deactivate` only from `extension.ts`; feature modules export services/factories.
+- Register all disposables on `ExtensionContext.subscriptions`.
+- Use `vscode.Uri.joinPath(context.extensionUri, ...)` for resource paths.
+- Workspace artifacts go under `<workspaceRoot>/.copilotPlus/` via `vscode.workspace.workspaceFolders?.[0]`.
+
+## Model access
+
+```typescript
+const models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
+if (models.length === 0) {
+  // R-PLAT-2: show sign-in action
+}
+```
+
+## Error handling
+
+- Surface errors in the originating UI surface (Conversation Pane, Task Panel, notification).
+- Tool results: `{ ok: false, reason: string }` per `10-tools.md`.
+
+## Avoid
+
+- Direct `fs` writes for AI edits — route through Diff Review pipeline.
+- Hard-coded English strings in production paths.
+- Importing webview bundle into host (keep separate builds).

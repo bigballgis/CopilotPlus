@@ -1,0 +1,8 @@
+{
+  "target": "Local",
+  "mode": "Manual",
+  "manifest_path": ".copilotPlus/deploy/local/",
+  "pre_deploy_commands": [],
+  "post_deploy_commands": [],
+  "rollback_strategy": "manifest_revert"
+}

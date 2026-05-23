@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "outDir": "dist-test",
+    "rootDir": "src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/platform/version.ts", "src/platform/sensitiveFiles.ts", "src/platform/toolPermissions.ts", "src/platform/configuration.ts", "src/workflow/taskDag.ts", "src/workflow/stageTransitions.ts", "src/docs/frontmatter.ts", "src/test/unit/**/*.test.ts", "src/shared/**/*.ts"]
+}

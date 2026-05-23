@@ -1,0 +1,23 @@
+---
+description: Map implementations to Kiro EARS requirements
+globs: src/**/*
+alwaysApply: false
+---
+
+# Requirements Traceability
+
+When adding or changing behavior:
+
+1. Identify the module (`PLAT`, `INT`, `EDIT`, `CTX`, `DOCS`, `WF`, `AG`, `EXT`, `DEP`, `TOOL`, `KNOW`).
+2. Open `.kiro/specs/copilot-plus-extension/requirements/<NN>-<module>.md`.
+3. Implement acceptance criteria verbatim; add `// R-XXX-N` comment at public entry points when non-obvious.
+4. Cross-check `.kiro/specs/copilot-plus-extension/requirements.md` Cross-Reference Index for dependencies.
+
+## Test mapping
+
+Integration tests should name cases after requirements: `test('R-PLAT-2.2 shows sign-in when no copilot model', ...)`.
+
+## Do not
+
+- Implement features not in the spec without updating the spec first.
+- Weaken EARS criteria (SHALL/MUST) silently.

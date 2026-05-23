@@ -1,0 +1,258 @@
+{
+  "name": "copilot-plus",
+  "displayName": "Copilot Plus",
+  "description": "Cursor-style agent-driven AI coding for enterprise teams using GitHub Copilot via vscode.lm",
+  "version": "0.1.0",
+  "publisher": "copilot-plus",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.109.0"
+  },
+  "categories": [
+    "AI",
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "copilotPlus.openWorkspace",
+        "title": "Copilot Plus: Open Workspace",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.inlineEdit",
+        "title": "Copilot Plus: Inline Edit",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.knowledge.init",
+        "title": "Copilot Plus: Initialize AGENTS.md",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.docs.compact",
+        "title": "Copilot Plus: Compact Document Tree",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.docs.markReviewed",
+        "title": "Copilot Plus: Mark Document Reviewed",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.docs.assignOrphan",
+        "title": "Copilot Plus: Assign Orphan Code",
+        "category": "Copilot Plus"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "copilotPlus.inlineEdit",
+        "key": "ctrl+k",
+        "mac": "cmd+k",
+        "when": "editorTextFocus && !editorReadonly && !inQuickInput"
+      },
+      {
+        "command": "copilotPlus.focusTaskPanel",
+        "key": "ctrl+alt+1",
+        "when": "copilotPlus.workspaceOpen"
+      },
+      {
+        "command": "copilotPlus.focusArchitecturePanel",
+        "key": "ctrl+alt+2",
+        "when": "copilotPlus.workspaceOpen"
+      },
+      {
+        "command": "copilotPlus.focusRequirementPanel",
+        "key": "ctrl+alt+3",
+        "when": "copilotPlus.workspaceOpen"
+      },
+      {
+        "command": "copilotPlus.focusCommitPanel",
+        "key": "ctrl+alt+4",
+        "when": "copilotPlus.workspaceOpen"
+      },
+      {
+        "command": "copilotPlus.focusDeployPanel",
+        "key": "ctrl+alt+5",
+        "when": "copilotPlus.workspaceOpen"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "copilotPlus",
+          "title": "Copilot Plus",
+          "icon": "resources/icons/copilot-plus.svg"
+        }
+      ]
+    },
+    "views": {
+      "copilotPlus": [
+        {
+          "id": "copilotPlus.controlConsole",
+          "name": "Control Console",
+          "type": "webview"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Copilot Plus",
+      "properties": {
+        "copilotPlus.telemetry.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Copilot Plus telemetry (content-free events only)"
+        },
+        "copilotPlus.tabCompletion.mode": {
+          "type": "string",
+          "enum": [
+            "disabled",
+            "delegate_to_copilot",
+            "own"
+          ],
+          "default": "delegate_to_copilot"
+        },
+        "copilotPlus.nes.mode": {
+          "type": "string",
+          "enum": [
+            "disabled",
+            "delegate_to_copilot",
+            "own"
+          ],
+          "default": "delegate_to_copilot"
+        },
+        "copilotPlus.rag.enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "copilotPlus.indexing.embeddingMode": {
+          "type": "string",
+          "enum": [
+            "proposed_lm",
+            "local",
+            "sparse_only",
+            "auto"
+          ],
+          "default": "auto"
+        },
+        "copilotPlus.indexing.respectGitignore": {
+          "type": "boolean",
+          "default": true
+        },
+        "copilotPlus.deploy.mode": {
+          "type": "string",
+          "enum": [
+            "Manual",
+            "Auto"
+          ],
+          "default": "Manual"
+        },
+        "copilotPlus.cache.enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "copilotPlus.speculative.enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "copilotPlus.speculative.maxConcurrent": {
+          "type": "number",
+          "default": 2,
+          "minimum": 0,
+          "maximum": 4
+        },
+        "copilotPlus.tabCompletion.enabledLanguages": {
+          "type": "array",
+          "default": [],
+          "items": { "type": "string" }
+        },
+        "copilotPlus.tabCompletion.triggerDelayMs": {
+          "type": "number",
+          "default": 75,
+          "minimum": 0,
+          "maximum": 2000
+        },
+        "copilotPlus.nes.maxChain": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 50
+        },
+        "copilotPlus.workflow.autonomyLevel": {
+          "type": "string",
+          "enum": ["Manual", "Approve_Edits", "Approve_Commands", "Full_Auto"],
+          "default": "Manual"
+        },
+        "copilotPlus.workflow.commandDenyList": {
+          "type": "array",
+          "default": [],
+          "items": { "type": "string" }
+        },
+        "copilotPlus.workflow.maxConcurrentTasks": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 8
+        },
+        "copilotPlus.sensitiveFilePatterns": {
+          "type": "array",
+          "default": [],
+          "items": { "type": "string" }
+        },
+        "copilotPlus.checkpoints.retentionCount": {
+          "type": "number",
+          "default": 50,
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "copilotPlus.session.tokenCap": {
+          "type": "number",
+          "default": 100000,
+          "minimum": 1000,
+          "maximum": 1000000
+        },
+        "copilotPlus.tools.permissions": {
+          "type": "object",
+          "default": {}
+        },
+        "copilotPlus.decisions.timeoutSec": {
+          "type": "number",
+          "default": 300,
+          "minimum": 30,
+          "maximum": 1800
+        },
+        "copilotPlus.models.default": {
+          "type": "string",
+          "default": ""
+        },
+        "copilotPlus.models.defaults": {
+          "type": "object",
+          "default": {}
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "test:unit": "tsc -p tsconfig.test.json && node --test dist-test/test/unit/**/*.test.js",
+    "test": "npm run test:unit",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.109.0",
+    "@vscode/test-cli": "^0.0.9",
+    "@vscode/test-electron": "^2.4.0",
+    "@vscode/vsce": "^2.24.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.4.0"
+  }
+}
