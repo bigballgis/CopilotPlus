@@ -96,7 +96,7 @@
 |------|------|----------|------|
 | 4.1 | R-TOOL-1–5 | Tool registry + 读/写/LSP | ⬜ |
 | 4.2 | R-TOOL-6–8 | code_search, doc_*, git | ⬜ |
-| 4.3 | R-AG-1–4 | Primary + 委派循环 | ⬜ |
+| 4.3 | R-AG-1–4 | Primary + 委派循环 | ✅ Design 委派 |
 | 4.4 | R-AG-5–9 | Explorer, 背景 agent, replay | ⬜ |
 
 ---
@@ -105,7 +105,7 @@
 
 | 序号 | 需求 | 状态 |
 |------|------|------|
-| 5.1 | R-WF-1,2 Design 四步 | ⬜ |
+| 5.1 | R-WF-1,2 Design 四步 | ✅ 委派 + 步骤持久化 |
 | 5.2 | R-WF-3 Task DAG | ⬜ |
 | 5.3 | R-WF-4 Build 六步 | ⬜ |
 | 5.4 | R-WF-7 Autonomy | ⬜ |

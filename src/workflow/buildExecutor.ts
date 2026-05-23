@@ -31,9 +31,10 @@ export class BuildExecutor {
 
   constructor(
     private readonly app: AppServices,
-    extensionUri: vscode.Uri
+    extensionUri: vscode.Uri,
+    runner?: SubAgentRunner
   ) {
-    this.runner = new SubAgentRunner(app, extensionUri);
+    this.runner = runner ?? new SubAgentRunner(app, extensionUri);
   }
 
   getActiveBuildId(): string | undefined {

@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import { createPlatformServices, PlatformServices } from '../platform/services';
 import { PrimaryAgent } from '../agents/primaryAgent';
+import { SubAgentRunner } from '../agents/subAgentRunner';
 import { ExplorerAgent } from '../agents/explorerAgent';
 import { PostEditTracker } from '../agents/postEditVerification';
 import { DiffReviewService } from '../editing/diffReview';
@@ -33,6 +34,7 @@ import type { CiSession } from '../cli/ciSession';
 export class AppServices {
   readonly platform: PlatformServices;
   readonly primaryAgent: PrimaryAgent;
+  readonly subAgentRunner: SubAgentRunner;
   readonly checkpoints: CheckpointService;
   readonly postEdit: PostEditTracker;
   readonly diffReview: DiffReviewService;
@@ -67,7 +69,8 @@ export class AppServices {
   ) {
     this.platform = platform;
     this.proposedContent = proposedContent;
-    this.primaryAgent = new PrimaryAgent(context.extensionUri, platform);
+    this.subAgentRunner = new SubAgentRunner(this, context.extensionUri);
+    this.primaryAgent = new PrimaryAgent(context.extensionUri, this);
     this.checkpoints = new CheckpointService();
     this.responseCache = new ResponseCacheService(platform);
     this.responseCacheInvalidation = new ResponseCacheInvalidation(this.responseCache);
@@ -90,7 +93,7 @@ export class AppServices {
     this.indexManager = new IndexManager(platform, this.docs, this.localEmbeddingAddon);
     this.tools = new ToolExecutor(this, this.docs);
     this.explorer = new ExplorerAgent(this, context.extensionUri);
-    this.buildExecutor = new BuildExecutor(this, context.extensionUri);
+    this.buildExecutor = new BuildExecutor(this, context.extensionUri, this.subAgentRunner);
     this.deploy = new DeployService();
     this.deployExecutor = new DeployExecutor(this);
     this.deployOrchestrator = new DeployOrchestrator(this, context, context.extensionUri);

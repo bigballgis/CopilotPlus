@@ -54,6 +54,55 @@ export class SubAgentRunner {
     return toRunResult(result);
   }
 
+  /** R-AG-3.1 / R-WF-2 — Design-stage sub-agent with scope + layer walk */
+  async runDesignRole(
+    role: string,
+    designStep: string,
+    userMessage: string,
+    scopeDoc: string,
+    token: vscode.CancellationToken,
+    onStatus?: (message: string) => void,
+    contextPrefix?: string,
+    historySummary?: string
+  ): Promise<SubAgentRunResult> {
+    const task: TaskNode = {
+      id: `design-${role}-${Date.now()}`,
+      title: `${designStep} turn`,
+      description: userMessage,
+      agent: role,
+      inputs: { designStep, userMessage },
+      depends_on: [],
+      status: 'Running',
+      scope_doc: scopeDoc,
+    };
+
+    const promptFile = roleToPromptFile(role);
+    const systemPrompt = await loadAgentPrompt(this.extensionUri, promptFile);
+    const userPrompt = await this.buildDesignPrompt(
+      role,
+      designStep,
+      task,
+      contextPrefix,
+      historySummary
+    );
+    const toolIds = this.app.tools.getEffectiveTools(role);
+
+    const ci = this.app.getCiSession();
+    const result = await this.loop.run({
+      role,
+      buildId: 'design-session',
+      taskId: task.id,
+      systemPrompt,
+      userPrompt,
+      toolIds,
+      token,
+      onStatus,
+      maxToolCalls: ci?.maxToolCalls,
+    });
+
+    return toRunResult(result);
+  }
+
   /** R-DEP-2 / R-DEP-4 — Deployer agent for manifest generation or apply */
   async runDeployer(
     intent: 'generate' | 'apply',
@@ -217,6 +266,62 @@ ${task.description}
 ${intent === 'generate'
   ? 'Update manifest files to match the current system design and build outputs. Propose changes via write_file only.'
   : 'When manifest looks correct, call deploy_apply. Do not run raw bash for apply unless validating CLI availability.'}
+`.trim();
+  }
+
+  private async buildDesignPrompt(
+    role: string,
+    designStep: string,
+    task: TaskNode,
+    contextPrefix?: string,
+    historySummary?: string
+  ): Promise<string> {
+    const entries = this.app.docs.getEntries();
+    const scope = resolveScope(task.scope_doc, entries);
+    const model = await this.app.platform.models.resolveSelectionForSurface('subAgent');
+    const tier = model
+      ? this.app.platform.models.getContextTier(model)
+      : ('M' as const);
+    const layerWalk = buildLayerWalkForDoc(task.scope_doc, entries, tier);
+
+    const scopeBlock = scope
+      .map((s) => `- [${s.link_type}] ${s.title} (${s.document_path})`)
+      .join('\n');
+    const scopeEntry = this.app.docs.getByPath(task.scope_doc);
+    const skillBlock = this.app.skills.formatInstructions(
+      this.app.skills.getAutoAttached(task.scope_doc, scopeEntry?.frontmatter.id)
+    );
+    const layerBlock = layerWalk
+      .map((l) => `### ${l.documentPath}\n${l.content}`)
+      .join('\n\n');
+    const scopeFile = scopeEntry?.relativePath ?? task.scope_doc.replace(/^\.copilotPlus\/docs\//, 'src/');
+    const knowledgeBlock = await this.app.knowledge.buildContextBlock(scopeFile, task.id);
+
+    return `
+Workflow stage: Design
+Design workflow step: ${designStep}
+Sub-agent role: ${role}
+Scope doc: ${task.scope_doc}
+
+## User message
+${task.description}
+
+${contextPrefix ? `## Attached context\n${contextPrefix}\n` : ''}
+${historySummary ? `## Recent conversation\n${historySummary}\n` : ''}
+
+## Scope resolution
+${scopeBlock || '(empty)'}
+
+## Skills
+${skillBlock || '(none)'}
+
+## Layer walk
+${layerBlock || '(empty)'}
+
+## Project memory
+${knowledgeBlock || '(none)'}
+
+Respond with a concise final answer for the Conversation Pane. Use tools when you need to read or update docs.
 `.trim();
   }
 

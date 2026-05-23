@@ -15,6 +15,7 @@ import {
 } from '../context/mentions';
 import { buildScopePreheatKey, runScopePreheat } from '../context/scopePreheat';
 import { estimateTokens } from '../platform/chatClient';
+import { designStepLabel } from '../workflow/designSteps';
 import { t } from '../platform/l10n';
 
 export class ConversationPaneProvider {
@@ -200,7 +201,8 @@ export class ConversationPaneProvider {
         prepared.history,
         this.cancelSource.token,
         (chunk) => this.postMessage({ type: 'streamChunk', text: chunk }),
-        contextPrefix
+        contextPrefix,
+        (status) => this.postMessage({ type: 'designStatus', message: status })
       );
 
       if (result.cancelled) {
@@ -210,7 +212,13 @@ export class ConversationPaneProvider {
 
       await this.sessions.appendAssistantMessage(result.text);
       this.sessionTokens += result.inputTokens + result.outputTokens;
-      this.postMessage({ type: 'streamEnd', text: result.text, tokens: this.sessionTokens });
+      this.postMessage({
+        type: 'streamEnd',
+        text: result.text,
+        tokens: this.sessionTokens,
+        designStep: result.designStep,
+        delegatedRole: result.delegatedRole,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.postMessage({ type: 'error', message });
@@ -226,6 +234,8 @@ export class ConversationPaneProvider {
     const stage = this.app.stages.getStage();
     const readOnly = stage !== 'Design';
     const model = this.app.platform.models.getSelected()?.name ?? 'none';
+    const designStep = designStepLabel(this.app.stages.getDesignStep());
+    const designStepHeader = escapeHtml(t('design.stepLabel'));
     const banner = readOnly
       ? `<div class="banner" role="status">${escapeHtml(t('conversation.readOnlyBanner', stage))}</div>`
       : '';
@@ -253,7 +263,8 @@ export class ConversationPaneProvider {
     const body = `
       ${banner}
       <header style="margin-bottom:8px;font-size:12px;opacity:0.85">
-        Model: ${escapeHtml(model)} · Stage: ${stage} · Tokens: <span id="token-count">${this.sessionTokens}</span>
+        Model: ${escapeHtml(model)} · Stage: ${stage} · ${designStepHeader}: ${escapeHtml(designStep)} · Tokens: <span id="token-count">${this.sessionTokens}</span>
+        <span id="design-status" style="display:block;margin-top:4px;opacity:0.9"></span>
       </header>
       <div id="a11y-status" class="sr-only" role="status" aria-live="assertive" aria-atomic="true"></div>
       <div id="messages" role="log" aria-live="polite" aria-relevant="additions" style="min-height:200px;border:1px solid var(--vscode-panel-border);padding:8px;margin-bottom:8px"></div>
@@ -273,6 +284,7 @@ export class ConversationPaneProvider {
         const input = document.getElementById('input');
         const attachmentsEl = document.getElementById('attachments');
         const tokenCount = document.getElementById('token-count');
+        const designStatus = document.getElementById('design-status');
         let streaming = false;
         let streamNode = null;
         let streamBuf = '';
@@ -354,9 +366,13 @@ export class ConversationPaneProvider {
             streamBuf += m.text;
             streamNode.textContent = L.assistantPrefix + streamBuf;
           }
+          if (m.type === 'designStatus' && m.message && designStatus) {
+            designStatus.textContent = m.message;
+          }
           if (m.type === 'streamEnd') {
             streaming = false;
             if (typeof m.tokens === 'number') tokenCount.textContent = String(m.tokens);
+            if (designStatus) designStatus.textContent = '';
             streamNode = null;
             announce(L.streamComplete);
           }

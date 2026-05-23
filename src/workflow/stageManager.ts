@@ -8,12 +8,19 @@ import { COPILOT_PLUS_HOME } from '../shared/constants';
 import { canTransition as isAllowedTransition } from './stageTransitions';
 import type { HookService } from '../extensibility/hookService';
 import { t } from '../platform/l10n';
+import {
+  type DesignWorkflowStep,
+  isDesignWorkflowStep,
+  nextDesignStep,
+} from './designSteps';
 
 const ALLOWED: WorkflowStage[] = ['Design', 'Build', 'Deploy'];
 
 export class StageManager {
   private stage: WorkflowStage = 'Design';
+  private designStep: DesignWorkflowStep = 'Requirement_Clarification';
   private transitionListeners = new Set<(from: WorkflowStage, to: WorkflowStage) => void>();
+  private designStepListeners = new Set<(step: DesignWorkflowStep) => void>();
 
   constructor(private readonly hooks?: HookService) {}
 
@@ -24,14 +31,47 @@ export class StageManager {
     }
     try {
       const raw = await fs.readFile(file, 'utf8');
-      const data = JSON.parse(raw) as { workflowStage?: string };
+      const data = JSON.parse(raw) as { workflowStage?: string; designWorkflowStep?: string };
       if (data.workflowStage && ALLOWED.includes(data.workflowStage as WorkflowStage)) {
         this.stage = data.workflowStage as WorkflowStage;
       }
+      if (data.designWorkflowStep && isDesignWorkflowStep(data.designWorkflowStep)) {
+        this.designStep = data.designWorkflowStep;
+      }
     } catch {
       this.stage = 'Design';
+      this.designStep = 'Requirement_Clarification';
     }
     return this.stage;
+  }
+
+  getDesignStep(): DesignWorkflowStep {
+    return this.designStep;
+  }
+
+  async setDesignStep(step: DesignWorkflowStep): Promise<void> {
+    if (this.designStep === step) {
+      return;
+    }
+    this.designStep = step;
+    await this.save();
+    for (const listener of this.designStepListeners) {
+      listener(step);
+    }
+  }
+
+  async advanceDesignStep(): Promise<DesignWorkflowStep | undefined> {
+    const next = nextDesignStep(this.designStep);
+    if (!next) {
+      return undefined;
+    }
+    await this.setDesignStep(next);
+    return next;
+  }
+
+  onDesignStepChange(listener: (step: DesignWorkflowStep) => void): vscode.Disposable {
+    this.designStepListeners.add(listener);
+    return { dispose: () => this.designStepListeners.delete(listener) };
   }
 
   getStage(): WorkflowStage {
@@ -84,6 +124,7 @@ export class StageManager {
       /* new file */
     }
     existing.workflowStage = this.stage;
+    existing.designWorkflowStep = this.designStep;
     await fs.writeFile(file, JSON.stringify(existing, null, 2), 'utf8');
   }
 }
