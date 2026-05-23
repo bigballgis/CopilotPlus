@@ -11,6 +11,7 @@ import {
   serverAllowsTool,
   type McpServerConfig,
 } from './mcpConfig';
+import { McpStdioClient } from './mcpStdioClient';
 
 export type McpConnectionState = 'connected' | 'connecting' | 'disconnected' | 'error';
 
@@ -24,10 +25,13 @@ export interface McpServerStatus {
 
 export class McpService {
   private servers: McpServerStatus[] = [];
+  private clients = new Map<string, McpStdioClient>();
   private watcher: vscode.FileSystemWatcher | undefined;
   private retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-  constructor(private readonly context: vscode.ExtensionContext) {}
+  constructor(private readonly context: vscode.ExtensionContext) {
+    context.subscriptions.push({ dispose: () => void this.dispose() });
+  }
 
   async initialize(): Promise<void> {
     await this.reload();
@@ -82,6 +86,7 @@ export class McpService {
     if (!server) {
       return;
     }
+    server.retryCount = 0;
     await this.connectServer(server);
   }
 
@@ -100,17 +105,24 @@ export class McpService {
     if (!serverAllowsTool(server.config, toolName)) {
       return { ok: false, reason: 'tool_not_allowed' };
     }
-    // Transport stub — full MCP JSON-RPC client deferred to follow-up.
-    return {
-      ok: false,
-      reason: `mcp_transport_pending (${serverId}/${toolName}, args=${JSON.stringify(args).slice(0, 120)})`,
-    };
+    const client = this.clients.get(serverId);
+    if (!client) {
+      return { ok: false, reason: 'client_missing' };
+    }
+    return client.callTool(toolName, args);
   }
 
-  private async reload(): Promise<void> {
+  private async dispose(): Promise<void> {
     for (const timer of this.retryTimers.values()) {
       clearTimeout(timer);
     }
+    this.retryTimers.clear();
+    await Promise.all([...this.clients.values()].map((c) => c.close()));
+    this.clients.clear();
+  }
+
+  private async reload(): Promise<void> {
+    await this.dispose();
     this.retryTimers.clear();
 
     const root = vscode.workspace.workspaceFolders?.[0];
@@ -162,22 +174,40 @@ export class McpService {
   private async connectServer(server: McpServerStatus): Promise<void> {
     server.state = 'connecting';
     server.lastError = undefined;
+    server.tools = [];
 
-    // Skeleton handshake: mark stdio/url servers as connected with placeholder tools.
-    // Real MCP discovery will replace this when transport is wired.
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!root) {
+      server.state = 'error';
+      server.lastError = 'no_workspace';
+      return;
+    }
+
+    const existing = this.clients.get(server.config.id);
+    if (existing) {
+      await existing.close();
+      this.clients.delete(server.config.id);
+    }
+
     try {
       if (server.config.url) {
-        server.state = 'connected';
-        server.tools = ['http_probe'];
+        server.state = 'error';
+        server.lastError = 'http_sse_transport_not_yet_supported';
+        this.scheduleRetry(server);
         return;
       }
-      if (server.config.command) {
-        server.state = 'connected';
-        server.tools = ['stdio_probe'];
+      if (!server.config.command) {
+        server.state = 'error';
+        server.lastError = 'missing_transport';
         return;
       }
-      server.state = 'error';
-      server.lastError = 'missing_transport';
+
+      const client = new McpStdioClient();
+      await client.connect(server.config, root);
+      this.clients.set(server.config.id, client);
+      server.state = 'connected';
+      server.tools = client.getTools();
+      server.retryCount = 0;
     } catch (err) {
       server.state = 'error';
       server.lastError = err instanceof Error ? err.message : String(err);

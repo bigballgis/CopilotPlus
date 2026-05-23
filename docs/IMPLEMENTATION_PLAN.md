@@ -141,7 +141,7 @@
 | 序号 | 需求 | 状态 |
 |------|------|------|
 | 8.1 | R-EXT-1 Skills runtime | ✅ |
-| 8.2 | R-EXT-2 MCP | 🔄 配置/注入 ✅；传输层 ⬜ |
+| 8.2 | R-EXT-2 MCP | 🔄 stdio 传输 ✅；HTTP/SSE ⬜ |
 | 8.3 | R-EXT-3 Hooks | ✅ |
 
 ---
