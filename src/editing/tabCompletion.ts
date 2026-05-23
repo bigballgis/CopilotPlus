@@ -45,6 +45,32 @@ export function registerTabCompletion(context: vscode.ExtensionContext, app: App
       const linePrefix = document.getText(new vscode.Range(position.line, 0, position.line, position.character));
       const contextStart = Math.max(0, position.line - 30);
       const context = document.getText(new vscode.Range(contextStart, 0, position.line, linePrefix.length));
+      const fileContent = document.getText();
+      const relPath = vscode.workspace.asRelativePath(document.uri);
+      const cursorRange = new vscode.Range(position, position);
+      const promptText = [context, '|'].join('\n');
+
+      const cached = await app.responseCache.lookup({
+        surface: 'tabCompletion',
+        promptText,
+        modelId: model.id,
+        fileRelative: relPath,
+        fileContent,
+        selectionRange: cursorRange,
+        originalSelectedText: linePrefix,
+        contextBefore: context.slice(0, Math.max(0, context.length - linePrefix.length)),
+      });
+      if (cached) {
+        const insertText = cached.text.trim().slice(0, MAX_DISPLAY);
+        if (insertText) {
+          const item = new vscode.InlineCompletionItem(
+            insertText,
+            new vscode.Range(position, position)
+          );
+          item.detail = cached.badge;
+          return [item];
+        }
+      }
 
       const timeout = new vscode.CancellationTokenSource();
       token.onCancellationRequested(() => timeout.cancel());
@@ -75,6 +101,17 @@ export function registerTabCompletion(context: vscode.ExtensionContext, app: App
           insertText,
           new vscode.Range(position, position)
         );
+        void app.responseCache.store({
+          surface: 'tabCompletion',
+          promptText,
+          modelId: model.id,
+          fileRelative: relPath,
+          fileContent,
+          selectionRange: cursorRange,
+          originalSelectedText: linePrefix,
+          contextBefore: context.slice(0, Math.max(0, context.length - linePrefix.length)),
+          responseText: insertText,
+        });
         return [item];
       } catch {
         return [];

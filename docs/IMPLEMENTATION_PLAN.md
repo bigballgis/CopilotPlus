@@ -132,7 +132,7 @@
 | 7.2 | R-EDIT-1 Inline Edit | ✅ |
 | 7.3 | R-EDIT-5,6 Checkpoints | ✅ |
 | 7.4 | R-EDIT-2,7 Tab / NES | ✅ |
-| 7.5 | R-EDIT-3,8 Composer / Cache | 🔄 Composer ✅；Cache ⬜ |
+| 7.5 | R-EDIT-3,8 Composer / Cache | ✅ Composer + Response Cache |
 
 ---
 

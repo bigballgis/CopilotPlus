@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import type { PlatformServices } from '../platform/services';
 import { streamChat, estimateTokens } from '../platform/chatClient';
 import { DiffReviewService } from './diffReview';
+import { ResponseCacheService } from './responseCacheService';
 
 const MAX_SELECTION = 10_000;
 const CONTEXT_LINES = 50;
@@ -13,7 +14,8 @@ export class InlineEditService {
 
   constructor(
     private readonly platform: PlatformServices,
-    private readonly diffReview: DiffReviewService
+    private readonly diffReview: DiffReviewService,
+    private readonly responseCache: ResponseCacheService
   ) {}
 
   async invoke(): Promise<void> {
@@ -87,6 +89,29 @@ export class InlineEditService {
       'Return ONLY the replacement text for the selected region, without markdown fences.',
     ].join('\n');
 
+    const fileContent = doc.getText();
+    const cached = await this.responseCache.lookup({
+      surface: 'inlineEdit',
+      promptText: prompt,
+      modelId: model.id,
+      fileRelative: relative,
+      fileContent,
+      selectionRange: targetRange,
+      originalSelectedText: selectedText,
+      contextBefore,
+      contextAfter,
+    });
+
+    if (cached) {
+      await this.diffReview.reviewReplaceRange(
+        doc.uri,
+        targetRange,
+        cached.text,
+        `Inline_Edit · ${cached.badge}`
+      );
+      return;
+    }
+
     try {
       const result = await streamChat(
         model,
@@ -106,6 +131,18 @@ export class InlineEditService {
 
       void estimateTokens(proposed);
       await this.diffReview.reviewReplaceRange(doc.uri, targetRange, proposed, 'Inline_Edit');
+      void this.responseCache.store({
+        surface: 'inlineEdit',
+        promptText: prompt,
+        modelId: model.id,
+        fileRelative: relative,
+        fileContent,
+        selectionRange: targetRange,
+        originalSelectedText: selectedText,
+        contextBefore,
+        contextAfter,
+        responseText: proposed,
+      });
     } catch (err) {
       const retry = 'Retry';
       const msg = err instanceof Error ? err.message : String(err);

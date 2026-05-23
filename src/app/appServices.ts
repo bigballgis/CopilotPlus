@@ -21,6 +21,7 @@ import { DeployService } from '../deploy/deployService';
 import { DeployExecutor } from '../deploy/deployExecutor';
 import { DeployOrchestrator } from '../deploy/deployOrchestrator';
 import { LocalEmbeddingAddon } from '../context/localEmbeddingAddon';
+import { ResponseCacheService } from '../editing/responseCacheService';
 import { ComposerService } from '../editing/composer';
 import { ConversationSummarizer } from '../context/conversationSummarizer';
 import { McpService } from '../extensibility/mcpService';
@@ -49,6 +50,7 @@ export class AppServices {
   readonly summarizer: ConversationSummarizer;
   readonly localEmbeddingAddon: LocalEmbeddingAddon;
   readonly composer: ComposerService;
+  readonly responseCache: ResponseCacheService;
   readonly mcp: McpService;
   private ciSession: CiSession | undefined;
 
@@ -63,7 +65,8 @@ export class AppServices {
     this.checkpoints = new CheckpointService();
     this.postEdit = new PostEditTracker();
     this.diffReview = new DiffReviewService(this.checkpoints, proposedContent);
-    this.inlineEdit = new InlineEditService(platform, this.diffReview);
+    this.responseCache = new ResponseCacheService(platform);
+    this.inlineEdit = new InlineEditService(platform, this.diffReview, this.responseCache);
     this.decisions = new DecisionCenter();
     this.hooks = new HookService(context);
     this.skills = new SkillService(context);
