@@ -86,7 +86,7 @@ export class DiffReviewService {
     const last = doc.lineAt(Math.max(0, doc.lineCount - 1));
     edit.replace(
       fileUri,
-      new vscode.Range(0, 0, last.line, last.text.length),
+      new vscode.Range(0, 0, last.lineNumber, last.text.length),
       proposed
     );
     const ok = await vscode.workspace.applyEdit(edit);

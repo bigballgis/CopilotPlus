@@ -9,6 +9,8 @@ import { ProposedContentProvider } from '../editing/proposedContentProvider';
 import { InlineEditService } from '../editing/inlineEdit';
 import { DecisionCenter } from '../interaction/decisionCenter';
 import { StageManager } from '../workflow/stageManager';
+import { DocumentTreeService } from '../docs/documentTreeService';
+import { ToolExecutor } from '../tools/executor';
 
 export class AppServices {
   readonly platform: PlatformServices;
@@ -19,9 +21,11 @@ export class AppServices {
   readonly decisions: DecisionCenter;
   readonly stages: StageManager;
   readonly proposedContent: ProposedContentProvider;
+  readonly docs: DocumentTreeService;
+  readonly tools: ToolExecutor;
 
   private constructor(
-    context: vscode.ExtensionContext,
+    private readonly context: vscode.ExtensionContext,
     platform: PlatformServices,
     proposedContent: ProposedContentProvider
   ) {
@@ -33,11 +37,15 @@ export class AppServices {
     this.inlineEdit = new InlineEditService(platform, this.diffReview);
     this.decisions = new DecisionCenter();
     this.stages = new StageManager();
+    this.docs = new DocumentTreeService(this.diffReview);
+    this.tools = new ToolExecutor(this, this.docs);
   }
 
   async initialize(): Promise<void> {
     this.checkpoints.setRetention(this.platform.getSettings().checkpointRetention);
     await this.stages.load();
+    this.docs.startWatching(this.context);
+    void this.docs.ensureDefaultSystem();
   }
 
   static async create(context: vscode.ExtensionContext): Promise<AppServices> {

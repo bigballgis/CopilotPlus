@@ -76,7 +76,7 @@ export class CheckpointService {
         const doc = await vscode.workspace.openTextDocument(uri);
         const edit = new vscode.WorkspaceEdit();
         const lastLine = doc.lineAt(Math.max(0, doc.lineCount - 1));
-        edit.replace(uri, new vscode.Range(0, 0, lastLine.line, lastLine.text.length), content);
+        edit.replace(uri, new vscode.Range(0, 0, lastLine.lineNumber, lastLine.text.length), content);
         await vscode.workspace.applyEdit(edit);
       } catch {
         const edit = new vscode.WorkspaceEdit();

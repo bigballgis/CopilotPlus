@@ -13,7 +13,7 @@ export async function openWorkspace(context: vscode.ExtensionContext, app: AppSe
     conversationProvider = new ConversationPaneProvider(context.extensionUri, context, app);
   }
   if (!tabProvider) {
-    tabProvider = new TabWorkspaceProvider(context.extensionUri, app.platform);
+    tabProvider = new TabWorkspaceProvider(context.extensionUri, app);
   }
 
   await conversationProvider.show(column);
