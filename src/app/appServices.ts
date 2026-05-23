@@ -22,6 +22,7 @@ import { DeployExecutor } from '../deploy/deployExecutor';
 import { DeployOrchestrator } from '../deploy/deployOrchestrator';
 import { LocalEmbeddingAddon } from '../context/localEmbeddingAddon';
 import { ResponseCacheService } from '../editing/responseCacheService';
+import { ResponseCacheInvalidation } from '../editing/responseCacheInvalidation';
 import { ComposerService } from '../editing/composer';
 import { ConversationSummarizer } from '../context/conversationSummarizer';
 import { McpService } from '../extensibility/mcpService';
@@ -52,6 +53,7 @@ export class AppServices {
   readonly localEmbeddingAddon: LocalEmbeddingAddon;
   readonly composer: ComposerService;
   readonly responseCache: ResponseCacheService;
+  readonly responseCacheInvalidation: ResponseCacheInvalidation;
   readonly mcp: McpService;
   readonly knowledge: KnowledgeService;
   private ciSession: CiSession | undefined;
@@ -65,9 +67,13 @@ export class AppServices {
     this.proposedContent = proposedContent;
     this.primaryAgent = new PrimaryAgent(context.extensionUri, platform);
     this.checkpoints = new CheckpointService();
-    this.postEdit = new PostEditTracker();
-    this.diffReview = new DiffReviewService(this.checkpoints, proposedContent);
     this.responseCache = new ResponseCacheService(platform);
+    this.responseCacheInvalidation = new ResponseCacheInvalidation(this.responseCache);
+    const invalidateCache = (rel: string) => {
+      void this.responseCacheInvalidation.invalidateFile(rel);
+    };
+    this.postEdit = new PostEditTracker(invalidateCache);
+    this.diffReview = new DiffReviewService(this.checkpoints, proposedContent, invalidateCache);
     this.inlineEdit = new InlineEditService(platform, this.diffReview, this.responseCache);
     this.decisions = new DecisionCenter();
     this.hooks = new HookService(context);
@@ -96,6 +102,13 @@ export class AppServices {
     this.checkpoints.setRetention(this.platform.getSettings().checkpointRetention);
     await this.hooks.initialize();
     await this.skills.initialize();
+    this.context.subscriptions.push(
+      this.skills.onReload((skills) => {
+        this.responseCacheInvalidation.onSkillsReload(skills);
+      })
+    );
+    this.responseCacheInvalidation.onSkillsReload(this.skills.getSkills());
+    this.responseCacheInvalidation.register(this.context);
     await this.mcp.initialize();
     await this.knowledge.initialize(this.context);
     await this.stages.load();

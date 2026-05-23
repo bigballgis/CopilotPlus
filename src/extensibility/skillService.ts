@@ -146,6 +146,14 @@ export class SkillService {
       });
     });
     this.skills = entries.slice(0, 200);
+    this.onReloadListeners.forEach((listener) => listener(this.skills));
+  }
+
+  private onReloadListeners = new Set<(skills: SkillEntry[]) => void>();
+
+  onReload(listener: (skills: SkillEntry[]) => void): vscode.Disposable {
+    this.onReloadListeners.add(listener);
+    return { dispose: () => this.onReloadListeners.delete(listener) };
   }
 
   private async walkSkills(dir: string, fn: (abs: string, id: string) => Promise<void>): Promise<void> {

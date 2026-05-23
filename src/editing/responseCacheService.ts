@@ -207,6 +207,7 @@ export class ResponseCacheService {
   }
 
   async invalidateForFile(relativePath: string): Promise<void> {
+    const norm = relativePath.replace(/\\/g, '/');
     const root = this.cacheRoot();
     if (!root) {
       return;
@@ -217,7 +218,7 @@ export class ResponseCacheService {
       try {
         const raw = await fs.readFile(path.join(root, `${item.key}.json`), 'utf8');
         const entry = JSON.parse(raw) as StoredResponseEntry;
-        if (entry.fileRelative === relativePath) {
+        if (entry.fileRelative.replace(/\\/g, '/') === norm) {
           await fs.rm(path.join(root, `${item.key}.json`), { force: true });
           index.totalBytes -= item.sizeBytes;
         } else {
@@ -229,6 +230,28 @@ export class ResponseCacheService {
     }
     index.entries = keep;
     await this.writeIndex(root, index);
+  }
+
+  /** Drop entries for a file when on-disk content no longer matches cached file_sha256. */
+  async invalidateIfFileContentChanged(relativePath: string, content: string): Promise<void> {
+    const norm = relativePath.replace(/\\/g, '/');
+    const root = this.cacheRoot();
+    if (!root) {
+      return;
+    }
+    const currentSha = sha256Text(content);
+    const index = await this.readIndex(root);
+    for (const item of index.entries) {
+      const entry = await this.readEntry(root, item.key);
+      if (
+        entry &&
+        entry.fileRelative.replace(/\\/g, '/') === norm &&
+        entry.fileSha256 !== currentSha
+      ) {
+        await this.invalidateForFile(norm);
+        return;
+      }
+    }
   }
 
   async clearAll(): Promise<void> {

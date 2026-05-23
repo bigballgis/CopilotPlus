@@ -30,7 +30,8 @@ export class DiffReviewService {
 
   constructor(
     private readonly checkpoints: CheckpointService,
-    private readonly proposedProvider: ProposedContentProvider
+    private readonly proposedProvider: ProposedContentProvider,
+    private readonly onFileApplied?: (relativePath: string) => void
   ) {}
 
   setCiAutoApply(
@@ -116,6 +117,7 @@ export class DiffReviewService {
     const ok = await vscode.workspace.applyEdit(edit);
     if (ok) {
       void vscode.window.showInformationMessage(t('diffReview.applied'));
+      this.onFileApplied?.(relativePath);
     }
     return ok;
   }
@@ -147,7 +149,12 @@ export class DiffReviewService {
       edit.createFile(fileUri, { overwrite: false });
       edit.insert(fileUri, new vscode.Position(0, 0), proposed);
     }
-    return vscode.workspace.applyEdit(edit);
+    return vscode.workspace.applyEdit(edit).then((ok) => {
+      if (ok) {
+        this.onFileApplied?.(relativePath);
+      }
+      return ok;
+    });
   }
 
   /** R-EDIT-3 — multi-file Composer review with Apply All */
@@ -282,6 +289,9 @@ export class DiffReviewService {
     }
 
     void vscode.window.showInformationMessage(t('diffReview.appliedComposer', accepted.length));
+    for (const item of accepted) {
+      this.onFileApplied?.(item.relativePath);
+    }
     return true;
   }
 

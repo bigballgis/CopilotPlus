@@ -17,6 +17,8 @@ export class PostEditTracker {
   private edited = new Set<string>();
   private baseline = new Map<string, LspDiagnostic[]>();
 
+  constructor(private readonly onEdit?: (relativePath: string) => void) {}
+
   clear(): void {
     this.edited.clear();
     this.baseline.clear();
@@ -36,6 +38,7 @@ export class PostEditTracker {
       }
     }
     this.edited.add(norm);
+    this.onEdit?.(norm);
   }
 
   async verify(): Promise<VerificationResult> {

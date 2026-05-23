@@ -51,3 +51,21 @@ export function hashPartialCacheKey(
   });
   return sha256Text(payload);
 }
+
+export interface AutoAttachSkillLike {
+  id: string;
+  scope: string;
+  auto_attach: boolean;
+  valid: boolean;
+  enabled: boolean;
+}
+
+/** Fingerprint of enabled auto_attach skills — R-EDIT-8.5(c). */
+export function computeAutoAttachFingerprint(skills: readonly AutoAttachSkillLike[]): string {
+  const payload = skills
+    .filter((s) => s.valid && s.enabled && s.auto_attach)
+    .map((s) => `${s.id}\0${s.scope}`)
+    .sort()
+    .join('\n');
+  return sha256Text(payload);
+}
