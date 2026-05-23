@@ -328,7 +328,8 @@
     "watch": "node esbuild.js --watch",
     "test:unit": "tsc -p tsconfig.test.json && node --test dist-test/test/unit/**/*.test.js",
     "verify:ci-headless": "tsc -p tsconfig.test.json && node scripts/verify-ci-headless.mjs",
-    "test": "npm run test:unit && npm run verify:ci-headless",
+    "verify:onnx-addon": "tsc -p tsconfig.test.json && node scripts/verify-onnx-addon.mjs",
+    "test": "npm run test:unit && npm run verify:ci-headless && npm run verify:onnx-addon",
     "lint": "eslint src --ext ts",
     "package": "vsce package"
   },

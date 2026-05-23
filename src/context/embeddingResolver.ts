@@ -40,11 +40,12 @@ function resolveLocalMode(
   }
   const ort = probeOnnxRuntime();
   if (ort.available) {
-    return { mode: 'local', addonVersion: local.version };
+    return { mode: 'local', addonVersion: local.version, modelId: local.modelId };
   }
   return {
     mode: 'local',
     addonVersion: local.version,
+    modelId: local.modelId,
     notice: `ONNX Runtime unavailable (${ort.reason}); using hash embeddings`,
   };
 }
@@ -105,7 +106,8 @@ export async function computeChunkEmbeddings(
   if (resolution.mode === 'local' && addon) {
     const modelPath = await addon.getModelPath();
     const manifest = await addon.getManifest();
-    return embedChunksLocal(chunks, modelPath, manifest);
+    const vocab = await addon.getVocab();
+    return embedChunksLocal(chunks, modelPath, manifest, { vocab });
   }
   if (resolution.mode !== 'proposed_lm') {
     return 0;
@@ -144,7 +146,8 @@ export async function computeQueryEmbedding(
   if (resolution.mode === 'local' && addon) {
     const modelPath = await addon.getModelPath();
     const manifest = await addon.getManifest();
-    const vectors = await embedTextsLocal([query.slice(0, 8000)], modelPath, manifest);
+    const vocab = await addon.getVocab();
+    const vectors = await embedTextsLocal([query.slice(0, 8000)], modelPath, manifest, { vocab });
     return vectors[0];
   }
   if (resolution.mode !== 'proposed_lm') {

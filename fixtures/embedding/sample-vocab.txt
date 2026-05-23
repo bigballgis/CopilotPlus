@@ -1,0 +1,10 @@
+[CLS]
+[SEP]
+[UNK]
+[PAD]
+hello
+world
+copilot
+plus
+retrieval
+embedding

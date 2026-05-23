@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：Polish / 后续增强  
-> **下一项**：企业 ONNX 模型联调
+> **下一项**：Phase 9 Polish（R-KNOW / R-PLAT-5 / i18n）
 
 ---
 
@@ -12,8 +12,8 @@
 |-------|------|------|------|
 | 0–9 | 全部 Phase | — | ✅ 完成 |
 
-**单元测试**：75/75 通过（含 `verify:ci-headless` fixture 校验）
-**需求覆盖率（粗算）**：~88%
+**单元测试**：81/81 通过（含 CI headless + ONNX add-on fixture 校验）  
+**需求覆盖率（粗算）**：~89%
 
 ---
 
@@ -24,6 +24,7 @@
 | MCP HTTP/SSE | POST JSON-RPC + SSE 解析 + Session-Id | R-EXT-2 |
 | Response Cache | 1h TTL + rebase + LRU 100MB | R-EDIT-8 |
 | CI headless 验证 | fixture + transcript 校验 + headless 脚本 | R-DEP-7 |
+| Enterprise ONNX | manifest 驱动 token_ids + vocab  bundle 下载 | R-CTX-5 |
 | MCP 传输抽象 | `McpTransportClient` 统一 stdio/HTTP | R-EXT-2 |
 | Local Embedding Runtime | hash 向量 + 可选 ONNX 推理路径 | R-CTX-5 |
 | Addon Manifest | `manifest.json`（dimensions/runtime/input/output） | R-CTX-5 |
@@ -37,6 +38,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | 企业 ONNX 模型联调（manifest + vocab + token_ids 推理） |
 | 2026-05-23 | CI headless 集成验证（fixtures + verify:ci-headless） |
 | 2026-05-23 | Response Cache（exact + rebase + LRU） |
 | 2026-05-23 | MCP HTTP/SSE 传输（POST + SSE + Session-Id） |

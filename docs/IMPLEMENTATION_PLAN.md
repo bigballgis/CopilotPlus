@@ -120,7 +120,7 @@
 | 6.2 | R-CTX-2 Codebase Index | ⬜ |
 | 6.3 | R-CTX-3,6 RAG 混合检索 | ⬜ |
 | 6.4 | R-CTX-4,7,8 Budget / 摘要 / Tier | ⬜ |
-| 6.5 | R-CTX-5 Embedding 三模式 | ✅ local hash + 可选 ONNX |
+| 6.5 | R-CTX-5 Embedding 三模式 | ✅ enterprise manifest + token_ids ONNX |
 
 ---
 

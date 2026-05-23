@@ -1,0 +1,16 @@
+{
+  "version": "2.0.0",
+  "modelId": "enterprise-minilm-l6-v2-onnx",
+  "dimensions": 384,
+  "runtime": "onnx",
+  "modelFile": "model.onnx",
+  "vocabFile": "vocab.txt",
+  "inputFormat": "token_ids",
+  "tokenizer": "vocab",
+  "maxSequenceLength": 128,
+  "inputName": "input_ids",
+  "attentionInputName": "attention_mask",
+  "tokenTypeInputName": "token_type_ids",
+  "outputName": "last_hidden_state",
+  "normalizeOutput": true
+}
