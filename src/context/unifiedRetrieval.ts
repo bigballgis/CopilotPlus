@@ -85,7 +85,10 @@ export class UnifiedRetrieval {
       codeRanked.map((r) => ({ id: r.chunk.id })),
       docRanked.map((r) => ({ id: r.chunk.id })),
     ];
-    if (options.queryEmbedding?.length && this.embeddingMode === 'proposed_lm') {
+    if (
+      options.queryEmbedding?.length &&
+      (this.embeddingMode === 'proposed_lm' || this.embeddingMode === 'local')
+    ) {
       const denseCode = denseSearch(codePool, options.queryEmbedding, 50);
       const denseDoc = denseSearch(docPool, options.queryEmbedding, 50);
       if (denseCode.length) {

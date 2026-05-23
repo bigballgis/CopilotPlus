@@ -358,9 +358,10 @@ export class ToolExecutor {
       return this.grep({ pattern: query, max_results: args.max_results ?? 50 });
     }
 
+    const resolution = this.app.indexManager.getResolution();
     const queryEmbedding =
-      this.app.indexManager.getResolution().mode === 'proposed_lm'
-        ? await computeQueryEmbedding(query)
+      resolution.mode === 'proposed_lm' || resolution.mode === 'local'
+        ? await computeQueryEmbedding(query, resolution, this.app.localEmbeddingAddon)
         : undefined;
 
     const model = await this.app.platform.models.resolveSelectionForSurface('subAgent');

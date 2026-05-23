@@ -2,7 +2,8 @@
 
 import * as vscode from 'vscode';
 import type { EmbeddingMode } from '../shared/types';
-import { LocalEmbeddingAddon } from './localEmbeddingAddon';
+import type { LocalEmbeddingAddon } from './localEmbeddingAddon';
+import { embedChunksLocal, embedTextsLocal, probeOnnxRuntime } from './localEmbeddingRuntime';
 
 export type ResolvedEmbeddingMode = 'proposed_lm' | 'local' | 'sparse_only';
 
@@ -31,6 +32,23 @@ export function probeProposedEmbeddings(): { available: boolean; modelId?: strin
   return { available: true, modelId };
 }
 
+function resolveLocalMode(
+  local: Awaited<ReturnType<LocalEmbeddingAddon['getStatus']>>
+): EmbeddingResolution | undefined {
+  if (!local.installed) {
+    return undefined;
+  }
+  const ort = probeOnnxRuntime();
+  if (ort.available) {
+    return { mode: 'local', addonVersion: local.version };
+  }
+  return {
+    mode: 'local',
+    addonVersion: local.version,
+    notice: `ONNX Runtime unavailable (${ort.reason}); using hash embeddings`,
+  };
+}
+
 export async function resolveEmbeddingMode(
   configured: EmbeddingMode,
   addon: LocalEmbeddingAddon
@@ -42,8 +60,9 @@ export async function resolveEmbeddingMode(
     if (proposed.available) {
       return { mode: 'proposed_lm', modelId: proposed.modelId };
     }
-    if (local.installed) {
-      return { mode: 'local', addonVersion: local.version };
+    const localMode = resolveLocalMode(local);
+    if (localMode) {
+      return localMode;
     }
     return {
       mode: 'sparse_only',
@@ -60,14 +79,16 @@ export async function resolveEmbeddingMode(
         ...pickAuto(),
         notice: `proposed_lm unavailable (${proposed.reason}); resolved to fallback`,
       };
-    case 'local':
-      if (local.installed) {
-        return { mode: 'local', addonVersion: local.version };
+    case 'local': {
+      const localMode = resolveLocalMode(local);
+      if (localMode) {
+        return localMode;
       }
       return {
         ...pickAuto(),
         notice: local.notice ?? 'local embedding add-on not installed',
       };
+    }
     case 'sparse_only':
       return { mode: 'sparse_only' };
     case 'auto':
@@ -78,8 +99,14 @@ export async function resolveEmbeddingMode(
 
 export async function computeChunkEmbeddings(
   chunks: { text: string; embedding?: number[] }[],
-  resolution: EmbeddingResolution
+  resolution: EmbeddingResolution,
+  addon?: LocalEmbeddingAddon
 ): Promise<number> {
+  if (resolution.mode === 'local' && addon) {
+    const modelPath = await addon.getModelPath();
+    const manifest = await addon.getManifest();
+    return embedChunksLocal(chunks, modelPath, manifest);
+  }
   if (resolution.mode !== 'proposed_lm') {
     return 0;
   }
@@ -109,7 +136,20 @@ export async function computeChunkEmbeddings(
   return embedded;
 }
 
-export async function computeQueryEmbedding(query: string): Promise<number[] | undefined> {
+export async function computeQueryEmbedding(
+  query: string,
+  resolution: EmbeddingResolution,
+  addon?: LocalEmbeddingAddon
+): Promise<number[] | undefined> {
+  if (resolution.mode === 'local' && addon) {
+    const modelPath = await addon.getModelPath();
+    const manifest = await addon.getManifest();
+    const vectors = await embedTextsLocal([query.slice(0, 8000)], modelPath, manifest);
+    return vectors[0];
+  }
+  if (resolution.mode !== 'proposed_lm') {
+    return undefined;
+  }
   const lm = vscode.lm as LmWithEmbeddings;
   const model = lm.embeddingModels?.[0];
   if (!model || typeof lm.computeEmbeddings !== 'function') {

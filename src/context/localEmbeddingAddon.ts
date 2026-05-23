@@ -4,6 +4,11 @@ import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import {
+  DEFAULT_LOCAL_MANIFEST,
+  parseLocalManifest,
+  type LocalEmbeddingManifest,
+} from './localEmbeddingManifest';
 
 export interface LocalAddonStatus {
   installed: boolean;
@@ -19,6 +24,10 @@ export class LocalEmbeddingAddon {
     private readonly getUrl: () => string,
     private readonly getSha256: () => string
   ) {}
+
+  private addonDir(): string {
+    return path.join(this.context.globalStorageUri.fsPath, 'embedding-addon');
+  }
 
   async getStatus(): Promise<LocalAddonStatus> {
     const meta = this.context.globalState.get<{ version: string; path: string }>(this.storageKey);
@@ -37,6 +46,29 @@ export class LocalEmbeddingAddon {
       return { installed: true, version: meta.version };
     } catch {
       return { installed: false, notice: 'Local add-on path missing — reinstall required' };
+    }
+  }
+
+  async getModelPath(): Promise<string | undefined> {
+    const meta = this.context.globalState.get<{ version: string; path: string }>(this.storageKey);
+    if (!meta?.path) {
+      return undefined;
+    }
+    try {
+      await fs.access(meta.path);
+      return meta.path;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async getManifest(): Promise<LocalEmbeddingManifest> {
+    const manifestPath = path.join(this.addonDir(), 'manifest.json');
+    try {
+      const raw = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
+      return parseLocalManifest(raw);
+    } catch {
+      return { ...DEFAULT_LOCAL_MANIFEST };
     }
   }
 
@@ -60,10 +92,15 @@ export class LocalEmbeddingAddon {
       return { ok: false, reason: 'sha256_mismatch' };
     }
 
-    const dir = path.join(this.context.globalStorageUri.fsPath, 'embedding-addon');
+    const dir = this.addonDir();
     await fs.mkdir(dir, { recursive: true });
     const target = path.join(dir, 'model.onnx');
     await fs.writeFile(target, buffer);
+    await fs.writeFile(
+      path.join(dir, 'manifest.json'),
+      JSON.stringify(DEFAULT_LOCAL_MANIFEST, null, 2),
+      'utf8'
+    );
 
     const version = new Date().toISOString().slice(0, 10);
     await this.context.globalState.update(this.storageKey, { version, path: target });

@@ -5,7 +5,7 @@ const ctx = esbuild.context({
   entryPoints: ['src/extension.ts'],
   bundle: true,
   outfile: 'dist/extension.js',
-  external: ['vscode'],
+  external: ['vscode', 'onnxruntime-node'],
   format: 'cjs',
   platform: 'node',
   target: 'node18',

@@ -9,5 +9,5 @@
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["src/platform/version.ts", "src/platform/sensitiveFiles.ts", "src/platform/toolPermissions.ts", "src/platform/configuration.ts", "src/platform/chatClient.ts", "src/workflow/taskDag.ts", "src/workflow/stageTransitions.ts", "src/docs/frontmatter.ts", "src/tools/applyPatchLogic.ts", "src/context/mentionTokens.ts", "src/context/contextTier.ts", "src/context/vectorMath.ts", "src/deploy/deployPrerequisites.ts", "src/extensibility/skillFrontmatter.ts", "src/test/unit/**/*.test.ts", "src/shared/**/*.ts"]
+  "include": ["src/platform/version.ts", "src/platform/sensitiveFiles.ts", "src/platform/toolPermissions.ts", "src/platform/configuration.ts", "src/platform/chatClient.ts", "src/workflow/taskDag.ts", "src/workflow/stageTransitions.ts", "src/docs/frontmatter.ts", "src/tools/applyPatchLogic.ts", "src/context/mentionTokens.ts", "src/context/contextTier.ts", "src/context/vectorMath.ts", "src/context/localEmbeddingManifest.ts", "src/context/localEmbeddingRuntime.ts", "src/deploy/deployPrerequisites.ts", "src/extensibility/skillFrontmatter.ts", "src/extensibility/mcpConfig.ts", "src/cli/decisionResolver.ts", "src/cli/buildConfig.ts", "src/editing/composerParse.ts", "src/test/unit/**/*.test.ts", "src/shared/**/*.ts", "src/types/**/*.d.ts"]
 }

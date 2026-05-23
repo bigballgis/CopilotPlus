@@ -90,10 +90,7 @@ export class IndexManager {
   }
 
   private async embedIfNeeded(chunks: IndexChunk[]): Promise<void> {
-    if (this.resolution.mode === 'local') {
-      return;
-    }
-    await computeChunkEmbeddings(chunks, this.resolution);
+    await computeChunkEmbeddings(chunks, this.resolution, this.localAddon);
   }
 
   private async buildCodeIndex(): Promise<IndexChunk[]> {
