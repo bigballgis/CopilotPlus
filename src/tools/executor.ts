@@ -145,6 +145,8 @@ export class ToolExecutor {
         return this.checkpointRestore(args);
       case 'question':
         return this.question(args);
+      case 'propose_memory':
+        return this.proposeMemory(args, role);
       case 'deploy_apply':
         return this.deployApply();
       case 'deploy_rollback':
@@ -595,6 +597,33 @@ export class ToolExecutor {
       timeoutSec: 300,
     });
     return { ok: true, data: { answer: answer.selected } };
+  }
+
+  private static readonly PROPOSE_MEMORY_ROLES = new Set([
+    'Coder',
+    'Tester',
+    'Reviewer',
+    'Committer',
+    'Deployer',
+  ]);
+
+  private async proposeMemory(args: Record<string, unknown>, role: string): Promise<ToolResult> {
+    if (!ToolExecutor.PROPOSE_MEMORY_ROLES.has(role)) {
+      return { ok: false, reason: 'propose_memory_role_restricted' };
+    }
+    const text = String(args.text ?? '').trim();
+    if (!text) {
+      return { ok: false, reason: 'missing_text' };
+    }
+    const taskId =
+      typeof args.task_id === 'string' && args.task_id
+        ? args.task_id
+        : undefined;
+    const result = await this.app.knowledge.proposeMemory(this.app, text, taskId);
+    if (!result.ok) {
+      return { ok: false, reason: result.reason, pattern: result.pattern };
+    }
+    return { ok: true, data: { outcome: result.outcome } };
   }
 
   private async deployApply(): Promise<ToolResult> {

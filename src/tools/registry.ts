@@ -39,6 +39,7 @@ export const BUILTIN_TOOLS: ToolDefinition[] = [
   { id: 'webfetch', description: 'Fetch URL content', defaultPermission: 'allow' },
   { id: 'websearch', description: 'Web search', defaultPermission: 'allow' },
   { id: 'question', description: 'Ask user a question', defaultPermission: 'allow' },
+  { id: 'propose_memory', description: 'Propose a project convention for AGENTS.md or session memory', defaultPermission: 'allow' },
   { id: 'deploy_apply', description: 'Apply deployment', defaultPermission: 'ask' },
   { id: 'deploy_rollback', description: 'Rollback deployment', defaultPermission: 'ask' },
 ];
@@ -60,10 +61,10 @@ export const SUB_AGENT_ALLOWLISTS: Record<string, readonly string[]> = {
   Designer: ['read_file', 'grep', 'glob', 'list_dir', 'code_search', 'lsp_definition', 'lsp_references', 'doc_read', 'doc_write', 'doc_link', 'question'],
   Task_Planner: ['read_file', 'grep', 'glob', 'list_dir', 'code_search', 'doc_read', 'doc_write', 'doc_link', 'task_create', 'todowrite', 'todoread', 'question'],
   Explorer: ['read_file', 'grep', 'glob', 'list_dir', 'code_search', 'lsp_diagnostics', 'lsp_definition', 'lsp_references', 'lsp_hover', 'doc_read'],
-  Coder: ['read_file', 'write_file', 'apply_patch', 'delete_file', 'grep', 'glob', 'list_dir', 'code_search', 'lsp_diagnostics', 'lsp_definition', 'lsp_references', 'lsp_hover', 'lsp_rename', 'doc_read', 'todowrite', 'todoread', 'bash', 'question'],
-  Tester: ['read_file', 'grep', 'glob', 'list_dir', 'lsp_diagnostics', 'doc_read', 'run_tests', 'bash', 'question'],
-  Reviewer: ['read_file', 'grep', 'glob', 'list_dir', 'code_search', 'lsp_diagnostics', 'lsp_definition', 'lsp_references', 'lsp_hover', 'doc_read', 'git_diff', 'question'],
-  Committer: ['read_file', 'git_status', 'git_diff', 'git_commit', 'question'],
+  Coder: ['read_file', 'write_file', 'apply_patch', 'delete_file', 'grep', 'glob', 'list_dir', 'code_search', 'lsp_diagnostics', 'lsp_definition', 'lsp_references', 'lsp_hover', 'lsp_rename', 'doc_read', 'todowrite', 'todoread', 'bash', 'question', 'propose_memory'],
+  Tester: ['read_file', 'grep', 'glob', 'list_dir', 'lsp_diagnostics', 'doc_read', 'run_tests', 'bash', 'question', 'propose_memory'],
+  Reviewer: ['read_file', 'grep', 'glob', 'list_dir', 'code_search', 'lsp_diagnostics', 'lsp_definition', 'lsp_references', 'lsp_hover', 'doc_read', 'git_diff', 'question', 'propose_memory'],
+  Committer: ['read_file', 'git_status', 'git_diff', 'git_commit', 'question', 'propose_memory'],
   Rollback_Operator: ['read_file', 'git_status', 'git_diff', 'checkpoint_restore', 'question'],
-  Deployer: ['read_file', 'write_file', 'grep', 'list_dir', 'doc_read', 'bash', 'deploy_apply', 'deploy_rollback', 'question'],
+  Deployer: ['read_file', 'write_file', 'grep', 'list_dir', 'doc_read', 'bash', 'deploy_apply', 'deploy_rollback', 'question', 'propose_memory'],
 };

@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：Polish / 后续增强  
-> **下一项**：后续增强（NES Response Cache、MCP legacy SSE 等可选差距）
+> **下一项**：Response Cache 失效接线（Skills / 按文件）或 MCP legacy SSE
 
 ---
 

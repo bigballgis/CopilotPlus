@@ -15,6 +15,7 @@ export const DEFAULT_TOOL_PERMISSIONS: Readonly<Record<string, ToolPermission>> 
   webfetch: 'allow',
   websearch: 'allow',
   question: 'allow',
+  propose_memory: 'allow',
   write_file: 'ask',
   apply_patch: 'ask',
   delete_file: 'ask',

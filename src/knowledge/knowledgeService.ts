@@ -32,6 +32,12 @@ import { streamChat } from '../platform/chatClient';
 import { COPILOT_PLUS_HOME } from '../shared/constants';
 import { t } from '../platform/l10n';
 
+export type ProposeMemoryOutcome = 'rejected' | 'agents_md' | 'session_memory';
+
+export type ProposeMemoryResult =
+  | { ok: true; outcome: ProposeMemoryOutcome }
+  | { ok: false; reason: 'blocked' | 'invalid'; pattern?: string };
+
 export class KnowledgeService {
   private agentsCache:
     | { key: string; text: string; dropped: string[]; mtime: number }
@@ -178,32 +184,42 @@ export class KnowledgeService {
     app: AppServices,
     text: string,
     taskId?: string
-  ): Promise<void> {
+  ): Promise<ProposeMemoryResult> {
+    const err = validateMemoryText(text);
+    if (err) {
+      return { ok: false, reason: 'invalid' };
+    }
     const privacy = scanMemoryText(text);
     if (privacy.blocked) {
       void vscode.window.showErrorMessage(t('knowledge.memoryBlocked', privacy.pattern ?? ''));
-      return;
+      return { ok: false, reason: 'blocked', pattern: privacy.pattern };
     }
+    const acceptAgents = t('knowledge.proposeAgents');
+    const acceptSession = t('knowledge.proposeSession');
+    const reject = t('knowledge.proposeReject');
     const response = await app.decisions.ask({
       id: `memory-${Date.now()}`,
-      question: `Remember this convention?\n${text.slice(0, 400)}`,
-      options: ['Accept to AGENTS.md', 'Session memory', 'Reject'],
-      defaultOption: 'Reject',
+      question: t('knowledge.proposeMemoryQuestion', text.slice(0, 400)),
+      options: [acceptAgents, acceptSession, reject],
+      defaultOption: reject,
       timeoutSec: 300,
     });
-    if (response.selected === 'Reject') {
-      return;
+    if (response.selected === reject) {
+      return { ok: true, outcome: 'rejected' };
     }
-    if (response.selected === 'Session memory') {
+    if (response.selected === acceptSession) {
       const result = await this.addSessionMemory(text, taskId ? 'task' : 'workspace', taskId);
       if (!result.ok) {
         void vscode.window.showErrorMessage(t('knowledge.sessionRejected', result.reason));
+        return { ok: false, reason: 'invalid' };
       }
-      return;
+      return { ok: true, outcome: 'session_memory' };
     }
-    if (response.selected === 'Accept to AGENTS.md') {
+    if (response.selected === acceptAgents) {
       await this.appendAgentsMd(app, text);
+      return { ok: true, outcome: 'agents_md' };
     }
+    return { ok: true, outcome: 'rejected' };
   }
 
   async runSelfReflection(
