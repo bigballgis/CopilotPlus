@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import type { AppServices } from '../app/appServices';
 import type { DocTreeNode } from '../docs/documentTreeService';
+import type { BuildSnapshot } from '../workflow/buildExecutor';
 import { getWebviewHtml } from './webviewHtml';
 
 type TabId = 'task' | 'architecture' | 'requirement' | 'commit' | 'deploy';
@@ -18,6 +19,7 @@ const TABS: { id: TabId; label: string }[] = [
 export class TabWorkspaceProvider {
   private panel: vscode.WebviewPanel | undefined;
   private activeTab: TabId = 'requirement';
+  private buildSnapshot: BuildSnapshot | undefined;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -27,7 +29,7 @@ export class TabWorkspaceProvider {
   async show(column: vscode.ViewColumn): Promise<void> {
     if (this.panel) {
       this.panel.reveal(column);
-      this.refresh();
+      await this.refresh();
       return;
     }
 
@@ -38,31 +40,50 @@ export class TabWorkspaceProvider {
       { enableScripts: true, retainContextWhenHidden: true }
     );
 
-    this.panel.webview.html = this.render();
+    await this.refresh();
+
     this.panel.onDidDispose(() => {
       this.panel = undefined;
     });
 
-    this.panel.webview.onDidReceiveMessage((msg: { type: string; tab?: TabId; path?: string }) => {
-      if (msg.type === 'selectTab' && msg.tab) {
-        this.activeTab = msg.tab;
-        this.panel!.webview.html = this.render();
+    this.panel.webview.onDidReceiveMessage(
+      (msg: { type: string; tab?: TabId; path?: string; action?: string }) => {
+        if (msg.type === 'selectTab' && msg.tab) {
+          this.activeTab = msg.tab;
+          void this.refresh();
+        }
+        if (msg.type === 'openDoc' && msg.path) {
+          void this.app.docs.openInEditor(msg.path);
+        }
+        if (msg.type === 'buildAction' && msg.action) {
+          void this.handleBuildAction(msg.action);
+        }
       }
-      if (msg.type === 'openDoc' && msg.path) {
-        void this.app.docs.openInEditor(msg.path);
-      }
-    });
+    );
   }
 
   focusTab(tab: TabId): void {
     this.activeTab = tab;
-    this.refresh();
+    void this.refresh();
   }
 
-  refresh(): void {
+  async refresh(): Promise<void> {
+    this.buildSnapshot = await this.app.buildExecutor.getSnapshotAsync();
     if (this.panel) {
       this.panel.webview.html = this.render();
     }
+  }
+
+  private async handleBuildAction(action: string): Promise<void> {
+    if (action === 'start') {
+      await this.app.stages.transition('Build');
+      await this.app.buildExecutor.start();
+    } else if (action === 'stop') {
+      this.app.buildExecutor.stop();
+    } else if (action === 'create') {
+      await this.app.buildExecutor.createBuild();
+    }
+    await this.refresh();
   }
 
   private render(): string {
@@ -75,7 +96,7 @@ export class TabWorkspaceProvider {
       <div role="tablist" aria-label="Copilot Plus workspace tabs">${tabsHtml}</div>
       <div role="tabpanel" aria-labelledby="tab-${this.activeTab}" class="section" style="margin-top:8px">
         <h3>${TABS.find((t) => t.id === this.activeTab)?.label} Panel</h3>
-        <div id="panel-content">${panelContent(this.activeTab, this.app)}</div>
+        <div id="panel-content">${panelContent(this.activeTab, this.app, this.buildSnapshot)}</div>
       </div>
       <script nonce="">
         const vscode = acquireVsCodeApi();
@@ -85,15 +106,18 @@ export class TabWorkspaceProvider {
         function openDoc(path) {
           vscode.postMessage({ type: 'openDoc', path });
         }
+        function buildAction(action) {
+          vscode.postMessage({ type: 'buildAction', action });
+        }
       </script>`;
     return getWebviewHtml(this.panel!.webview, this.extensionUri, body);
   }
 }
 
-function panelContent(tab: TabId, app: AppServices): string {
+function panelContent(tab: TabId, app: AppServices, build?: BuildSnapshot): string {
   switch (tab) {
     case 'task':
-      return '<p>Task DAG and build execution — Phase 5 (WF).</p>';
+      return renderTaskPanel(build);
     case 'architecture':
       return renderDocTreePanel(app, 'Architecture documents');
     case 'requirement':
@@ -103,6 +127,42 @@ function panelContent(tab: TabId, app: AppServices): string {
     case 'deploy':
       return '<p>Deployment status — Phase 9 (DEP).</p>';
   }
+}
+
+function renderTaskPanel(build?: BuildSnapshot): string {
+  const status = build?.status ?? 'Idle';
+  const buildId = build?.buildId ?? '(none)';
+  const message = escapeHtml(build?.lastMessage ?? '');
+  const running = build?.runningTaskIds?.length
+    ? `<p>Running: ${build.runningTaskIds.map(escapeHtml).join(', ')}</p>`
+    : '';
+
+  const tasks = build?.dag?.tasks ?? [];
+  const taskRows = tasks
+    .map(
+      (t) =>
+        `<tr><td>${escapeHtml(t.id)}</td><td>${escapeHtml(t.title)}</td><td>${escapeHtml(t.agent)}</td><td>${escapeHtml(t.status)}</td></tr>`
+    )
+    .join('');
+
+  const table =
+    tasks.length > 0
+      ? `<table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr><th align="left">Id</th><th align="left">Title</th><th align="left">Agent</th><th align="left">Status</th></tr></thead>
+      <tbody>${taskRows}</tbody></table>`
+      : '<p>No tasks yet. Create a build or run Task_Planner during Design.</p>';
+
+  return `
+    <p><strong>Build</strong> ${escapeHtml(buildId)} · <strong>Status</strong> ${escapeHtml(status)}</p>
+    <p style="opacity:0.85;font-size:12px">${message}</p>
+    ${running}
+    <div style="display:flex;gap:8px;margin:8px 0">
+      <button type="button" onclick="buildAction('create')">New Build</button>
+      <button type="button" onclick="buildAction('start')">Start Build</button>
+      <button type="button" onclick="buildAction('stop')">Stop</button>
+    </div>
+    ${table}
+  `;
 }
 
 function renderDocTreePanel(app: AppServices, heading: string): string {
@@ -122,10 +182,10 @@ function renderDocTree(nodes: DocTreeNode[], depth = 0): string {
     .map((node) => {
       const indent = depth * 12;
       const childHtml = renderDocTree(node.children, depth + 1);
-      const path = escapeHtml(node.path);
+      const docPath = escapeHtml(node.path);
       const title = escapeHtml(node.title);
       return `<div style="margin-left:${indent}px;margin-bottom:4px">
-        <button type="button" onclick="openDoc('${path}')">${title}</button>
+        <button type="button" onclick="openDoc('${docPath}')">${title}</button>
         <span style="opacity:0.7;font-size:11px"> (${node.level})</span>
       </div>${childHtml}`;
     })

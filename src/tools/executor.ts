@@ -69,6 +69,18 @@ export class ToolExecutor {
         return this.applyPatch(args);
       case 'write_file':
         return this.writeFile(args);
+      case 'delete_file':
+        return this.deleteFile(args);
+      case 'code_search':
+        return this.codeSearch(args);
+      case 'task_create':
+        return this.taskCreate(args);
+      case 'task_update':
+        return this.taskUpdate(args);
+      case 'todowrite':
+        return this.todoWrite(args);
+      case 'todoread':
+        return this.todoRead(args);
       case 'question':
         return this.question(args);
       default:
@@ -245,6 +257,125 @@ export class ToolExecutor {
     }
     const ok = await this.app.diffReview.reviewFullFile(uri, original, result.content, 'apply_patch');
     return ok ? { ok: true, data: { path: rel } } : { ok: false, reason: 'user_rejected' };
+  }
+
+  private async deleteFile(args: Record<string, unknown>): Promise<ToolResult> {
+    const rel = String(args.path ?? '');
+    const sens = this.checkSensitive(rel);
+    if (sens) {
+      return sens;
+    }
+    const root = this.workspaceRoot();
+    if (!root) {
+      return { ok: false, reason: 'no_workspace' };
+    }
+    const uri = vscode.Uri.file(path.join(root, rel));
+    const original = await fs.readFile(uri.fsPath, 'utf8').catch(() => '');
+    const ok = await this.app.diffReview.reviewFullFile(uri, original, '', 'delete_file');
+    if (!ok) {
+      return { ok: false, reason: 'user_rejected' };
+    }
+    await fs.unlink(uri.fsPath).catch(() => undefined);
+    return { ok: true, data: { path: rel, deleted: true } };
+  }
+
+  private async codeSearch(args: Record<string, unknown>): Promise<ToolResult> {
+    const query = String(args.query ?? args.pattern ?? '');
+    const grepResult = await this.grep({ pattern: query, max_results: args.max_results ?? 50 });
+    if (!grepResult.ok) {
+      return grepResult;
+    }
+    const docMatches = this.app.docs
+      .getEntries()
+      .filter((e) => e.valid && (e.frontmatter.title + e.body).toLowerCase().includes(query.toLowerCase()))
+      .slice(0, 20)
+      .map((e) => ({ path: e.relativePath, title: e.frontmatter.title }));
+    return {
+      ok: true,
+      data: {
+        code: grepResult.data,
+        docs: docMatches,
+      },
+    };
+  }
+
+  private async taskCreate(args: Record<string, unknown>): Promise<ToolResult> {
+    const buildId = this.app.buildExecutor.getActiveBuildId();
+    if (!buildId) {
+      return { ok: false, reason: 'no_active_build' };
+    }
+    const task = args.task as Record<string, unknown> | undefined;
+    if (!task?.id || !task.title || !task.agent || !task.scope_doc) {
+      return { ok: false, reason: 'invalid_task_payload' };
+    }
+    try {
+      const dag = await this.app.buildExecutor.addTask({
+        id: String(task.id),
+        title: String(task.title),
+        description: String(task.description ?? ''),
+        agent: String(task.agent),
+        inputs: (task.inputs as Record<string, unknown>) ?? {},
+        depends_on: (task.depends_on as string[]) ?? [],
+        status: 'Pending',
+        scope_doc: String(task.scope_doc),
+      });
+      return { ok: true, data: { tasks: dag.tasks.length } };
+    } catch (e) {
+      return { ok: false, reason: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  private async taskUpdate(args: Record<string, unknown>): Promise<ToolResult> {
+    const taskId = String(args.id ?? args.task_id ?? '');
+    if (!taskId) {
+      return { ok: false, reason: 'missing_task_id' };
+    }
+    const patch = (args.patch as Record<string, unknown>) ?? args;
+    try {
+      const dag = await this.app.buildExecutor.updateTask(
+        taskId,
+        patch as Partial<import('../workflow/taskDag').TaskNode>
+      );
+      return { ok: true, data: { task: dag.tasks.find((t) => t.id === taskId) } };
+    } catch (e) {
+      return { ok: false, reason: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  private todoPath(buildId: string, taskId: string): string | undefined {
+    const root = this.workspaceRoot();
+    if (!root) {
+      return undefined;
+    }
+    return path.join(root, '.copilotPlus', 'builds', buildId, taskId, 'todos.json');
+  }
+
+  private async todoWrite(args: Record<string, unknown>): Promise<ToolResult> {
+    const buildId = this.app.buildExecutor.getActiveBuildId() ?? String(args.build_id ?? '');
+    const taskId = String(args.task_id ?? 'default');
+    const file = this.todoPath(buildId, taskId);
+    if (!file) {
+      return { ok: false, reason: 'no_workspace' };
+    }
+    const todos = args.todos ?? args.items ?? [];
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, JSON.stringify(todos, null, 2), 'utf8');
+    return { ok: true, data: { path: file } };
+  }
+
+  private async todoRead(args: Record<string, unknown>): Promise<ToolResult> {
+    const buildId = this.app.buildExecutor.getActiveBuildId() ?? String(args.build_id ?? '');
+    const taskId = String(args.task_id ?? 'default');
+    const file = this.todoPath(buildId, taskId);
+    if (!file) {
+      return { ok: false, reason: 'no_workspace' };
+    }
+    try {
+      const raw = await fs.readFile(file, 'utf8');
+      return { ok: true, data: JSON.parse(raw) };
+    } catch {
+      return { ok: true, data: [] };
+    }
   }
 
   private async question(args: Record<string, unknown>): Promise<ToolResult> {

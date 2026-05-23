@@ -103,3 +103,13 @@ export function computeReadyTasks(tasks: TaskNode[]): TaskNode[] {
       t.depends_on.every((d) => done.has(d))
   );
 }
+
+export function markReadyStatuses(tasks: TaskNode[]): TaskNode[] {
+  const done = new Set(tasks.filter((t) => t.status === 'Done').map((t) => t.id));
+  return tasks.map((task) => {
+    if (task.status === 'Pending' && task.depends_on.every((dep) => done.has(dep))) {
+      return { ...task, status: 'Ready' as TaskStatus };
+    }
+    return task;
+  });
+}

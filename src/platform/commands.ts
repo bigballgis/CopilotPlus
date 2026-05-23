@@ -54,6 +54,17 @@ export function registerCommands(
     }
   });
 
+  register('copilotPlus.build.start', async () => {
+    await app.stages.transition('Build');
+    await app.buildExecutor.start();
+    await getTabWorkspace()?.refresh();
+  });
+
+  register('copilotPlus.build.stop', () => {
+    app.buildExecutor.stop();
+    void getTabWorkspace()?.refresh();
+  });
+
   return disposables;
 }
 

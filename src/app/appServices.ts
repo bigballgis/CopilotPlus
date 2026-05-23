@@ -11,6 +11,7 @@ import { DecisionCenter } from '../interaction/decisionCenter';
 import { StageManager } from '../workflow/stageManager';
 import { DocumentTreeService } from '../docs/documentTreeService';
 import { ToolExecutor } from '../tools/executor';
+import { BuildExecutor } from '../workflow/buildExecutor';
 
 export class AppServices {
   readonly platform: PlatformServices;
@@ -23,6 +24,7 @@ export class AppServices {
   readonly proposedContent: ProposedContentProvider;
   readonly docs: DocumentTreeService;
   readonly tools: ToolExecutor;
+  readonly buildExecutor: BuildExecutor;
 
   private constructor(
     private readonly context: vscode.ExtensionContext,
@@ -39,6 +41,7 @@ export class AppServices {
     this.stages = new StageManager();
     this.docs = new DocumentTreeService(this.diffReview);
     this.tools = new ToolExecutor(this, this.docs);
+    this.buildExecutor = new BuildExecutor(this, context.extensionUri);
   }
 
   async initialize(): Promise<void> {

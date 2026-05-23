@@ -12,6 +12,7 @@ import {
   DecisionStatusBar,
   registerDecisionCenterCommands,
 } from '../interaction/decisionStatusBar';
+import { getTabWorkspace } from '../interaction/workspace';
 
 export interface ActivationResult {
   app: AppServices | undefined;
@@ -46,6 +47,11 @@ export async function activatePlatform(context: vscode.ExtensionContext): Promis
     registrations.push(...registerDecisionCenterCommands(app.decisions));
     const statusBar = new DecisionStatusBar(app.decisions);
     context.subscriptions.push({ dispose: () => statusBar.dispose() });
+    context.subscriptions.push(
+      app.buildExecutor.onChange(() => {
+        getTabWorkspace()?.refresh();
+      })
+    );
 
     for (const d of registrations) {
       context.subscriptions.push(d);

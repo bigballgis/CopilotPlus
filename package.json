@@ -52,6 +52,16 @@
         "command": "copilotPlus.openDecisionCenter",
         "title": "Copilot Plus: Open Decision Center",
         "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.build.start",
+        "title": "Copilot Plus: Start Build",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.build.stop",
+        "title": "Copilot Plus: Stop Build",
+        "category": "Copilot Plus"
       }
     ],
     "keybindings": [
