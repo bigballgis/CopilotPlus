@@ -1,0 +1,6 @@
+{"ts":"2026-05-23T10:00:00.000Z","type":"notice","message":"Copilot Plus CI mode — headless automation subset (R-DEP-7)\nDisabled: Diff Review UI, Decision Center UI, Design-stage agents (Architect, Designer, Task_Planner, etc.)\nEnabled agents: Coder, Tester, Committer, Deployer\nFile writes: auto-applied with Checkpoint; review diffs in .copilotPlus/ci-runs/<run-id>/transcript.jsonl"}
+{"ts":"2026-05-23T10:00:01.000Z","type":"status","message":"Starting CI build example-build","buildId":"example-build"}
+{"ts":"2026-05-23T10:00:02.000Z","type":"task.started","buildId":"example-build","taskId":"task-1","agent":"Coder"}
+{"ts":"2026-05-23T10:00:10.000Z","type":"file.diff","path":"src/example.ts","operation":"write_file","before":"","after":"export const ok = true;\n"}
+{"ts":"2026-05-23T10:00:20.000Z","type":"task.completed","buildId":"example-build","taskId":"task-1","ok":true}
+{"ts":"2026-05-23T10:00:21.000Z","type":"run.completed","ok":true,"runId":"ci-20260523100000"}

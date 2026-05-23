@@ -1,0 +1,6 @@
+{
+  "buildId": "example-build",
+  "configPath": "fixtures/ci/example-build-config.json",
+  "runId": "ci-20260523100000",
+  "exitCode": 0
+}

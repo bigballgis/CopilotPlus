@@ -1,0 +1,14 @@
+{
+  "tasks": [
+    {
+      "id": "task-1",
+      "title": "Implement feature",
+      "description": "Apply the pre-planned change set from the IDE Task DAG.",
+      "agent": "Coder",
+      "inputs": {},
+      "depends_on": [],
+      "status": "Ready",
+      "scope_doc": ".copilotPlus/docs/system/feature.md"
+    }
+  ]
+}

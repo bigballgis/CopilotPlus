@@ -327,7 +327,8 @@
     "compile": "node esbuild.js",
     "watch": "node esbuild.js --watch",
     "test:unit": "tsc -p tsconfig.test.json && node --test dist-test/test/unit/**/*.test.js",
-    "test": "npm run test:unit",
+    "verify:ci-headless": "tsc -p tsconfig.test.json && node scripts/verify-ci-headless.mjs",
+    "test": "npm run test:unit && npm run verify:ci-headless",
     "lint": "eslint src --ext ts",
     "package": "vsce package"
   },
