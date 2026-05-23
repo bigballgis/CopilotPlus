@@ -27,6 +27,7 @@ import { ComposerService } from '../editing/composer';
 import { ConversationSummarizer } from '../context/conversationSummarizer';
 import { McpService } from '../extensibility/mcpService';
 import { KnowledgeService } from '../knowledge/knowledgeService';
+import { SpeculativeService } from '../platform/speculativeService';
 import type { CiSession } from '../cli/ciSession';
 
 export class AppServices {
@@ -56,6 +57,7 @@ export class AppServices {
   readonly responseCacheInvalidation: ResponseCacheInvalidation;
   readonly mcp: McpService;
   readonly knowledge: KnowledgeService;
+  readonly speculative: SpeculativeService;
   private ciSession: CiSession | undefined;
 
   private constructor(
@@ -96,6 +98,7 @@ export class AppServices {
     this.composer = new ComposerService(this);
     this.mcp = new McpService(context);
     this.knowledge = new KnowledgeService(context, platform);
+    this.speculative = new SpeculativeService(platform);
   }
 
   async initialize(): Promise<void> {

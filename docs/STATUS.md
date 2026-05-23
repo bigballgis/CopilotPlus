@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：Polish / 后续增强  
-> **下一项**：Speculative decoding 并发预取（或 Composer cache 接入）
+> **下一项**：Primary Agent 委派循环完善（或 webview-ui 完整 React 化）
 
 ---
 
@@ -12,8 +12,8 @@
 |-------|------|------|------|
 | 0–9 | 全部 Phase | — | ✅ 完成 |
 
-**单元测试**：108/108 通过  
-**需求覆盖率（粗算）**：~95%
+**单元测试**：113/113 通过  
+**需求覆盖率（粗算）**：~96%
 
 ---
 
@@ -21,6 +21,8 @@
 
 | 模块 | 交付 | 需求 |
 |------|------|------|
+| Speculative 预取 | Tab Completion 并发预取 + Scope RAG 预热 + 30s 持有 | R-PLAT-11 |
+| Composer cache | Response Cache 接入 Composer 多文件编辑 | R-EDIT-8 |
 | NES 委派 + 缓存 | delegate 模式状态 + Copilot 检测 + 外部编辑 cache 失效 | R-EDIT-7 / R-EDIT-8 |
 | LSP symbol 失效 | 变更符号 references 文件批量 invalidation | R-EDIT-8.5(a) |
 | MCP legacy SSE | GET 长连接 + endpoint 事件 + POST 消息 + pending 匹配 | R-EXT-2 |
@@ -46,6 +48,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | Speculative 预取（Tab + Scope 预热）+ Composer Response Cache |
 | 2026-05-23 | NES 委派模式 + LSP symbol Response Cache 失效 |
 | 2026-05-23 | MCP legacy GET/SSE 长连接（endpoint 事件 + POST 消息） |
 | 2026-05-23 | Response Cache 失效接线（文件编辑 + Skills auto_attach） |

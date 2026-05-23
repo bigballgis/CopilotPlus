@@ -114,17 +114,17 @@ export class InlineEditService {
       return;
     }
 
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const timeoutSource = new vscode.CancellationTokenSource();
       tokenSource.token.onCancellationRequested(() => timeoutSource.cancel());
-      const timer = setTimeout(() => timeoutSource.cancel(), PLAT5.inlineEditTimeoutMs);
+      timer = setTimeout(() => timeoutSource.cancel(), PLAT5.inlineEditTimeoutMs);
 
       const result = await streamChat(
         model,
         [vscode.LanguageModelChatMessage.User(userMessage)],
         timeoutSource.token
       );
-      clearTimeout(timer);
 
       let proposed = result.text.trim();
       if (proposed.startsWith('```')) {
@@ -151,12 +151,15 @@ export class InlineEditService {
         responseText: proposed,
       });
     } catch (err) {
-      clearTimeout(timer);
       const retry = t('errors.retry');
       const msg = err instanceof Error ? err.message : String(err);
       const choice = await vscode.window.showErrorMessage(t('inlineEdit.failed', msg), retry);
       if (choice === retry) {
         await this.invoke();
+      }
+    } finally {
+      if (timer) {
+        clearTimeout(timer);
       }
     }
   }

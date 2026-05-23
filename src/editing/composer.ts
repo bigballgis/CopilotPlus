@@ -11,6 +11,7 @@ import {
   validateComposerInput,
   type ComposerValidationError,
 } from './composerParse';
+import { sha256Text } from './responseCacheKey';
 import type { ComposerBatchItem } from './diffReview';
 
 export interface ComposerSnapshot {
@@ -126,37 +127,66 @@ export class ComposerService {
 
     const fileContents = await this.readAttachedFiles(attached);
     const userMessage = buildComposerPrompt(goal, fileContents);
+    const fileFingerprint = sha256Text(
+      JSON.stringify(fileContents.map((f) => ({ path: f.path, content: f.content })))
+    );
+    const cacheRange = new vscode.Range(0, 0, 0, 0);
 
     let responseText = '';
-    try {
-      const timeout = mergeTimeout(token, COMPOSER_TIMEOUT_MS);
-      const result = await streamChat(
-        model,
-        [
-          vscode.LanguageModelChatMessage.Assistant(
-            'You produce coordinated multi-file edits. Respond with a single JSON object: {"edits":[{"path":"relative/path","content":"full new file content"}]}. Include every attached file you change; use exact relative paths from the prompt.'
-          ),
-          vscode.LanguageModelChatMessage.User(userMessage),
-        ],
-        timeout.token,
-        (chunk) => {
-          responseText += chunk;
-          if (responseText.length % 400 < chunk.length) {
-            this.appendMessage('Streaming Composer response…');
-            this.notify();
+    const cached = await this.app.responseCache.lookup({
+      surface: 'composer',
+      promptText: goal.trim(),
+      modelId: model.id,
+      fileRelative: attached.slice().sort().join(','),
+      fileContent: fileFingerprint,
+      selectionRange: cacheRange,
+      originalSelectedText: '',
+    });
+    if (cached?.text) {
+      responseText = cached.text;
+      this.appendMessage(`Composer cache ${cached.badge.toLowerCase()}.`);
+      this.notify();
+    } else {
+      try {
+        const timeout = mergeTimeout(token, COMPOSER_TIMEOUT_MS);
+        const result = await streamChat(
+          model,
+          [
+            vscode.LanguageModelChatMessage.Assistant(
+              'You produce coordinated multi-file edits. Respond with a single JSON object: {"edits":[{"path":"relative/path","content":"full new file content"}]}. Include every attached file you change; use exact relative paths from the prompt.'
+            ),
+            vscode.LanguageModelChatMessage.User(userMessage),
+          ],
+          timeout.token,
+          (chunk) => {
+            responseText += chunk;
+            if (responseText.length % 400 < chunk.length) {
+              this.appendMessage('Streaming Composer response…');
+              this.notify();
+            }
           }
+        );
+        if (result.cancelled || timeout.token.isCancellationRequested) {
+          this.snapshot.status = 'idle';
+          this.appendMessage('Composer request cancelled.');
+          this.notify();
+          return false;
         }
-      );
-      if (result.cancelled || timeout.token.isCancellationRequested) {
-        this.snapshot.status = 'idle';
-        this.appendMessage('Composer request cancelled.');
-        this.notify();
+        responseText = result.text;
+        void this.app.responseCache.store({
+          surface: 'composer',
+          promptText: goal.trim(),
+          modelId: model.id,
+          fileRelative: attached.slice().sort().join(','),
+          fileContent: fileFingerprint,
+          selectionRange: cacheRange,
+          originalSelectedText: '',
+          responseText,
+        });
+      } catch (err) {
+        this.setError(err instanceof Error ? err.message : String(err));
         return false;
       }
-      responseText = result.text;
-    } catch (err) {
-      this.setError(err instanceof Error ? err.message : String(err));
-      return false;
     }
 
     const parsed = parseComposerResponse(responseText);

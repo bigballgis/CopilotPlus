@@ -5,6 +5,7 @@ import type { AppServices } from '../app/appServices';
 import { streamChat } from '../platform/chatClient';
 import { PLAT5 } from '../platform/performanceBudget';
 import { t } from '../platform/l10n';
+import { buildTabCompletionSpecKey } from './tabCompletionSpecKey';
 
 const MAX_DISPLAY = 500;
 
@@ -48,6 +49,28 @@ export function registerTabCompletion(context: vscode.ExtensionContext, app: App
       const relPath = vscode.workspace.asRelativePath(document.uri);
       const cursorRange = new vscode.Range(position, position);
       const promptText = [context, '|'].join('\n');
+      const specKeyRaw = buildTabCompletionSpecKey(
+        relPath,
+        document.languageId,
+        position.line,
+        position.character,
+        linePrefix,
+        context
+      );
+      const specKey = app.speculative.makeKey('tabCompletion', { key: specKeyRaw });
+      app.speculative.discardExcept(specKey);
+      const speculative = app.speculative.tryConsume<string>(specKey);
+      if (speculative?.hit && speculative.value) {
+        const insertText = speculative.value.trim().slice(0, MAX_DISPLAY);
+        if (insertText) {
+          const item = new vscode.InlineCompletionItem(
+            insertText,
+            new vscode.Range(position, position)
+          );
+          item.detail = 'Speculative';
+          return [item];
+        }
+      }
 
       const cached = await app.responseCache.lookup({
         surface: 'tabCompletion',

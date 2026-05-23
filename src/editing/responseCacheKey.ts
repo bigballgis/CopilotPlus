@@ -2,7 +2,7 @@
 
 import * as crypto from 'crypto';
 
-export type ResponseSurface = 'inlineEdit' | 'tabCompletion' | 'nes';
+export type ResponseSurface = 'inlineEdit' | 'tabCompletion' | 'nes' | 'composer';
 
 export interface ResponseCacheKeyInput {
   surface: ResponseSurface;

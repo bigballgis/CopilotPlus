@@ -13,6 +13,8 @@ import {
   resolveMentionContext,
   type MentionAttachment,
 } from '../context/mentions';
+import { buildScopePreheatKey, runScopePreheat } from '../context/scopePreheat';
+import { estimateTokens } from '../platform/chatClient';
 import { t } from '../platform/l10n';
 
 export class ConversationPaneProvider {
@@ -21,6 +23,7 @@ export class ConversationPaneProvider {
   private cancelSource: vscode.CancellationTokenSource | undefined;
   private sessionTokens = 0;
   private pendingAttachments: MentionAttachment[] = [];
+  private preheatTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -29,6 +32,11 @@ export class ConversationPaneProvider {
   ) {
     this.sessions = new SessionStore(context);
     void this.sessions.load();
+    app.speculative.setTokenSink((tokens) => {
+      this.sessionTokens += tokens;
+      this.sessions.addTokens(tokens);
+      this.postMessage({ type: 'tokenUpdate', tokens: this.sessionTokens });
+    });
   }
 
   async show(column: vscode.ViewColumn): Promise<void> {
@@ -73,7 +81,33 @@ export class ConversationPaneProvider {
         this.pendingAttachments = [];
         this.reload();
       }
+      if (msg.type === 'inputDraft' && typeof msg.text === 'string') {
+        this.scheduleScopePreheat(msg.text, msg.attachments ?? []);
+      }
     });
+  }
+
+  private scheduleScopePreheat(text: string, attachments: MentionAttachment[]): void {
+    if (this.app.stages.getStage() !== 'Design') {
+      return;
+    }
+    if (this.preheatTimer) {
+      clearTimeout(this.preheatTimer);
+    }
+    this.preheatTimer = setTimeout(() => {
+      const trimmed = text.trim();
+      if (!trimmed) {
+        return;
+      }
+      const merged = mergeAttachments(parseMentionTokens(trimmed), attachments);
+      const rawKey = buildScopePreheatKey(trimmed, merged);
+      const key = this.app.speculative.makeKey('scopePreheat', { key: rawKey });
+      this.app.speculative.discardExcept(key);
+      const estimatedTokens = estimateTokens(trimmed) + 128;
+      this.app.speculative.schedule('scopePreheat', key, estimatedTokens, async () =>
+        runScopePreheat(this.app, trimmed, merged)
+      );
+    }, 300);
   }
 
   syncStage(_stage: WorkflowStage): void {
@@ -119,6 +153,16 @@ export class ConversationPaneProvider {
       attachments.length > 0
         ? await resolveMentionContext(attachments, this.app, this.app.platform.getSettings().sessionTokenCap)
         : undefined;
+
+    const preheatRawKey = buildScopePreheatKey(userText, attachments);
+    const preheatKey = this.app.speculative.makeKey('scopePreheat', { key: preheatRawKey });
+    const preheated = this.app.speculative.tryConsume<string>(preheatKey);
+    if (preheated?.hit && preheated.value.trim()) {
+      contextPrefix = contextPrefix
+        ? `${preheated.value}\n\n${contextPrefix}`
+        : preheated.value;
+    }
+
     if (skillPrefix) {
       contextPrefix = contextPrefix ? `${skillPrefix}\n\n${contextPrefix}` : skillPrefix;
     }
@@ -254,6 +298,10 @@ export class ConversationPaneProvider {
           });
         }
 
+        input.addEventListener('input', () => {
+          if (input.disabled) return;
+          vscode.postMessage({ type: 'inputDraft', text: input.value, attachments: attachments.slice() });
+        });
         document.getElementById('send').onclick = () => {
           if (streaming) return;
           const text = input.value.trim();
@@ -311,6 +359,9 @@ export class ConversationPaneProvider {
             if (typeof m.tokens === 'number') tokenCount.textContent = String(m.tokens);
             streamNode = null;
             announce(L.streamComplete);
+          }
+          if (m.type === 'tokenUpdate' && typeof m.tokens === 'number') {
+            tokenCount.textContent = String(m.tokens);
           }
           if (m.type === 'streamCancelled') {
             streaming = false;

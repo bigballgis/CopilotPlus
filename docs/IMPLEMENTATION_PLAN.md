@@ -155,6 +155,8 @@
 | 9.2 | R-KNOW-1–6 记忆与反思 | ✅ 含 propose_memory 工具 |
 | 9.3 | R-PLAT-5 性能预算 | ✅ 常量 + 超时配置 |
 | 9.4 | 全量 i18n + a11y 审计 | ✅ |
+| 9.5 | R-PLAT-11 Speculative 预取 | ✅ Tab + Scope 预热 |
+| 9.6 | R-EDIT-8 Composer cache | ✅ |
 
 ---
 
