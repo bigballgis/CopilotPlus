@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import type { AppServices } from '../app/appServices';
 import { streamChat } from '../platform/chatClient';
 import { PLAT5 } from '../platform/performanceBudget';
+import { t } from '../platform/l10n';
 
 const MAX_DISPLAY = 500;
 
@@ -19,9 +20,7 @@ export function registerTabCompletion(context: vscode.ExtensionContext, app: App
 
       if (!copilotNoticeShown && vscode.extensions.getExtension('GitHub.copilot')) {
         copilotNoticeShown = true;
-        void vscode.window.showInformationMessage(
-          'Copilot Plus Tab Completion (own) is active. Consider disabling duplicate inline suggestions in editor settings if ghost text overlaps.'
-        );
+        void vscode.window.showInformationMessage(t('tabCompletion.notice'));
       }
 
       const langs = settings.tabCompletionLanguages;

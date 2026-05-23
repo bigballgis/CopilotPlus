@@ -5,16 +5,26 @@ import type { AppServices } from '../app/appServices';
 import type { DocTreeNode } from '../docs/documentTreeService';
 import type { BuildSnapshot } from '../workflow/buildExecutor';
 import { getWebviewHtml } from './webviewHtml';
+import { t } from '../platform/l10n';
 
 type TabId = 'task' | 'architecture' | 'requirement' | 'commit' | 'deploy';
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'task', label: 'Task' },
-  { id: 'architecture', label: 'Architecture' },
-  { id: 'requirement', label: 'Requirement' },
-  { id: 'commit', label: 'Commit' },
-  { id: 'deploy', label: 'Deploy' },
-];
+const TAB_IDS: TabId[] = ['task', 'architecture', 'requirement', 'commit', 'deploy'];
+
+function tabLabel(id: TabId): string {
+  switch (id) {
+    case 'task':
+      return t('tabWorkspace.tabTask');
+    case 'architecture':
+      return t('tabWorkspace.tabArchitecture');
+    case 'requirement':
+      return t('tabWorkspace.tabRequirement');
+    case 'commit':
+      return t('tabWorkspace.tabCommit');
+    case 'deploy':
+      return t('tabWorkspace.tabDeploy');
+  }
+}
 
 export class TabWorkspaceProvider {
   private panel: vscode.WebviewPanel | undefined;
@@ -38,7 +48,7 @@ export class TabWorkspaceProvider {
 
     this.panel = vscode.window.createWebviewPanel(
       'copilotPlus.tabWorkspace',
-      'Copilot Plus — Workspace',
+      t('tabWorkspace.panelTitle'),
       column,
       { enableScripts: true, retainContextWhenHidden: true }
     );
@@ -129,18 +139,20 @@ export class TabWorkspaceProvider {
   }
 
   private render(): string {
-    const tabsHtml = TABS.map(
-      (t, i) =>
-        `<button role="tab" type="button" aria-selected="${t.id === this.activeTab}" aria-label="${t.label} panel" id="tab-${t.id}" onclick="selectTab('${t.id}')">${i + 1}. ${t.label}</button>`
+    const tabsHtml = TAB_IDS.map(
+      (id, i) => {
+        const label = tabLabel(id);
+        return `<button role="tab" type="button" aria-selected="${id === this.activeTab}" aria-label="${escapeHtml(t('tabWorkspace.tabAria', label))}" id="tab-${id}" onclick="selectTab('${id}')">${i + 1}. ${escapeHtml(label)}</button>`;
+      }
     ).join('');
 
     const body = `
-      <div role="tablist" aria-label="Copilot Plus workspace tabs">${tabsHtml}</div>
+      <div role="tablist" aria-label="${escapeHtml(t('tabWorkspace.tablistAria'))}">${tabsHtml}</div>
       <div role="tabpanel" aria-labelledby="tab-${this.activeTab}" class="section" style="margin-top:8px">
-        <h3>${TABS.find((t) => t.id === this.activeTab)?.label} Panel</h3>
+        <h3>${escapeHtml(tabLabel(this.activeTab))} Panel</h3>
         <div id="panel-content">${panelContent(this.activeTab, this.app, this.buildSnapshot)}</div>
-      </div>
-      <script nonce="">
+      </div>`;
+    const initScript = `
         const vscode = acquireVsCodeApi();
         function selectTab(tab) {
           vscode.postMessage({ type: 'selectTab', tab });
@@ -167,8 +179,10 @@ export class TabWorkspaceProvider {
             .filter((p) => p && p !== path);
           composerAction('setFiles', null, items);
         }
-      </script>`;
-    return getWebviewHtml(this.panel!.webview, this.extensionUri, body);
+      `;
+    return getWebviewHtml(this.panel!.webview, body, initScript, {
+      title: t('tabWorkspace.panelTitle'),
+    });
   }
 }
 
@@ -177,11 +191,11 @@ function panelContent(tab: TabId, app: AppServices, build?: BuildSnapshot): stri
     case 'task':
       return renderTaskPanel(build, app);
     case 'architecture':
-      return renderDocTreePanel(app, 'Architecture documents');
+      return renderDocTreePanel(app, t('tabWorkspace.architectureDocs'));
     case 'requirement':
-      return renderDocTreePanel(app, 'Requirement documents');
+      return renderDocTreePanel(app, t('tabWorkspace.requirementDocs'));
     case 'commit':
-      return '<p>AI commit history — Phase 6 (EDIT) + Phase 5.</p>';
+      return `<p>${escapeHtml(t('tabWorkspace.commitPlaceholder'))}</p>`;
     case 'deploy':
       return renderDeployPanel(app);
   }
@@ -196,14 +210,14 @@ function renderDeployPanel(app: AppServices): string {
     .map((r) => {
       const rollback =
         r.status === 'Completed' || r.status === 'Failed'
-          ? `<button type="button" onclick="buildAction('deployRollback','${escapeHtml(r.id)}')">Rollback</button>`
+          ? `<button type="button" aria-label="${escapeHtml(t('tabWorkspace.rollback'))} ${escapeHtml(r.id)}" onclick="buildAction('deployRollback','${escapeHtml(r.id)}')">${escapeHtml(t('tabWorkspace.rollback'))}</button>`
           : '';
       return `<tr><td>${escapeHtml(r.id)}</td><td>${escapeHtml(r.target)}</td><td>${escapeHtml(r.status)}</td><td>${rollback}</td></tr>`;
     })
     .join('');
   const applyBtn =
     cfg.mode === 'Auto'
-      ? `<button type="button" onclick="buildAction('deployApply')">Apply Manifest</button>`
+      ? `<button type="button" aria-label="${escapeHtml(t('tabWorkspace.applyManifest'))}" onclick="buildAction('deployApply')">${escapeHtml(t('tabWorkspace.applyManifest'))}</button>`
       : '';
   const logBlock = runs[0]?.logPath
     ? `<pre style="font-size:11px;max-height:120px;overflow:auto;background:var(--vscode-textBlockQuote-background);padding:6px">${escapeHtml(
@@ -212,18 +226,18 @@ function renderDeployPanel(app: AppServices): string {
     : '';
   return `
     <p><strong>Target</strong> ${escapeHtml(cfg.target)} · <strong>Mode</strong> ${escapeHtml(cfg.mode)}</p>
-    <p style="font-size:12px;opacity:0.85">${status || 'Ready.'}</p>
+    <p style="font-size:12px;opacity:0.85">${status || escapeHtml(t('tabWorkspace.ready'))}</p>
     <div style="display:flex;gap:8px;margin:8px 0">
-      <button type="button" onclick="buildAction('deployGenerate')">Generate Manifest</button>
+      <button type="button" aria-label="${escapeHtml(t('tabWorkspace.generateManifest'))}" onclick="buildAction('deployGenerate')">${escapeHtml(t('tabWorkspace.generateManifest'))}</button>
       ${applyBtn}
     </div>
-    <p style="font-size:12px;opacity:0.85">Manual commands:</p>
+    <p style="font-size:12px;opacity:0.85">${escapeHtml(t('tabWorkspace.manualCommands'))}</p>
     <ul>${commands.map((c) => `<li><code>${escapeHtml(c)}</code></li>`).join('')}</ul>
     ${logBlock}
     ${
       runs.length
         ? `<table style="width:100%;font-size:12px"><thead><tr><th>Run</th><th>Target</th><th>Status</th><th>Actions</th></tr></thead><tbody>${runRows}</tbody></table>`
-        : '<p>No deploy runs yet.</p>'
+        : `<p>${escapeHtml(t('tabWorkspace.noDeployRuns'))}</p>`
     }
   `;
 }
@@ -243,12 +257,12 @@ function renderTaskPanel(build?: BuildSnapshot, app?: AppServices): string {
 
   const tasks = build?.dag?.tasks ?? [];
   const taskRows = tasks
-    .map((t) => {
+    .map((task) => {
       const rollback =
-        t.status === 'Done' || t.status === 'Failed'
-          ? `<button type="button" onclick="buildAction('rollback','${escapeHtml(t.id)}')">Rollback</button>`
+        task.status === 'Done' || task.status === 'Failed'
+          ? `<button type="button" aria-label="${escapeHtml(t('tabWorkspace.rollback'))} ${escapeHtml(task.id)}" onclick="buildAction('rollback','${escapeHtml(task.id)}')">${escapeHtml(t('tabWorkspace.rollback'))}</button>`
           : '';
-      return `<tr><td>${escapeHtml(t.id)}</td><td>${escapeHtml(t.title)}</td><td>${escapeHtml(t.agent)}</td><td>${escapeHtml(t.status)}</td><td>${rollback}</td></tr>`;
+      return `<tr><td>${escapeHtml(task.id)}</td><td>${escapeHtml(task.title)}</td><td>${escapeHtml(task.agent)}</td><td>${escapeHtml(task.status)}</td><td>${rollback}</td></tr>`;
     })
     .join('');
 
@@ -257,16 +271,16 @@ function renderTaskPanel(build?: BuildSnapshot, app?: AppServices): string {
       ? `<table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead><tr><th align="left">Id</th><th align="left">Title</th><th align="left">Agent</th><th align="left">Status</th><th align="left">Actions</th></tr></thead>
       <tbody>${taskRows}</tbody></table>`
-      : '<p>No tasks yet. Create a build or run Task_Planner during Design.</p>';
+      : `<p>${escapeHtml(t('tabWorkspace.noTasks'))}</p>`;
 
   return `
     <p><strong>Build</strong> ${escapeHtml(buildId)} · <strong>Status</strong> ${escapeHtml(status)}</p>
     <p style="opacity:0.85;font-size:12px">${message}</p>
     ${running}
     <div style="display:flex;gap:8px;margin:8px 0">
-      <button type="button" onclick="buildAction('create')">New Build</button>
-      <button type="button" onclick="buildAction('start')">Start Build</button>
-      <button type="button" onclick="buildAction('stop')">Stop</button>
+      <button type="button" aria-label="${escapeHtml(t('tabWorkspace.newBuild'))}" onclick="buildAction('create')">${escapeHtml(t('tabWorkspace.newBuild'))}</button>
+      <button type="button" aria-label="${escapeHtml(t('tabWorkspace.startBuild'))}" onclick="buildAction('start')">${escapeHtml(t('tabWorkspace.startBuild'))}</button>
+      <button type="button" aria-label="${escapeHtml(t('tabWorkspace.stop'))}" onclick="buildAction('stop')">${escapeHtml(t('tabWorkspace.stop'))}</button>
     </div>
     ${composerSection}
     ${table}
@@ -280,7 +294,7 @@ function renderComposerSection(
   const files = composer.attachedFiles
     .map(
       (f) =>
-        `<li data-path="${escapeHtml(f)}">${escapeHtml(f)} <button type="button" onclick="removeComposerFile('${escapeHtml(f)}')">×</button></li>`
+        `<li data-path="${escapeHtml(f)}">${escapeHtml(f)} <button type="button" aria-label="${escapeHtml(t('conversation.removeAttachment'))}" onclick="removeComposerFile('${escapeHtml(f)}')">×</button></li>`
     )
     .join('');
   const log = composer.messages
@@ -292,22 +306,22 @@ function renderComposerSection(
     : '';
   const cancelBtn =
     composer.status === 'generating'
-      ? `<button type="button" onclick="composerAction('cancel')">Cancel</button>`
+      ? `<button type="button" aria-label="${escapeHtml(t('tabWorkspace.cancelComposer'))}" onclick="composerAction('cancel')">${escapeHtml(t('tabWorkspace.cancelComposer'))}</button>`
       : '';
   return `
     <div style="border:1px solid var(--vscode-panel-border);padding:8px;margin:8px 0;border-radius:4px">
-      <h4 style="margin:0 0 8px">Composer (multi-file)</h4>
+      <h4 style="margin:0 0 8px">${escapeHtml(t('tabWorkspace.composerTitle'))}</h4>
       <p style="font-size:12px;opacity:0.85">Status: ${escapeHtml(composer.status)}</p>
       ${err}
-      <textarea id="composer-goal" rows="3" style="width:100%;box-sizing:border-box" oninput="syncComposerGoal(this)" placeholder="Describe coordinated edits (Build stage)…">${goal}</textarea>
+      <textarea id="composer-goal" rows="3" style="width:100%;box-sizing:border-box" aria-label="${escapeHtml(t('tabWorkspace.composerTitle'))}" oninput="syncComposerGoal(this)" placeholder="${escapeHtml(t('tabWorkspace.composerGoalPlaceholder'))}">${goal}</textarea>
       <div style="display:flex;gap:8px;margin:8px 0;flex-wrap:wrap">
-        <button type="button" onclick="composerAction('pickFiles')">Attach files</button>
-        <button type="button" onclick="composerAction('attachOpen')">Attach open editors</button>
-        <button type="button" onclick="composerAction('submit')">Run Composer</button>
+        <button type="button" aria-label="${escapeHtml(t('tabWorkspace.attachFiles'))}" onclick="composerAction('pickFiles')">${escapeHtml(t('tabWorkspace.attachFiles'))}</button>
+        <button type="button" aria-label="${escapeHtml(t('tabWorkspace.attachOpen'))}" onclick="composerAction('attachOpen')">${escapeHtml(t('tabWorkspace.attachOpen'))}</button>
+        <button type="button" aria-label="${escapeHtml(t('tabWorkspace.runComposer'))}" onclick="composerAction('submit')">${escapeHtml(t('tabWorkspace.runComposer'))}</button>
         ${cancelBtn}
       </div>
-      <ul id="composer-files" style="font-size:12px;padding-left:18px">${files || '<li style="opacity:0.7">No files attached</li>'}</ul>
-      <pre style="font-size:11px;max-height:100px;overflow:auto;background:var(--vscode-textBlockQuote-background);padding:6px">${log || 'Composer transcript…'}</pre>
+      <ul id="composer-files" style="font-size:12px;padding-left:18px">${files || `<li style="opacity:0.7">${escapeHtml(t('tabWorkspace.noFilesAttached'))}</li>`}</ul>
+      <pre style="font-size:11px;max-height:100px;overflow:auto;background:var(--vscode-textBlockQuote-background);padding:6px">${log || escapeHtml(t('tabWorkspace.composerTranscript'))}</pre>
     </div>
   `;
 }
@@ -315,7 +329,7 @@ function renderComposerSection(
 function renderDocTreePanel(app: AppServices, heading: string): string {
   const tree = app.docs.getTree();
   if (!tree.length) {
-    return `<p>${heading}: no documents yet. Open a workspace folder to initialize the default system doc.</p>`;
+    return `<p>${escapeHtml(t('tabWorkspace.noDocTree', heading))}</p>`;
   }
   return `<p>${heading} (${countNodes(tree)} docs)</p>${renderDocTree(tree, 0, app)}`;
 }
@@ -334,7 +348,7 @@ function renderDocTree(nodes: DocTreeNode[], depth = 0, app?: AppServices): stri
       const entry = app?.docs.getByPath(node.path);
       const badge = entry && app ? reviewBadgeHtml(app.docs.reviewBadge(entry)) : '';
       return `<div style="margin-left:${indent}px;margin-bottom:4px">
-        <button type="button" onclick="openDoc('${docPath}')">${title}</button>${badge}
+        <button type="button" aria-label="${title}" onclick="openDoc('${docPath}')">${title}</button>${badge}
         <span style="opacity:0.7;font-size:11px"> (${node.level})</span>
       </div>${childHtml}`;
     })

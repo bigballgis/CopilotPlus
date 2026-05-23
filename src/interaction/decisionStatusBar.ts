@@ -2,6 +2,7 @@
 
 import * as vscode from 'vscode';
 import type { DecisionCenter } from './decisionCenter';
+import { t } from '../platform/l10n';
 
 export class DecisionStatusBar {
   private readonly item: vscode.StatusBarItem;
@@ -29,7 +30,7 @@ export function registerDecisionCenterCommands(decisions: DecisionCenter): vscod
     vscode.commands.registerCommand('copilotPlus.openDecisionCenter', async () => {
       const pending = decisions.getPending();
       if (pending.length === 0) {
-        void vscode.window.showInformationMessage('No pending decisions.');
+        void vscode.window.showInformationMessage(t('decision.noPending'));
         return;
       }
       const pick = await vscode.window.showQuickPick(

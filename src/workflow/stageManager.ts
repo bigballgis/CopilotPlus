@@ -7,6 +7,7 @@ import type { WorkflowStage } from '../shared/types';
 import { COPILOT_PLUS_HOME } from '../shared/constants';
 import { canTransition as isAllowedTransition } from './stageTransitions';
 import type { HookService } from '../extensibility/hookService';
+import { t } from '../platform/l10n';
 
 const ALLOWED: WorkflowStage[] = ['Design', 'Build', 'Deploy'];
 
@@ -39,7 +40,7 @@ export class StageManager {
 
   async transition(to: WorkflowStage): Promise<boolean> {
     if (!this.canTransition(this.stage, to)) {
-      void vscode.window.showWarningMessage(`Transition ${this.stage} → ${to} is not allowed.`);
+      void vscode.window.showWarningMessage(t('stage.transitionBlocked', this.stage, to));
       return false;
     }
     const from = this.stage;

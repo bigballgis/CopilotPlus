@@ -6,6 +6,7 @@ import type { AppServices } from '../app/appServices';
 import { getWebviewHtml } from './webviewHtml';
 import { resolveContextTier } from '../context/contextTier';
 import { PLAT5 } from '../platform/performanceBudget';
+import { t } from '../platform/l10n';
 
 export class ControlConsoleProvider implements vscode.WebviewViewProvider {
   static readonly viewId = 'copilotPlus.controlConsole';
@@ -35,10 +36,12 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
       if (msg.type === 'downloadEmbeddingAddon') {
         void this.app.localEmbeddingAddon.download().then((result) => {
           if (result.ok) {
-            void vscode.window.showInformationMessage('Embedding add-on installed.');
+            void vscode.window.showInformationMessage(t('controlConsole.addonInstalled'));
             void this.app.indexManager.rebuildAll();
           } else {
-            void vscode.window.showErrorMessage(`Add-on download failed: ${result.reason ?? 'unknown'}`);
+            void vscode.window.showErrorMessage(
+              t('controlConsole.addonDownloadFailed', result.reason ?? t('common.unknown'))
+            );
           }
           webviewView.webview.html = this.render(webviewView.webview);
         });
@@ -79,19 +82,19 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
 
   private async createSkill(webviewView: vscode.WebviewView): Promise<void> {
     const id = await vscode.window.showInputBox({
-      prompt: 'Skill id (lowercase, 3-64 chars)',
-      validateInput: (v) => (/^[a-z][a-z0-9-]{2,63}$/.test(v) ? undefined : 'Invalid id'),
+      prompt: t('controlConsole.skillIdPrompt'),
+      validateInput: (v) => (/^[a-z][a-z0-9-]{2,63}$/.test(v) ? undefined : t('skills.invalidId')),
     });
     if (!id) {
       return;
     }
-    const title = await vscode.window.showInputBox({ prompt: 'Skill title' });
+    const title = await vscode.window.showInputBox({ prompt: t('controlConsole.skillTitlePrompt') });
     if (!title) {
       return;
     }
     const scopePick = await vscode.window.showQuickPick(
       ['workspace', 'module:example', 'feature:example', 'component:example'],
-      { placeHolder: 'Skill scope' }
+      { placeHolder: t('controlConsole.skillScopePlaceHolder') }
     );
     if (!scopePick) {
       return;
@@ -117,14 +120,14 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
     const tier = resolveContextTier(model?.maxInputTokens, s.tierOverride);
     const addonUrl = s.embeddingAddonUrl;
     const downloadBtn = addonUrl
-      ? `<button type="button" data-action="downloadEmbeddingAddon">Download embedding add-on</button>`
-      : `<p style="font-size:11px;opacity:0.85">Mode B requires enterprise mirror URL in settings.</p>`;
+      ? `<button type="button" aria-label="${escapeHtml(t('controlConsole.downloadAddon'))}" data-action="downloadEmbeddingAddon">${escapeHtml(t('controlConsole.downloadAddon'))}</button>`
+      : `<p style="font-size:11px;opacity:0.85">${escapeHtml(t('controlConsole.mirrorUrlHint'))}</p>`;
     const skills = this.app.skills.getSkills();
     const skillRows = skills
       .map(
         (s) =>
           `<div style="font-size:12px;margin-bottom:4px">
-            <button type="button" data-action="toggleSkill" data-id="${escapeHtml(s.id)}">${s.enabled ? 'Disable' : 'Enable'}</button>
+            <button type="button" aria-label="${escapeHtml(s.enabled ? t('controlConsole.disableSkill') : t('controlConsole.enableSkill'))} ${escapeHtml(s.title)}" data-action="toggleSkill" data-id="${escapeHtml(s.id)}">${s.enabled ? escapeHtml(t('controlConsole.disableSkill')) : escapeHtml(t('controlConsole.enableSkill'))}</button>
             ${escapeHtml(s.title)} <span style="opacity:0.7">(${escapeHtml(s.scope)})</span>
             ${s.valid ? '' : `<span style="color:var(--vscode-errorForeground)"> invalid</span>`}
           </div>`
@@ -135,7 +138,7 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
       .map((s) => {
         const reconnect =
           s.state === 'error' || s.state === 'disconnected'
-            ? `<button type="button" data-action="reconnectMcp" data-id="${escapeHtml(s.config.id)}">Reconnect</button>`
+            ? `<button type="button" aria-label="${escapeHtml(t('controlConsole.reconnectMcp'))} ${escapeHtml(s.config.id)}" data-action="reconnectMcp" data-id="${escapeHtml(s.config.id)}">${escapeHtml(t('controlConsole.reconnectMcp'))}</button>`
             : '';
         return `<div style="font-size:12px;margin-bottom:6px">
           <strong>${escapeHtml(s.config.id)}</strong> · ${escapeHtml(s.state)} · ${s.tools.length} tool(s)
@@ -150,8 +153,8 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
       .map(
         (m) =>
           `<div style="font-size:12px;margin-bottom:4px">
-            <button type="button" data-action="pinMemory" data-id="${escapeHtml(m.id)}">${m.pinned ? 'Unpin' : 'Pin'}</button>
-            <button type="button" data-action="removeMemory" data-id="${escapeHtml(m.id)}">Remove</button>
+            <button type="button" aria-label="${escapeHtml(m.pinned ? t('controlConsole.unpinMemory') : t('controlConsole.pinMemory'))}" data-action="pinMemory" data-id="${escapeHtml(m.id)}">${m.pinned ? escapeHtml(t('controlConsole.unpinMemory')) : escapeHtml(t('controlConsole.pinMemory'))}</button>
+            <button type="button" aria-label="${escapeHtml(t('controlConsole.removeMemory'))}" data-action="removeMemory" data-id="${escapeHtml(m.id)}">${escapeHtml(t('controlConsole.removeMemory'))}</button>
             ${escapeHtml(m.text.slice(0, 120))}
             <span style="opacity:0.7"> (${escapeHtml(m.scope)})</span>
           </div>`
@@ -162,21 +165,21 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
       .map((line) => `<div style="font-size:11px;margin-bottom:4px;opacity:0.9">${escapeHtml(line)}</div>`)
       .join('');
     const body = `
-      <div class="section" role="region" aria-label="Status">
-        <h3>Status</h3>
+      <div class="section" role="region" aria-label="${escapeHtml(t('controlConsole.aria.status'))}">
+        <h3>${escapeHtml(t('controlConsole.aria.status'))}</h3>
         <div>Model: ${escapeHtml(model?.name ?? 'none')}</div>
         <div>Context tier: ${tier}</div>
-        <div>Offline: ${this.app.platform.network.isOffline() ? 'yes' : 'no'}</div>
+        <div>Offline: ${this.app.platform.network.isOffline() ? t('common.yes') : t('common.no')}</div>
         <div style="font-size:11px;opacity:0.85">Perf budget: activation ≤ ${PLAT5.activationTargetMs}ms</div>
-        <button type="button" data-action="initAgents">Initialize AGENTS.md</button>
+        <button type="button" aria-label="${escapeHtml(t('controlConsole.initAgents'))}" data-action="initAgents">${escapeHtml(t('controlConsole.initAgents'))}</button>
       </div>
-      <div class="section" role="region" aria-label="Workflow Stage">
-        <h3>Workflow Stage</h3>
+      <div class="section" role="region" aria-label="${escapeHtml(t('controlConsole.aria.workflow'))}">
+        <h3>${escapeHtml(t('controlConsole.aria.workflow'))}</h3>
         <div id="stage">${escapeHtml(stage)}</div>
         <div>Autonomy: ${escapeHtml(s.autonomyLevel)}</div>
       </div>
-      <div class="section" role="region" aria-label="Indexing">
-        <h3>Indexing</h3>
+      <div class="section" role="region" aria-label="${escapeHtml(t('controlConsole.aria.indexing'))}">
+        <h3>${escapeHtml(t('controlConsole.aria.indexing'))}</h3>
         <div>Mode: ${escapeHtml(idx.embeddingMode)}${idx.embeddingModelId ? ` (${escapeHtml(idx.embeddingModelId)})` : ''}</div>
         ${idx.embeddingAddonVersion ? `<div>Add-on: ${escapeHtml(idx.embeddingAddonVersion)}</div>` : ''}
         ${idx.embeddedChunks != null ? `<div>Embedded chunks: ${idx.embeddedChunks}</div>` : ''}
@@ -184,31 +187,31 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
         <div>Code: ${escapeHtml(idx.code)} (${idx.codeChunks} chunks)</div>
         <div>Docs: ${escapeHtml(idx.docs)} (${idx.docChunks} chunks)</div>
         ${idx.lastError ? `<div style="color:var(--vscode-errorForeground)">${escapeHtml(idx.lastError)}</div>` : ''}
-        <button type="button" data-action="rebuildIndex">Rebuild index</button>
+        <button type="button" aria-label="${escapeHtml(t('controlConsole.rebuildIndex'))}" data-action="rebuildIndex">${escapeHtml(t('controlConsole.rebuildIndex'))}</button>
         ${downloadBtn}
       </div>
-      <div class="section" role="region" aria-label="Skills">
-        <h3>Skills</h3>
-        ${skills.length ? skillRows : '<p style="font-size:12px;opacity:0.85">No skills yet.</p>'}
-        <button type="button" data-action="createSkill">Create Skill</button>
+      <div class="section" role="region" aria-label="${escapeHtml(t('controlConsole.aria.skills'))}">
+        <h3>${escapeHtml(t('controlConsole.aria.skills'))}</h3>
+        ${skills.length ? skillRows : `<p style="font-size:12px;opacity:0.85">${escapeHtml(t('controlConsole.noSkills'))}</p>`}
+        <button type="button" aria-label="${escapeHtml(t('controlConsole.createSkill'))}" data-action="createSkill">${escapeHtml(t('controlConsole.createSkill'))}</button>
       </div>
-      <div class="section" role="region" aria-label="MCP Servers">
-        <h3>MCP Servers</h3>
-        ${mcpServers.length ? mcpRows : '<p style="font-size:12px;opacity:0.85">Configure .copilotPlus/mcp.json</p>'}
+      <div class="section" role="region" aria-label="${escapeHtml(t('controlConsole.aria.mcp'))}">
+        <h3>${escapeHtml(t('controlConsole.aria.mcp'))}</h3>
+        ${mcpServers.length ? mcpRows : `<p style="font-size:12px;opacity:0.85">${escapeHtml(t('controlConsole.configureMcp'))}</p>`}
       </div>
-      <div class="section" role="region" aria-label="Memory">
-        <h3>Memory</h3>
-        ${memoryEntries.length ? memoryRows : '<p style="font-size:12px;opacity:0.85">No session memory entries.</p>'}
-        <h4 style="margin:8px 0 4px">Reflection summary</h4>
-        ${reflectionRows || '<p style="font-size:11px;opacity:0.85">No recent build reflections.</p>'}
+      <div class="section" role="region" aria-label="${escapeHtml(t('controlConsole.aria.memory'))}">
+        <h3>${escapeHtml(t('controlConsole.aria.memory'))}</h3>
+        ${memoryEntries.length ? memoryRows : `<p style="font-size:12px;opacity:0.85">${escapeHtml(t('controlConsole.noMemory'))}</p>`}
+        <h4 style="margin:8px 0 4px">${escapeHtml(t('controlConsole.reflectionSummary'))}</h4>
+        ${reflectionRows || `<p style="font-size:11px;opacity:0.85">${escapeHtml(t('controlConsole.noReflection'))}</p>`}
       </div>
-      <div class="section" role="region" aria-label="Models">
-        <h3>Models</h3>
-        <button type="button" aria-label="Select model" data-action="selectModel">Select model</button>
+      <div class="section" role="region" aria-label="${escapeHtml(t('controlConsole.aria.models'))}">
+        <h3>${escapeHtml(t('controlConsole.aria.models'))}</h3>
+        <button type="button" aria-label="${escapeHtml(t('controlConsole.selectModelAria'))}" data-action="selectModel">${escapeHtml(t('controlConsole.selectModel'))}</button>
       </div>
-      <div class="section" role="region" aria-label="Settings">
-        <h3>Settings</h3>
-        <button type="button" aria-label="Open settings" data-action="openSettings">Open Settings</button>
+      <div class="section" role="region" aria-label="${escapeHtml(t('controlConsole.aria.settings'))}">
+        <h3>${escapeHtml(t('controlConsole.aria.settings'))}</h3>
+        <button type="button" aria-label="${escapeHtml(t('controlConsole.openSettingsAria'))}" data-action="openSettings">${escapeHtml(t('controlConsole.openSettings'))}</button>
       </div>`;
     const initScript = `
       const vscode = acquireVsCodeApi();
@@ -224,7 +227,7 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
         });
       });
     `;
-    return getWebviewHtml(webview, body, initScript);
+    return getWebviewHtml(webview, body, initScript, { title: t('webview.title') });
   }
 }
 

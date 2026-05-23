@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import type { AppServices } from '../app/appServices';
 import { openWorkspace, getTabWorkspace } from '../interaction/workspace';
 import { runCli, getCliOutputChannel } from '../cli/cliRunner';
+import { t } from './l10n';
 
 export function registerCommands(
   context: vscode.ExtensionContext,
@@ -23,7 +24,7 @@ export function registerCommands(
     const threshold = app.platform.getSettings().staleThresholdDays;
     const stale = app.docs.findStaleDocuments(threshold);
     if (!stale.length) {
-      void vscode.window.showInformationMessage(`No stale documents (>${threshold} days without reference).`);
+      void vscode.window.showInformationMessage(t('docs.noStale', threshold));
       return;
     }
     const pick = await vscode.window.showQuickPick(
@@ -32,18 +33,18 @@ export function registerCommands(
         description: e.relativePath,
         path: e.relativePath,
       })),
-      { placeHolder: `Select stale document to archive (${stale.length} found)` }
+      { placeHolder: t('docs.stalePlaceHolder', stale.length) }
     );
     if (!pick) {
       return;
     }
-    const action = await vscode.window.showQuickPick(['Archive', 'Cancel'], {
-      placeHolder: 'Compaction action (Architect plan — Phase 3 skeleton)',
+    const action = await vscode.window.showQuickPick([t('docs.compactArchive'), t('common.cancel')], {
+      placeHolder: t('docs.compactActionPlaceHolder'),
     });
-    if (action === 'Archive') {
+    if (action === t('docs.compactArchive')) {
       const archived = await app.docs.archiveDocument(pick.path);
       await app.indexManager.rebuildAll();
-      void vscode.window.showInformationMessage(`Archived to ${archived}`);
+      void vscode.window.showInformationMessage(t('docs.archivedTo', archived));
       await getTabWorkspace()?.refresh();
     }
   });
@@ -59,7 +60,7 @@ export function registerCommands(
     if (!rel) {
       const pick = await vscode.window.showQuickPick(
         app.docs.getEntries().filter((e) => e.valid).map((e) => ({ label: e.frontmatter.title, path: e.relativePath })),
-        { placeHolder: 'Select document to mark reviewed' }
+        { placeHolder: t('docs.markReviewedPlaceHolder') }
       );
       if (!pick) {
         return;
@@ -69,26 +70,26 @@ export function registerCommands(
     const reviewer = (await vscode.authentication.getSession('github', [], { createIfNone: false }))?.account
       ?.label ?? 'user';
     await app.docs.markReviewed(rel, reviewer);
-    void vscode.window.showInformationMessage(`Marked reviewed: ${rel}`);
+    void vscode.window.showInformationMessage(t('docs.markedReviewed', rel));
     await getTabWorkspace()?.refresh();
   });
   register('copilotPlus.docs.assignOrphan', () =>
-    vscode.window.showInformationMessage('Assign orphan — Phase 3 (DOCS).')
+    vscode.window.showInformationMessage(t('docs.assignOrphan'))
   );
 
   register('copilotPlus.skills.create', async () => {
     const id = await vscode.window.showInputBox({
-      prompt: 'Skill id',
-      validateInput: (v) => (/^[a-z][a-z0-9-]{2,63}$/.test(v) ? undefined : 'Invalid id'),
+      prompt: t('skills.idPrompt'),
+      validateInput: (v) => (/^[a-z][a-z0-9-]{2,63}$/.test(v) ? undefined : t('skills.invalidId')),
     });
     if (!id) {
       return;
     }
-    const title = (await vscode.window.showInputBox({ prompt: 'Title' })) ?? id;
-    const scope = (await vscode.window.showInputBox({ prompt: 'Scope', value: 'workspace' })) ?? 'workspace';
+    const title = (await vscode.window.showInputBox({ prompt: t('skills.titlePrompt') })) ?? id;
+    const scope = (await vscode.window.showInputBox({ prompt: t('skills.scopePrompt'), value: 'workspace' })) ?? 'workspace';
     try {
       const rel = await app.skills.createSkill(id, title, scope);
-      void vscode.window.showInformationMessage(`Skill created: ${rel}`);
+      void vscode.window.showInformationMessage(t('skills.created', rel));
     } catch (e) {
       void vscode.window.showErrorMessage(e instanceof Error ? e.message : String(e));
     }
@@ -131,7 +132,7 @@ export function registerCommands(
 
   register('copilotPlus.index.rebuild', async () => {
     await app.indexManager.rebuildAll();
-    void vscode.window.showInformationMessage('Copilot Plus index rebuilt.');
+    void vscode.window.showInformationMessage(t('index.rebuilt'));
   });
 
   register('copilotPlus.deploy.generateManifest', async () => {
@@ -139,10 +140,10 @@ export function registerCommands(
       const result = await app.deployOrchestrator.generateManifest();
       if (result.ok) {
         void vscode.window.showInformationMessage(
-          `Deploy manifest ready (${result.files?.length ?? 0} files).`
+          t('deploy.manifestReady', result.files?.length ?? 0)
         );
       } else {
-        void vscode.window.showErrorMessage(result.reason ?? 'Deploy generation failed.');
+        void vscode.window.showErrorMessage(result.reason ?? t('deploy.generationFailed'));
       }
       await getTabWorkspace()?.refresh();
     } catch (e) {
@@ -154,11 +155,11 @@ export function registerCommands(
     try {
       const result = await app.deployOrchestrator.applyManifest();
       if (result.ok) {
-        void vscode.window.showInformationMessage(`Deploy completed (${result.runId}).`);
+        void vscode.window.showInformationMessage(t('deploy.completed', result.runId));
       } else if (result.reason === 'manual_mode') {
-        void vscode.window.showWarningMessage('Deploy mode is Manual — set copilotPlus.deploy.mode to Auto.');
+        void vscode.window.showWarningMessage(t('deploy.manualMode'));
       } else {
-        void vscode.window.showErrorMessage(`Deploy failed: ${result.reason ?? 'unknown'}`);
+        void vscode.window.showErrorMessage(t('deploy.failed', result.reason ?? t('common.unknown')));
       }
       await getTabWorkspace()?.refresh();
     } catch (e) {
@@ -182,17 +183,12 @@ export function registerCommands(
     void getTabWorkspace()?.refresh();
   });
 
-  register('copilotPlus.composer.cancel', () => {
-    app.composer.cancel();
-    void getTabWorkspace()?.refresh();
-  });
-
   register('copilotPlus.cli', async (...args: unknown[]) => {
     let cliArgs = args.filter((a): a is string => typeof a === 'string');
     if (cliArgs.length === 0) {
       const line = await vscode.window.showInputBox({
-        prompt: 'Copilot Plus CLI',
-        placeHolder: 'build run .copilotPlus/ci/example-build-config.json',
+        prompt: t('cli.prompt'),
+        placeHolder: t('cli.placeHolder'),
       });
       if (!line?.trim()) {
         return 1;
@@ -205,7 +201,7 @@ export function registerCommands(
     const code = await runCli(app, cliArgs, context.extensionUri);
     channel.appendLine(`Exit code: ${code}`);
     if (code !== 0) {
-      void vscode.window.showErrorMessage(`Copilot Plus CLI failed (exit ${code}). See output channel.`);
+      void vscode.window.showErrorMessage(t('cli.failed', code));
     }
     return code;
   });
@@ -216,9 +212,9 @@ export function registerCommands(
     }
     const result = await app.deployOrchestrator.rollbackRun(runId);
     if (result.ok) {
-      void vscode.window.showInformationMessage(`Rollback completed (${runId}).`);
+      void vscode.window.showInformationMessage(t('deploy.rollbackCompleted', runId));
     } else {
-      void vscode.window.showErrorMessage(`Rollback failed: ${result.reason ?? 'unknown'}`);
+      void vscode.window.showErrorMessage(t('deploy.rollbackFailed', result.reason ?? t('common.unknown')));
     }
     await getTabWorkspace()?.refresh();
   });

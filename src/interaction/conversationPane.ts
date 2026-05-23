@@ -13,6 +13,7 @@ import {
   resolveMentionContext,
   type MentionAttachment,
 } from '../context/mentions';
+import { t } from '../platform/l10n';
 
 export class ConversationPaneProvider {
   private panel: vscode.WebviewPanel | undefined;
@@ -38,7 +39,7 @@ export class ConversationPaneProvider {
 
     this.panel = vscode.window.createWebviewPanel(
       'copilotPlus.conversation',
-      'Copilot Plus — Design',
+      t('conversation.panelTitle'),
       column,
       { enableScripts: true, retainContextWhenHidden: true }
     );
@@ -91,7 +92,7 @@ export class ConversationPaneProvider {
       return;
     }
     if (this.app.platform.network.isOffline()) {
-      void vscode.window.showWarningMessage('Offline — cannot send model request.');
+      void vscode.window.showWarningMessage(t('conversation.offline'));
       return;
     }
 
@@ -141,8 +142,8 @@ export class ConversationPaneProvider {
       );
 
       if (prepared.blocked) {
-        this.postMessage({ type: 'error', message: prepared.blockReason ?? 'Request blocked' });
-        void vscode.window.showWarningMessage(prepared.blockReason ?? 'Request blocked');
+        this.postMessage({ type: 'error', message: prepared.blockReason ?? t('conversation.requestBlocked') });
+        void vscode.window.showWarningMessage(prepared.blockReason ?? t('conversation.requestBlocked'));
         return;
       }
 
@@ -182,25 +183,49 @@ export class ConversationPaneProvider {
     const readOnly = stage !== 'Design';
     const model = this.app.platform.models.getSelected()?.name ?? 'none';
     const banner = readOnly
-      ? `<div class="banner" role="status">Direct input unavailable in ${stage} stage.</div>`
+      ? `<div class="banner" role="status">${escapeHtml(t('conversation.readOnlyBanner', stage))}</div>`
       : '';
+    const inputLabel = escapeHtml(t('conversation.inputLabel'));
+    const inputPlaceholder = escapeHtml(t('conversation.inputPlaceholder'));
+    const sendLabel = escapeHtml(t('conversation.send'));
+    const sendAria = escapeHtml(t('conversation.sendAria'));
+    const attachLabel = escapeHtml(t('conversation.attach'));
+    const attachAria = escapeHtml(t('conversation.attachAria'));
+    const cancelLabel = escapeHtml(t('conversation.cancel'));
+    const cancelAria = escapeHtml(t('conversation.cancelAria'));
+    const newSessionLabel = escapeHtml(t('conversation.newSession'));
+    const newSessionAria = escapeHtml(t('conversation.newSessionAria'));
+    const removeAttachmentAria = escapeHtml(t('conversation.removeAttachment'));
+    const L = {
+      userPrefix: t('conversation.userPrefix'),
+      assistantPrefix: t('conversation.assistantPrefix'),
+      summarized: t('conversation.summarized', '{path}'),
+      streamComplete: t('conversation.streamComplete'),
+      streamCancelled: t('conversation.streamCancelled'),
+      streamError: t('conversation.streamError', '{msg}'),
+      removeAttachment: t('conversation.removeAttachment'),
+    };
+    const l10nJson = JSON.stringify(L);
     const body = `
       ${banner}
       <header style="margin-bottom:8px;font-size:12px;opacity:0.85">
         Model: ${escapeHtml(model)} · Stage: ${stage} · Tokens: <span id="token-count">${this.sessionTokens}</span>
       </header>
+      <div id="a11y-status" class="sr-only" role="status" aria-live="assertive" aria-atomic="true"></div>
       <div id="messages" role="log" aria-live="polite" aria-relevant="additions" style="min-height:200px;border:1px solid var(--vscode-panel-border);padding:8px;margin-bottom:8px"></div>
       <div id="attachments" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;min-height:4px"></div>
-      <textarea id="input" rows="3" style="width:100%;box-sizing:border-box" ${readOnly ? 'disabled aria-disabled="true"' : 'aria-label="Design conversation input"'} placeholder="Describe your design… (@ to attach context)"></textarea>
+      <textarea id="input" rows="3" style="width:100%;box-sizing:border-box" ${readOnly ? 'disabled aria-disabled="true"' : `aria-label="${inputLabel}"`} placeholder="${inputPlaceholder}"></textarea>
       <div style="display:flex;gap:8px;margin-top:8px">
-        <button id="send" type="button" ${readOnly ? 'disabled' : ''} aria-label="Send message">Send</button>
-        <button id="attach" type="button" ${readOnly ? 'disabled' : ''} aria-label="Attach context">@ Attach</button>
-        <button id="cancel" type="button" ${readOnly ? 'disabled' : ''} aria-label="Cancel request">Cancel</button>
-        <button id="newSession" type="button" aria-label="New session">New Session</button>
-      </div>
-      <script nonce="">
+        <button id="send" type="button" ${readOnly ? 'disabled' : ''} aria-label="${sendAria}">${sendLabel}</button>
+        <button id="attach" type="button" ${readOnly ? 'disabled' : ''} aria-label="${attachAria}">${attachLabel}</button>
+        <button id="cancel" type="button" ${readOnly ? 'disabled' : ''} aria-label="${cancelAria}">${cancelLabel}</button>
+        <button id="newSession" type="button" aria-label="${newSessionAria}">${newSessionLabel}</button>
+      </div>`;
+    const initScript = `
         const vscode = acquireVsCodeApi();
+        const L = ${l10nJson};
         const messages = document.getElementById('messages');
+        const a11yStatus = document.getElementById('a11y-status');
         const input = document.getElementById('input');
         const attachmentsEl = document.getElementById('attachments');
         const tokenCount = document.getElementById('token-count');
@@ -209,11 +234,17 @@ export class ConversationPaneProvider {
         let streamBuf = '';
         let attachments = [];
 
+        function announce(msg) {
+          if (!a11yStatus) return;
+          a11yStatus.textContent = '';
+          requestAnimationFrame(() => { a11yStatus.textContent = msg; });
+        }
+
         function renderAttachments() {
           attachmentsEl.innerHTML = attachments.map((a, i) =>
             '<span style="font-size:11px;padding:2px 6px;border:1px solid var(--vscode-panel-border);border-radius:4px">@' +
             a.kind + ':' + a.label +
-            ' <button type="button" data-i="' + i + '" aria-label="Remove attachment">×</button></span>'
+            ' <button type="button" data-i="' + i + '" aria-label="' + L.removeAttachment + '">×</button></span>'
           ).join('');
           attachmentsEl.querySelectorAll('button[data-i]').forEach(btn => {
             btn.onclick = () => {
@@ -228,7 +259,7 @@ export class ConversationPaneProvider {
           const text = input.value.trim();
           if (!text && !attachments.length) return;
           const div = document.createElement('div');
-          div.textContent = 'You: ' + text + (attachments.length ? ' [' + attachments.map(a => '@' + a.kind + ':' + a.label).join(', ') + ']' : '');
+          div.textContent = L.userPrefix + text + (attachments.length ? ' [' + attachments.map(a => '@' + a.kind + ':' + a.label).join(', ') + ']' : '');
           messages.appendChild(div);
           const sentAttachments = attachments.slice();
           input.value = '';
@@ -263,30 +294,39 @@ export class ConversationPaneProvider {
             const div = document.createElement('div');
             div.style.fontSize = '11px';
             div.style.opacity = '0.8';
-            div.textContent = '⟳ Summarized — ' + m.path;
+            div.textContent = '⟳ ' + L.summarized.replace('{path}', m.path);
             messages.appendChild(div);
           }
           if (m.type === 'streamStart') {
             streamNode = document.createElement('div');
-            streamNode.textContent = 'Assistant: ';
+            streamNode.textContent = L.assistantPrefix;
             messages.appendChild(streamNode);
           }
           if (m.type === 'streamChunk' && streamNode) {
             streamBuf += m.text;
-            streamNode.textContent = 'Assistant: ' + streamBuf;
+            streamNode.textContent = L.assistantPrefix + streamBuf;
           }
           if (m.type === 'streamEnd') {
             streaming = false;
             if (typeof m.tokens === 'number') tokenCount.textContent = String(m.tokens);
             streamNode = null;
+            announce(L.streamComplete);
           }
-          if (m.type === 'streamCancelled' || m.type === 'error') {
+          if (m.type === 'streamCancelled') {
             streaming = false;
             streamNode = null;
+            announce(L.streamCancelled);
+          }
+          if (m.type === 'error') {
+            streaming = false;
+            streamNode = null;
+            announce(L.streamError.replace('{msg}', m.message || ''));
           }
         });
-      </script>`;
-    return getWebviewHtml(this.panel!.webview, this.extensionUri, body);
+      `;
+    return getWebviewHtml(this.panel!.webview, body, initScript, {
+      title: t('conversation.panelTitle'),
+    });
   }
 }
 

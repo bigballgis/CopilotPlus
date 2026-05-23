@@ -5,6 +5,7 @@ import { CheckpointService } from './checkpoint';
 import { ProposedContentProvider } from './proposedContentProvider';
 import { applyEdits, type PatchEdit } from '../tools/applyPatchLogic';
 import * as path from 'path';
+import { t } from '../platform/l10n';
 
 export interface ComposerBatchItem {
   relativePath: string;
@@ -63,7 +64,7 @@ export class DiffReviewService {
   ): Promise<boolean> {
     if (original === proposed) {
       if (!this.ciAutoApply) {
-        void vscode.window.showInformationMessage('No changes proposed.');
+        void vscode.window.showInformationMessage(t('diffReview.noChanges'));
       }
       return false;
     }
@@ -80,10 +81,10 @@ export class DiffReviewService {
 
     await vscode.commands.executeCommand('vscode.diff', fileUri, proposedUri, `${path.basename(relativePath)} (Proposed)`);
 
-    const accept = 'Accept';
-    const reject = 'Reject';
+    const accept = t('diffReview.accept');
+    const reject = t('diffReview.reject');
     const choice = await vscode.window.showInformationMessage(
-      `Review AI changes to ${relativePath}`,
+      t('diffReview.reviewPrompt', relativePath),
       { modal: true },
       accept,
       reject
@@ -99,7 +100,7 @@ export class DiffReviewService {
       await this.checkpoints.recordPreEdit([{ relative: relativePath, content: original }], operation);
     } catch (err) {
       void vscode.window.showErrorMessage(
-        `Checkpoint failed: ${err instanceof Error ? err.message : String(err)}`
+        t('diffReview.checkpointFailed', err instanceof Error ? err.message : String(err))
       );
       return false;
     }
@@ -114,7 +115,7 @@ export class DiffReviewService {
     );
     const ok = await vscode.workspace.applyEdit(edit);
     if (ok) {
-      void vscode.window.showInformationMessage('Changes applied.');
+      void vscode.window.showInformationMessage(t('diffReview.applied'));
     }
     return ok;
   }
@@ -227,17 +228,17 @@ export class DiffReviewService {
 
     const accepted = items.filter((i) => states.get(i.relativePath) === 'accepted');
     if (accepted.length === 0) {
-      void vscode.window.showInformationMessage('No Composer edits accepted.');
+      void vscode.window.showInformationMessage(t('diffReview.composerNoAccepted'));
       return false;
     }
 
     const applyAll = await vscode.window.showInformationMessage(
-      `Apply ${accepted.length} accepted file edit(s)?`,
+      t('diffReview.applyAll'),
       { modal: true },
-      'Apply All',
-      'Discard'
+      t('diffReview.applyAllAction'),
+      t('diffReview.reject')
     );
-    if (applyAll !== 'Apply All') {
+    if (applyAll !== t('diffReview.applyAllAction')) {
       return false;
     }
 
@@ -250,7 +251,7 @@ export class DiffReviewService {
       await this.checkpoints.recordPreEdit(snapshots, operation, taskId);
     } catch (err) {
       void vscode.window.showErrorMessage(
-        `Checkpoint failed: ${err instanceof Error ? err.message : String(err)}`
+        t('diffReview.checkpointFailed', err instanceof Error ? err.message : String(err))
       );
       return false;
     }
@@ -274,13 +275,13 @@ export class DiffReviewService {
       const ok = await vscode.workspace.applyEdit(edit);
       if (!ok) {
         await this.rollbackWritten(written);
-        void vscode.window.showErrorMessage(`Failed to write ${item.relativePath}. Rolled back prior edits.`);
+        void vscode.window.showErrorMessage(t('diffReview.rollbackFailed', item.relativePath));
         return false;
       }
       written.push({ relativePath: item.relativePath, original: item.original });
     }
 
-    void vscode.window.showInformationMessage(`Applied ${accepted.length} Composer edit(s).`);
+    void vscode.window.showInformationMessage(t('diffReview.appliedComposer', accepted.length));
     return true;
   }
 
@@ -312,7 +313,7 @@ export class DiffReviewService {
     const doc = await vscode.workspace.openTextDocument(fileUri);
     const result = applyEdits(doc.getText(), edits);
     if (!result.ok) {
-      void vscode.window.showErrorMessage(`Patch failed: ${result.reason}`);
+      void vscode.window.showErrorMessage(t('diffReview.patchFailed', result.reason ?? ''));
       return false;
     }
     return this.reviewFullFile(fileUri, doc.getText(), result.content, operation);

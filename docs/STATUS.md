@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：Polish / 后续增强  
-> **下一项**：全量 i18n + a11y 审计
+> **下一项**：后续增强（NES Response Cache、MCP legacy SSE 等可选差距）
 
 ---
 
@@ -12,8 +12,8 @@
 |-------|------|------|------|
 | 0–9 | 全部 Phase | — | ✅ 完成 |
 
-**单元测试**：89/89 通过  
-**需求覆盖率（粗算）**：~91%
+**单元测试**：92/92 通过  
+**需求覆盖率（粗算）**：~92%
 
 ---
 
@@ -21,6 +21,7 @@
 
 | 模块 | 交付 | 需求 |
 |------|------|------|
+| i18n + a11y | `l10n/bundle.l10n.json` + 全量 `t()` 迁移 + CI 审计 | R-PLAT-9 |
 | MCP HTTP/SSE | POST JSON-RPC + SSE 解析 + Session-Id | R-EXT-2 |
 | Response Cache | 1h TTL + rebase + LRU 100MB | R-EDIT-8 |
 | CI headless 验证 | fixture + transcript 校验 + headless 脚本 | R-DEP-7 |
@@ -40,6 +41,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | 全量 i18n（bundle.l10n.json）+ webview a11y 审计 |
 | 2026-05-23 | Knowledge/Memory（AGENTS + Session + Reflection） |
 | 2026-05-23 | 企业 ONNX 模型联调（manifest + vocab + token_ids 推理） |
 | 2026-05-23 | CI headless 集成验证（fixtures + verify:ci-headless） |

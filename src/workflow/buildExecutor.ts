@@ -7,6 +7,7 @@ import type { BuildManifest, BuildStatus } from './buildTypes';
 import { newBuildId } from './buildTypes';
 import { TaskDagStore } from './taskDagStore';
 import type { TaskDagFile, TaskNode } from './taskDag';
+import { t } from '../platform/l10n';
 
 export interface BuildSnapshot {
   buildId: string | undefined;
@@ -129,7 +130,7 @@ export class BuildExecutor {
 
   async start(buildId?: string): Promise<boolean> {
     if (this.status === 'Running') {
-      void vscode.window.showInformationMessage('Build already running.');
+      void vscode.window.showInformationMessage(t('build.alreadyRunning'));
       return false;
     }
 
@@ -140,14 +141,14 @@ export class BuildExecutor {
 
     const dag = await this.store.load(id);
     if (!dag) {
-      void vscode.window.showErrorMessage(`No tasks.json for build ${id}.`);
+      void vscode.window.showErrorMessage(t('build.noTasksJson', id));
       return false;
     }
 
     const errors = this.store.validate(dag);
     if (errors.length) {
       void vscode.window.showErrorMessage(
-        `Task DAG invalid:\n${errors.map((e) => e.message).join('\n')}`
+        t('build.taskDagInvalid', errors.map((e) => e.message).join('\n'))
       );
       return false;
     }
@@ -176,13 +177,13 @@ export class BuildExecutor {
   async rollbackTask(taskId: string): Promise<boolean> {
     const buildId = this.activeBuildId;
     if (!buildId) {
-      void vscode.window.showErrorMessage('No active build.');
+      void vscode.window.showErrorMessage(t('build.noActiveBuild'));
       return false;
     }
     const dag = await this.store.load(buildId);
     const task = dag?.tasks.find((t) => t.id === taskId);
     if (!task || (task.status !== 'Done' && task.status !== 'Failed')) {
-      void vscode.window.showWarningMessage(`Task ${taskId} cannot be rolled back.`);
+      void vscode.window.showWarningMessage(t('build.rollbackTaskBlocked', taskId));
       return false;
     }
 

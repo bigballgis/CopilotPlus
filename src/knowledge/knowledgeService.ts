@@ -30,6 +30,7 @@ import {
 } from './selfReflectionParse';
 import { streamChat } from '../platform/chatClient';
 import { COPILOT_PLUS_HOME } from '../shared/constants';
+import { t } from '../platform/l10n';
 
 export class KnowledgeService {
   private agentsCache:
@@ -151,7 +152,7 @@ export class KnowledgeService {
   async initAgentsMd(app: AppServices): Promise<void> {
     const root = this.workspaceRoot();
     if (!root) {
-      void vscode.window.showWarningMessage('Open a workspace folder first.');
+      void vscode.window.showWarningMessage(t('knowledge.noWorkspace'));
       return;
     }
 
@@ -161,9 +162,7 @@ export class KnowledgeService {
     const proposed = mergeAgentsContent(existing, detected);
     const privacy = scanMemoryText(proposed);
     if (privacy.blocked) {
-      void vscode.window.showErrorMessage(
-        `AGENTS.md init blocked — detected secret pattern: ${privacy.pattern}`
-      );
+      void vscode.window.showErrorMessage(t('knowledge.agentsBlocked', privacy.pattern ?? ''));
       return;
     }
 
@@ -171,7 +170,7 @@ export class KnowledgeService {
     const ok = await app.diffReview.reviewFullFile(uri, existing, proposed, 'AGENTS.md init');
     if (ok) {
       this.agentsCache = undefined;
-      void vscode.window.showInformationMessage('AGENTS.md updated.');
+      void vscode.window.showInformationMessage(t('knowledge.agentsUpdated'));
     }
   }
 
@@ -182,9 +181,7 @@ export class KnowledgeService {
   ): Promise<void> {
     const privacy = scanMemoryText(text);
     if (privacy.blocked) {
-      void vscode.window.showErrorMessage(
-        `Memory proposal blocked — secret pattern: ${privacy.pattern}`
-      );
+      void vscode.window.showErrorMessage(t('knowledge.memoryBlocked', privacy.pattern ?? ''));
       return;
     }
     const response = await app.decisions.ask({
@@ -200,7 +197,7 @@ export class KnowledgeService {
     if (response.selected === 'Session memory') {
       const result = await this.addSessionMemory(text, taskId ? 'task' : 'workspace', taskId);
       if (!result.ok) {
-        void vscode.window.showErrorMessage(`Session memory rejected: ${result.reason}`);
+        void vscode.window.showErrorMessage(t('knowledge.sessionRejected', result.reason));
       }
       return;
     }
@@ -269,7 +266,7 @@ export class KnowledgeService {
     const proposed = `${existing.trim()}\n\n- ${line.trim()}\n`;
     const privacy = scanMemoryText(proposed);
     if (privacy.blocked) {
-      void vscode.window.showErrorMessage(`AGENTS.md edit blocked: ${privacy.pattern}`);
+      void vscode.window.showErrorMessage(t('knowledge.agentsEditBlocked', privacy.pattern ?? ''));
       return;
     }
     const uri = vscode.Uri.file(target);

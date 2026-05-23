@@ -6,6 +6,7 @@ import { streamChat, estimateTokens } from '../platform/chatClient';
 import { PLAT5 } from '../platform/performanceBudget';
 import { DiffReviewService } from './diffReview';
 import { ResponseCacheService } from './responseCacheService';
+import { t } from '../platform/l10n';
 
 const MAX_SELECTION = 10_000;
 const CONTEXT_LINES = 50;
@@ -22,25 +23,25 @@ export class InlineEditService {
   async invoke(): Promise<void> {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-      void vscode.window.showWarningMessage('Open a file to use Inline Edit.');
+      void vscode.window.showWarningMessage(t('inlineEdit.openFile'));
       return;
     }
 
     const doc = editor.document;
     const relative = vscode.workspace.asRelativePath(doc.uri);
     if (this.platform.isPathSensitive(relative).sensitive) {
-      void vscode.window.showWarningMessage('Inline Edit is disabled for sensitive files.');
+      void vscode.window.showWarningMessage(t('inlineEdit.sensitive'));
       return;
     }
 
     if (this.platform.network.isOffline()) {
-      void vscode.window.showWarningMessage('Offline — Inline Edit unavailable.');
+      void vscode.window.showWarningMessage(t('inlineEdit.offline'));
       return;
     }
 
     const prompt = await vscode.window.showInputBox({
-      placeHolder: 'Describe the edit…',
-      prompt: 'Copilot Plus Inline Edit',
+      placeHolder: t('inlineEdit.placeHolder'),
+      prompt: t('inlineEdit.prompt'),
     });
     if (!prompt) {
       return;
@@ -54,7 +55,7 @@ export class InlineEditService {
     if (hasSelection) {
       selectedText = doc.getText(selection);
       if (selectedText.length > MAX_SELECTION) {
-        void vscode.window.showErrorMessage('Selection exceeds 10,000 characters.');
+        void vscode.window.showErrorMessage(t('inlineEdit.selectionTooLarge'));
         return;
       }
       targetRange = selection;
@@ -131,7 +132,7 @@ export class InlineEditService {
       }
 
       if (!proposed) {
-        void vscode.window.showWarningMessage('Model returned empty edit.');
+        void vscode.window.showWarningMessage(t('inlineEdit.emptyEdit'));
         return;
       }
 
@@ -151,9 +152,9 @@ export class InlineEditService {
       });
     } catch (err) {
       clearTimeout(timer);
-      const retry = 'Retry';
+      const retry = t('errors.retry');
       const msg = err instanceof Error ? err.message : String(err);
-      const choice = await vscode.window.showErrorMessage(`Inline Edit failed: ${msg}`, retry);
+      const choice = await vscode.window.showErrorMessage(t('inlineEdit.failed', msg), retry);
       if (choice === retry) {
         await this.invoke();
       }

@@ -12,7 +12,7 @@ import {
   DecisionStatusBar,
   registerDecisionCenterCommands,
 } from '../interaction/decisionStatusBar';
-import { getTabWorkspace } from '../interaction/workspace';
+import { getTabWorkspace, openWorkspace } from '../interaction/workspace';
 import { registerTabCompletion } from '../editing/tabCompletion';
 
 export interface ActivationResult {
@@ -69,6 +69,16 @@ export async function activatePlatform(context: vscode.ExtensionContext): Promis
     app.platform.telemetry.emit('activation.completed', { durationMs: duration });
     logLocaleFallback();
 
+    await surfaceWorkspaceUi(context, app);
+
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeWorkspaceFolders(() => {
+        if (vscode.workspace.workspaceFolders?.length) {
+          void openWorkspace(context, app);
+        }
+      })
+    );
+
     return { app, aborted: false };
   } catch (err) {
     clearTimeout(slowTimer);
@@ -77,6 +87,23 @@ export async function activatePlatform(context: vscode.ExtensionContext): Promis
     );
     return { app: undefined, aborted: true };
   }
+}
+
+async function surfaceWorkspaceUi(context: vscode.ExtensionContext, app: AppServices): Promise<void> {
+  if (vscode.workspace.workspaceFolders?.length) {
+    await openWorkspace(context, app);
+    return;
+  }
+    void vscode.window
+    .showInformationMessage(
+      t('activation.openFolderPrompt'),
+      t('activation.openFolderAction')
+    )
+    .then((choice) => {
+      if (choice === t('activation.openFolderAction')) {
+        void vscode.commands.executeCommand('workbench.action.openFolder');
+      }
+    });
 }
 
 function logLocaleFallback(): void {

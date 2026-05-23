@@ -16,6 +16,7 @@
     "onStartupFinished"
   ],
   "main": "./dist/extension.js",
+  "l10n": "./l10n/bundle.l10n.json",
   "contributes": {
     "commands": [
       {
@@ -351,7 +352,8 @@
     "test:unit": "tsc -p tsconfig.test.json && node --test dist-test/test/unit/**/*.test.js",
     "verify:ci-headless": "tsc -p tsconfig.test.json && node scripts/verify-ci-headless.mjs",
     "verify:onnx-addon": "tsc -p tsconfig.test.json && node scripts/verify-onnx-addon.mjs",
-    "test": "npm run test:unit && npm run verify:ci-headless && npm run verify:onnx-addon",
+    "verify:i18n-a11y": "node scripts/audit-i18n-a11y.mjs",
+    "test": "npm run test:unit && npm run verify:ci-headless && npm run verify:onnx-addon && npm run verify:i18n-a11y",
     "lint": "eslint src --ext ts",
     "package": "vsce package"
   },

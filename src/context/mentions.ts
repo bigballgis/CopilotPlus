@@ -10,6 +10,7 @@ import {
   type MentionAttachment,
   type MentionKind,
 } from './mentionTokens';
+import { t } from '../platform/l10n';
 
 export type { MentionAttachment, MentionKind } from './mentionTokens';
 export { mergeAttachments, parseMentionTokens, parseSlashSkill } from './mentionTokens';
@@ -59,7 +60,7 @@ export async function pickMention(app: AppServices): Promise<MentionAttachment |
     case 'selection': {
       const editor = vscode.window.activeTextEditor;
       if (!editor || editor.selection.isEmpty) {
-        void vscode.window.showWarningMessage('No active editor selection.');
+        void vscode.window.showWarningMessage(t('mentions.noSelection'));
         return undefined;
       }
       const rel = vscode.workspace.asRelativePath(editor.document.uri).replace(/\\/g, '/');
