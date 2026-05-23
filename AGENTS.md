@@ -20,7 +20,7 @@ Product thesis: **The user designs. The AI executes.** Five-layer hierarchy (Sys
 | `docs/IMPLEMENTATION_PLAN.md` | Phased tasks — WHAT order |
 | `docs/STATUS.md` | Done vs not done — track progress |
 
-Workflow: read Kiro R-* → check DESIGN → pick PLAN item → implement → update STATUS.
+Workflow: **设计** (Kiro R-* + DESIGN) → **开发** → **测试** → **审查** → **提交** (+ update STATUS). See `docs/IMPLEMENTATION_PLAN.md`.
 
 Before implementing a feature, read the relevant module file and cite requirement IDs in PR descriptions.
 

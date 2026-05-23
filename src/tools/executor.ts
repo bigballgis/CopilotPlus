@@ -18,6 +18,8 @@ import {
   getReferences,
 } from './lspTools';
 import { matchesCommandDenyList } from '../platform/configuration';
+import { computeQueryEmbedding } from '../context/embeddingResolver';
+import { parseMcpToolId } from '../extensibility/mcpConfig';
 
 export type ToolResult = { ok: true; data: unknown } | { ok: false; reason: string; pattern?: string };
 
@@ -44,10 +46,26 @@ export class ToolExecutor {
     if (EXPLORER_PARENT_ROLES.has(role)) {
       tools.push('explore');
     }
+    tools.push(...this.app.mcp.getInjectedTools(role));
     return tools;
   }
 
   async invoke(role: string, toolId: string, args: Record<string, unknown>): Promise<ToolResult> {
+    const mcpParsed = parseMcpToolId(toolId);
+    if (mcpParsed) {
+      if (!this.getEffectiveTools(role).includes(toolId)) {
+        return { ok: false, reason: 'tool_denied' };
+      }
+      const result = await this.app.mcp.invokeTool(mcpParsed.serverId, mcpParsed.toolName, args);
+      await this.app.hooks.fire('mcp.tool.called', {
+        serverId: mcpParsed.serverId,
+        toolName: mcpParsed.toolName,
+        role,
+        ok: result.ok,
+      });
+      return result;
+    }
+
     if (!this.getEffectiveTools(role).includes(toolId)) {
       return { ok: false, reason: 'tool_denied' };
     }
@@ -127,6 +145,10 @@ export class ToolExecutor {
         return this.checkpointRestore(args);
       case 'question':
         return this.question(args);
+      case 'deploy_apply':
+        return this.deployApply();
+      case 'deploy_rollback':
+        return this.deployRollback(args);
       default:
         return { ok: false, reason: 'not_implemented' };
     }
@@ -336,6 +358,11 @@ export class ToolExecutor {
       return this.grep({ pattern: query, max_results: args.max_results ?? 50 });
     }
 
+    const queryEmbedding =
+      this.app.indexManager.getResolution().mode === 'proposed_lm'
+        ? await computeQueryEmbedding(query)
+        : undefined;
+
     const model = await this.app.platform.models.resolveSelectionForSurface('subAgent');
     const tier = model ? this.app.platform.models.getContextTier(model) : 'M';
     const response = this.app.indexManager.retrieval.search({
@@ -345,6 +372,7 @@ export class ToolExecutor {
       topK: typeof args.top_k === 'number' ? args.top_k : undefined,
       tier,
       docEntries: this.docs.getEntries(),
+      queryEmbedding,
     });
 
     return {
@@ -560,6 +588,29 @@ export class ToolExecutor {
       timeoutSec: 300,
     });
     return { ok: true, data: { answer: answer.selected } };
+  }
+
+  private async deployApply(): Promise<ToolResult> {
+    const result = await this.app.deployExecutor.applyManifest();
+    if (result.ok) {
+      return { ok: true, data: { runId: result.runId } };
+    }
+    return { ok: false, reason: result.reason ?? 'deploy_failed' };
+  }
+
+  private async deployRollback(args: Record<string, unknown>): Promise<ToolResult> {
+    const runId =
+      typeof args.run_id === 'string'
+        ? args.run_id
+        : this.app.deploy.getRuns().find((r) => r.status === 'Failed')?.id;
+    if (!runId) {
+      return { ok: false, reason: 'no_run' };
+    }
+    const result = await this.app.deployExecutor.rollbackRun(runId);
+    if (result.ok) {
+      return { ok: true, data: { runId } };
+    }
+    return { ok: false, reason: result.reason ?? 'rollback_failed' };
   }
 
   private async walkFiles(

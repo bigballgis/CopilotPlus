@@ -14,6 +14,9 @@ export type HookEventName =
   | 'task.completed'
   | 'task.failed'
   | 'rollback.completed'
+  | 'deploy.started'
+  | 'deploy.completed'
+  | 'deploy.failed'
   | 'edit.applied'
   | 'edit.rejected';
 

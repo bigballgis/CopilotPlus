@@ -28,6 +28,8 @@ export interface DeployRun {
   startedAt?: string;
   completedAt?: string;
   logPath?: string;
+  snapshotId?: string;
+  error?: string;
 }
 
 const DEFAULT_CONFIG: DeployConfig = {
@@ -155,6 +157,39 @@ export class DeployService {
     return written;
   }
 
+  async listManifestFiles(target?: DeployTarget): Promise<string[]> {
+    const dir = this.manifestDir(target);
+    if (!dir) {
+      return [];
+    }
+    try {
+      const names = await fs.readdir(dir);
+      return names.map((name) => path.join(dir, name).replace(/\\/g, '/'));
+    } catch {
+      return [];
+    }
+  }
+
+  async readLogTail(logPath: string | undefined, maxLines = 8): Promise<string> {
+    if (!logPath) {
+      return '';
+    }
+    try {
+      const content = await fs.readFile(logPath, 'utf8');
+      const tail = content.split('\n').slice(-maxLines).join('\n');
+      this.logTailCache = tail;
+      return tail;
+    } catch {
+      return '';
+    }
+  }
+
+  getCachedLogTail(): string {
+    return this.logTailCache;
+  }
+
+  private logTailCache = '';
+
   recommendedCommands(): string[] {
     switch (this.config.target) {
       case 'Local':
@@ -166,14 +201,15 @@ export class DeployService {
     }
   }
 
-  async startRun(mode: DeployMode): Promise<DeployRun> {
+  async beginRun(mode: DeployMode): Promise<DeployRun> {
+    const id = `deploy-${Date.now()}`;
     const run: DeployRun = {
-      id: `deploy-${Date.now()}`,
+      id,
       status: 'Running',
       target: this.config.target,
       mode,
       startedAt: new Date().toISOString(),
-      logPath: this.logPath(`deploy-${Date.now()}`),
+      logPath: this.logPath(id),
     };
     this.activeRun = run;
     this.runs.unshift(run);
@@ -181,14 +217,55 @@ export class DeployService {
     return run;
   }
 
-  async completeRun(status: DeployRunStatus): Promise<void> {
-    if (!this.activeRun) {
+  async finishRun(id: string, status: DeployRunStatus, error?: string): Promise<void> {
+    const run = this.runs.find((r) => r.id === id) ?? this.activeRun;
+    if (!run) {
       return;
     }
-    this.activeRun.status = status;
-    this.activeRun.completedAt = new Date().toISOString();
+    run.status = status;
+    run.completedAt = new Date().toISOString();
+    run.error = error;
     await this.persistRuns();
-    this.activeRun = undefined;
+    if (this.activeRun?.id === id) {
+      this.activeRun = undefined;
+    }
+  }
+
+  async snapshotCurrentManifest(runId: string): Promise<string | undefined> {
+    const dir = this.manifestDir();
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!dir || !root) {
+      return undefined;
+    }
+    const snapshotId = String(Date.now());
+    const snapshot = path.join(root, COPILOT_PLUS_HOME, 'deploy', 'snapshots', snapshotId);
+    await fs.mkdir(snapshot, { recursive: true });
+    try {
+      const files = await fs.readdir(dir);
+      for (const name of files) {
+        await fs.copyFile(path.join(dir, name), path.join(snapshot, name));
+      }
+    } catch {
+      /* empty manifest dir */
+    }
+    const run = this.runs.find((r) => r.id === runId);
+    if (run) {
+      run.snapshotId = snapshotId;
+      await this.persistRuns();
+    }
+    return snapshotId;
+  }
+
+  /** @deprecated use beginRun */
+  async startRun(mode: DeployMode): Promise<DeployRun> {
+    return this.beginRun(mode);
+  }
+
+  /** @deprecated use finishRun */
+  async completeRun(status: DeployRunStatus): Promise<void> {
+    if (this.activeRun) {
+      await this.finishRun(this.activeRun.id, status);
+    }
   }
 
   private configPath(): string | undefined {

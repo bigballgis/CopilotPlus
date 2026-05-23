@@ -65,5 +65,5 @@ export const SUB_AGENT_ALLOWLISTS: Record<string, readonly string[]> = {
   Reviewer: ['read_file', 'grep', 'glob', 'list_dir', 'code_search', 'lsp_diagnostics', 'lsp_definition', 'lsp_references', 'lsp_hover', 'doc_read', 'git_diff', 'question'],
   Committer: ['read_file', 'git_status', 'git_diff', 'git_commit', 'question'],
   Rollback_Operator: ['read_file', 'git_status', 'git_diff', 'checkpoint_restore', 'question'],
-  Deployer: ['read_file', 'list_dir', 'doc_read', 'bash', 'deploy_apply', 'deploy_rollback', 'question'],
+  Deployer: ['read_file', 'write_file', 'grep', 'list_dir', 'doc_read', 'bash', 'deploy_apply', 'deploy_rollback', 'question'],
 };

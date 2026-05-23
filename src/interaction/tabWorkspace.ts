@@ -24,7 +24,10 @@ export class TabWorkspaceProvider {
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly app: AppServices
-  ) {}
+  ) {
+    this.app.composer.onChange(() => void this.refresh());
+    this.app.buildExecutor.onChange(() => void this.refresh());
+  }
 
   async show(column: vscode.ViewColumn): Promise<void> {
     if (this.panel) {
@@ -47,7 +50,15 @@ export class TabWorkspaceProvider {
     });
 
     this.panel.webview.onDidReceiveMessage(
-      (msg: { type: string; tab?: TabId; path?: string; action?: string; taskId?: string }) => {
+      (msg: {
+        type: string;
+        tab?: TabId;
+        path?: string;
+        action?: string;
+        taskId?: string;
+        goal?: string;
+        files?: string[];
+      }) => {
         if (msg.type === 'selectTab' && msg.tab) {
           this.activeTab = msg.tab;
           void this.refresh();
@@ -57,6 +68,9 @@ export class TabWorkspaceProvider {
         }
         if (msg.type === 'buildAction' && msg.action) {
           void this.handleBuildAction(msg.action, msg.taskId);
+        }
+        if (msg.type === 'composerAction' && msg.action) {
+          void this.handleComposerAction(msg.action, msg.goal, msg.files);
         }
       }
     );
@@ -69,9 +83,29 @@ export class TabWorkspaceProvider {
 
   async refresh(): Promise<void> {
     this.buildSnapshot = await this.app.buildExecutor.getSnapshotAsync();
+    const latest = this.app.deploy.getRuns()[0];
+    await this.app.deploy.readLogTail(latest?.logPath, 12);
     if (this.panel) {
       this.panel.webview.html = this.render();
     }
+  }
+
+  private async handleComposerAction(action: string, goal?: string, files?: string[]): Promise<void> {
+    if (action === 'setGoal' && typeof goal === 'string') {
+      this.app.composer.setGoal(goal);
+    } else if (action === 'setFiles' && Array.isArray(files)) {
+      this.app.composer.setAttachedFiles(files);
+    } else if (action === 'pickFiles') {
+      await this.app.composer.attachFromPicker();
+    } else if (action === 'attachOpen') {
+      this.app.composer.attachOpenEditors();
+    } else if (action === 'submit') {
+      await this.app.stages.transition('Build');
+      await this.app.composer.submit();
+    } else if (action === 'cancel') {
+      this.app.composer.cancel();
+    }
+    await this.refresh();
   }
 
   private async handleBuildAction(action: string, taskId?: string): Promise<void> {
@@ -86,6 +120,10 @@ export class TabWorkspaceProvider {
       await this.app.buildExecutor.rollbackTask(taskId);
     } else if (action === 'deployGenerate') {
       await vscode.commands.executeCommand('copilotPlus.deploy.generateManifest');
+    } else if (action === 'deployApply') {
+      await vscode.commands.executeCommand('copilotPlus.deploy.applyManifest');
+    } else if (action === 'deployRollback' && taskId) {
+      await vscode.commands.executeCommand('copilotPlus.deploy.rollback', taskId);
     }
     await this.refresh();
   }
@@ -113,6 +151,22 @@ export class TabWorkspaceProvider {
         function buildAction(action, taskId) {
           vscode.postMessage({ type: 'buildAction', action, taskId });
         }
+        function composerAction(action, goal, files) {
+          vscode.postMessage({ type: 'composerAction', action, goal, files });
+        }
+        function syncComposerGoal(el) {
+          composerAction('setGoal', el.value);
+        }
+        function syncComposerFiles() {
+          const items = [...document.querySelectorAll('#composer-files li')].map((li) => li.dataset.path).filter(Boolean);
+          composerAction('setFiles', null, items);
+        }
+        function removeComposerFile(path) {
+          const items = [...document.querySelectorAll('#composer-files li')]
+            .map((li) => li.dataset.path)
+            .filter((p) => p && p !== path);
+          composerAction('setFiles', null, items);
+        }
       </script>`;
     return getWebviewHtml(this.panel!.webview, this.extensionUri, body);
   }
@@ -121,7 +175,7 @@ export class TabWorkspaceProvider {
 function panelContent(tab: TabId, app: AppServices, build?: BuildSnapshot): string {
   switch (tab) {
     case 'task':
-      return renderTaskPanel(build);
+      return renderTaskPanel(build, app);
     case 'architecture':
       return renderDocTreePanel(app, 'Architecture documents');
     case 'requirement':
@@ -137,33 +191,54 @@ function renderDeployPanel(app: AppServices): string {
   const cfg = app.deploy.getConfig();
   const runs = app.deploy.getRuns().slice(0, 5);
   const commands = app.deploy.recommendedCommands();
+  const status = escapeHtml(app.deployOrchestrator.getLastStatus());
   const runRows = runs
-    .map(
-      (r) =>
-        `<tr><td>${escapeHtml(r.id)}</td><td>${escapeHtml(r.target)}</td><td>${escapeHtml(r.status)}</td></tr>`
-    )
+    .map((r) => {
+      const rollback =
+        r.status === 'Completed' || r.status === 'Failed'
+          ? `<button type="button" onclick="buildAction('deployRollback','${escapeHtml(r.id)}')">Rollback</button>`
+          : '';
+      return `<tr><td>${escapeHtml(r.id)}</td><td>${escapeHtml(r.target)}</td><td>${escapeHtml(r.status)}</td><td>${rollback}</td></tr>`;
+    })
     .join('');
+  const applyBtn =
+    cfg.mode === 'Auto'
+      ? `<button type="button" onclick="buildAction('deployApply')">Apply Manifest</button>`
+      : '';
+  const logBlock = runs[0]?.logPath
+    ? `<pre style="font-size:11px;max-height:120px;overflow:auto;background:var(--vscode-textBlockQuote-background);padding:6px">${escapeHtml(
+        app.deploy.getCachedLogTail().slice(0, 2000)
+      )}</pre>`
+    : '';
   return `
     <p><strong>Target</strong> ${escapeHtml(cfg.target)} · <strong>Mode</strong> ${escapeHtml(cfg.mode)}</p>
+    <p style="font-size:12px;opacity:0.85">${status || 'Ready.'}</p>
     <div style="display:flex;gap:8px;margin:8px 0">
       <button type="button" onclick="buildAction('deployGenerate')">Generate Manifest</button>
+      ${applyBtn}
     </div>
     <p style="font-size:12px;opacity:0.85">Manual commands:</p>
     <ul>${commands.map((c) => `<li><code>${escapeHtml(c)}</code></li>`).join('')}</ul>
+    ${logBlock}
     ${
       runs.length
-        ? `<table style="width:100%;font-size:12px"><thead><tr><th>Run</th><th>Target</th><th>Status</th></tr></thead><tbody>${runRows}</tbody></table>`
+        ? `<table style="width:100%;font-size:12px"><thead><tr><th>Run</th><th>Target</th><th>Status</th><th>Actions</th></tr></thead><tbody>${runRows}</tbody></table>`
         : '<p>No deploy runs yet.</p>'
     }
   `;
 }
 
-function renderTaskPanel(build?: BuildSnapshot): string {
+function renderTaskPanel(build?: BuildSnapshot, app?: AppServices): string {
   const status = build?.status ?? 'Idle';
   const buildId = build?.buildId ?? '(none)';
   const message = escapeHtml(build?.lastMessage ?? '');
   const running = build?.runningTaskIds?.length
     ? `<p>Running: ${build.runningTaskIds.map(escapeHtml).join(', ')}</p>`
+    : '';
+
+  const composer = app?.composer.getSnapshot();
+  const composerSection = app
+    ? renderComposerSection(composer)
     : '';
 
   const tasks = build?.dag?.tasks ?? [];
@@ -193,7 +268,47 @@ function renderTaskPanel(build?: BuildSnapshot): string {
       <button type="button" onclick="buildAction('start')">Start Build</button>
       <button type="button" onclick="buildAction('stop')">Stop</button>
     </div>
+    ${composerSection}
     ${table}
+  `;
+}
+
+function renderComposerSection(
+  composer: ReturnType<AppServices['composer']['getSnapshot']>
+): string {
+  const goal = escapeHtml(composer.goal);
+  const files = composer.attachedFiles
+    .map(
+      (f) =>
+        `<li data-path="${escapeHtml(f)}">${escapeHtml(f)} <button type="button" onclick="removeComposerFile('${escapeHtml(f)}')">×</button></li>`
+    )
+    .join('');
+  const log = composer.messages
+    .slice(-8)
+    .map((m) => escapeHtml(m))
+    .join('\n');
+  const err = composer.lastError
+    ? `<p style="color:var(--vscode-errorForeground);font-size:12px">${escapeHtml(composer.lastError)}</p>`
+    : '';
+  const cancelBtn =
+    composer.status === 'generating'
+      ? `<button type="button" onclick="composerAction('cancel')">Cancel</button>`
+      : '';
+  return `
+    <div style="border:1px solid var(--vscode-panel-border);padding:8px;margin:8px 0;border-radius:4px">
+      <h4 style="margin:0 0 8px">Composer (multi-file)</h4>
+      <p style="font-size:12px;opacity:0.85">Status: ${escapeHtml(composer.status)}</p>
+      ${err}
+      <textarea id="composer-goal" rows="3" style="width:100%;box-sizing:border-box" oninput="syncComposerGoal(this)" placeholder="Describe coordinated edits (Build stage)…">${goal}</textarea>
+      <div style="display:flex;gap:8px;margin:8px 0;flex-wrap:wrap">
+        <button type="button" onclick="composerAction('pickFiles')">Attach files</button>
+        <button type="button" onclick="composerAction('attachOpen')">Attach open editors</button>
+        <button type="button" onclick="composerAction('submit')">Run Composer</button>
+        ${cancelBtn}
+      </div>
+      <ul id="composer-files" style="font-size:12px;padding-left:18px">${files || '<li style="opacity:0.7">No files attached</li>'}</ul>
+      <pre style="font-size:11px;max-height:100px;overflow:auto;background:var(--vscode-textBlockQuote-background);padding:6px">${log || 'Composer transcript…'}</pre>
+    </div>
   `;
 }
 
@@ -202,26 +317,33 @@ function renderDocTreePanel(app: AppServices, heading: string): string {
   if (!tree.length) {
     return `<p>${heading}: no documents yet. Open a workspace folder to initialize the default system doc.</p>`;
   }
-  return `<p>${heading} (${countNodes(tree)} docs)</p>${renderDocTree(tree)}`;
+  return `<p>${heading} (${countNodes(tree)} docs)</p>${renderDocTree(tree, 0, app)}`;
 }
 
 function countNodes(nodes: DocTreeNode[]): number {
   return nodes.reduce((n, node) => n + 1 + countNodes(node.children), 0);
 }
 
-function renderDocTree(nodes: DocTreeNode[], depth = 0): string {
+function renderDocTree(nodes: DocTreeNode[], depth = 0, app?: AppServices): string {
   return nodes
     .map((node) => {
       const indent = depth * 12;
-      const childHtml = renderDocTree(node.children, depth + 1);
+      const childHtml = renderDocTree(node.children, depth + 1, app);
       const docPath = escapeHtml(node.path);
       const title = escapeHtml(node.title);
+      const entry = app?.docs.getByPath(node.path);
+      const badge = entry && app ? reviewBadgeHtml(app.docs.reviewBadge(entry)) : '';
       return `<div style="margin-left:${indent}px;margin-bottom:4px">
-        <button type="button" onclick="openDoc('${docPath}')">${title}</button>
+        <button type="button" onclick="openDoc('${docPath}')">${title}</button>${badge}
         <span style="opacity:0.7;font-size:11px"> (${node.level})</span>
       </div>${childHtml}`;
     })
     .join('');
+}
+
+function reviewBadgeHtml(badge: 'green' | 'yellow' | 'red'): string {
+  const colors = { green: '#3fb950', yellow: '#d29922', red: '#f85149' };
+  return ` <span style="font-size:10px;color:${colors[badge]}">●</span>`;
 }
 
 function escapeHtml(s: string): string {

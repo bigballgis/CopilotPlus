@@ -18,12 +18,13 @@ export class PlatformServices {
   readonly telemetry: TelemetryService;
   readonly network: NetworkMonitor;
 
-  private settings = this.config.read();
+  private settings: ReturnType<ConfigurationService['read']>;
 
   constructor(private readonly context: vscode.ExtensionContext) {
     this.config = new ConfigurationService((key, reason) => {
       void vscode.window.showWarningMessage(t('settings.invalid', key, reason));
     });
+    this.settings = this.config.read();
     this.auth = new CopilotAuthService();
     this.models = new ModelService(context, this.auth);
     this.sensitiveFiles = new SensitiveFileGuard();

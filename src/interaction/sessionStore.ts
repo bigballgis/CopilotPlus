@@ -64,6 +64,24 @@ export class SessionStore {
     await this.append({ role: 'assistant', text, timestamp: new Date().toISOString() });
   }
 
+  async appendSystemMessage(text: string): Promise<void> {
+    await this.append({ role: 'system', text, timestamp: new Date().toISOString() });
+  }
+
+  async persistSummary(text: string): Promise<string> {
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    const root = this.getRoot();
+    if (!root || !folder) {
+      return '(no-workspace)';
+    }
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const dir = path.join(root, 'summaries');
+    await fs.mkdir(dir, { recursive: true });
+    const file = path.join(dir, `${ts}.md`);
+    await fs.writeFile(file, text, 'utf8');
+    return path.relative(folder.uri.fsPath, file).replace(/\\/g, '/');
+  }
+
   async append(message: SessionMessage): Promise<void> {
     this.messages.push(message);
     const root = this.getRoot();

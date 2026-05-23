@@ -33,7 +33,8 @@ export class PrimaryAgent {
     userText: string,
     history: SessionMessage[],
     token: vscode.CancellationToken,
-    onChunk?: (chunk: string) => void
+    onChunk?: (chunk: string) => void,
+    contextPrefix?: string
   ): Promise<PrimaryTurnResult> {
     const model = await this.platform.models.resolveSelectionForSurface('primaryAgent');
     if (!model) {
@@ -51,9 +52,15 @@ export class PrimaryAgent {
         messages.push(vscode.LanguageModelChatMessage.User(msg.text));
       } else if (msg.role === 'assistant') {
         messages.push(vscode.LanguageModelChatMessage.Assistant(msg.text));
+      } else if (msg.role === 'system') {
+        messages.push(vscode.LanguageModelChatMessage.System(msg.text));
       }
     }
-    messages.push(vscode.LanguageModelChatMessage.User(userText));
+    messages.push(
+      vscode.LanguageModelChatMessage.User(
+        contextPrefix ? `${contextPrefix}\n\n---\n\nUser request:\n${userText}` : userText
+      )
+    );
 
     const inputTokens = messages.reduce((n, m) => n + estimateTokens(chatMessageText(m)), 0);
     const cap = this.platform.getSettings().sessionTokenCap;

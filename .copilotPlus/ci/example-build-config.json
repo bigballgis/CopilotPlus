@@ -1,0 +1,20 @@
+{
+  "buildId": "build-REPLACE_ME",
+  "maxBuildDurationSec": 3600,
+  "maxToolCalls": 80,
+  "decisions": {
+    "default": "fail-on-decision",
+    "rules": [
+      {
+        "pattern": "Allow",
+        "action": "always-approve",
+        "select": "Approve"
+      },
+      {
+        "pattern": "bash",
+        "action": "always-approve",
+        "select": "Approve"
+      }
+    ]
+  }
+}

@@ -10,6 +10,7 @@ export interface IndexChunk {
   heading?: string;
   text: string;
   docPaths?: string[];
+  embedding?: number[];
 }
 
 export interface SearchHit {
@@ -27,6 +28,10 @@ export interface IndexState {
   code: IndexStatus;
   docs: IndexStatus;
   embeddingMode: string;
+  embeddingModelId?: string;
+  embeddingAddonVersion?: string;
+  embeddingNotice?: string;
+  embeddedChunks?: number;
   codeChunks: number;
   docChunks: number;
   lastError?: string;

@@ -253,6 +253,60 @@ export class DocumentTreeService {
     return { frontmatter: entry.frontmatter, body: entry.body };
   }
 
+  async markReviewed(relativePath: string, reviewer: string): Promise<void> {
+    const { frontmatter, body } = await this.read(relativePath);
+    const fm = {
+      ...frontmatter,
+      human_reviewed_at: new Date().toISOString(),
+      human_reviewed_by: reviewer,
+    };
+    const content = composeDocument(fm, body);
+    await this.writeWithReview(relativePath, content, 'mark reviewed');
+  }
+
+  findStaleDocuments(thresholdDays: number): DocEntry[] {
+    const cutoff = Date.now() - thresholdDays * 86_400_000;
+    return this.cache.filter((e) => {
+      if (!e.valid || e.relativePath.includes('/archive/')) {
+        return false;
+      }
+      const ref = e.frontmatter.last_referenced_at;
+      if (!ref) {
+        return true;
+      }
+      return new Date(ref).getTime() < cutoff;
+    });
+  }
+
+  reviewBadge(entry: DocEntry): 'green' | 'yellow' | 'red' {
+    const reviewed = entry.frontmatter.human_reviewed_at;
+    if (!reviewed) {
+      return entry.frontmatter.level === 'system' || entry.frontmatter.level === 'module' ? 'red' : 'yellow';
+    }
+    const ageDays = (Date.now() - new Date(reviewed).getTime()) / 86_400_000;
+    if (ageDays <= 30) {
+      return 'green';
+    }
+    if (ageDays <= 90) {
+      return 'yellow';
+    }
+    return 'red';
+  }
+
+  async archiveDocument(relativePath: string): Promise<string> {
+    const entry = this.getByPath(relativePath);
+    if (!entry) {
+      throw new Error('Document not found');
+    }
+    const archiveRel = relativePath.replace('.copilotPlus/docs/', '.copilotPlus/docs/archive/');
+    const abs = this.absFromRelative(relativePath);
+    const archiveAbs = this.absFromRelative(archiveRel);
+    await fs.mkdir(path.dirname(archiveAbs), { recursive: true });
+    await fs.rename(abs, archiveAbs);
+    await this.scan();
+    return archiveRel;
+  }
+
   async openInEditor(relativePath: string): Promise<void> {
     const root = this.workspaceRoot();
     if (!root) {

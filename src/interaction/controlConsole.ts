@@ -1,8 +1,10 @@
-/** Control Console activity bar webview — R-INT-9 */
+/** Control Console activity bar webview — R-INT-9, R-CTX-5 */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import type { AppServices } from '../app/appServices';
 import { getWebviewHtml } from './webviewHtml';
+import { resolveContextTier } from '../context/contextTier';
 
 export class ControlConsoleProvider implements vscode.WebviewViewProvider {
   static readonly viewId = 'copilotPlus.controlConsole';
@@ -29,18 +31,108 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
           webviewView.webview.html = this.render(webviewView.webview);
         });
       }
+      if (msg.type === 'downloadEmbeddingAddon') {
+        void this.app.localEmbeddingAddon.download().then((result) => {
+          if (result.ok) {
+            void vscode.window.showInformationMessage('Embedding add-on installed.');
+            void this.app.indexManager.rebuildAll();
+          } else {
+            void vscode.window.showErrorMessage(`Add-on download failed: ${result.reason ?? 'unknown'}`);
+          }
+          webviewView.webview.html = this.render(webviewView.webview);
+        });
+      }
+      if (msg.type === 'createSkill') {
+        void this.createSkill(webviewView);
+      }
+      if (msg.type === 'toggleSkill' && typeof (msg as { id?: string }).id === 'string') {
+        const skill = this.app.skills.getSkills().find((s) => s.id === (msg as { id: string }).id);
+        if (skill) {
+          void this.app.skills.setEnabled(skill.id, !skill.enabled).then(() => {
+            webviewView.webview.html = this.render(webviewView.webview);
+          });
+        }
+      }
+      if (msg.type === 'reconnectMcp' && typeof (msg as { id?: string }).id === 'string') {
+        void this.app.mcp.reconnect((msg as { id: string }).id).then(() => {
+          webviewView.webview.html = this.render(webviewView.webview);
+        });
+      }
     });
+  }
+
+  private async createSkill(webviewView: vscode.WebviewView): Promise<void> {
+    const id = await vscode.window.showInputBox({
+      prompt: 'Skill id (lowercase, 3-64 chars)',
+      validateInput: (v) => (/^[a-z][a-z0-9-]{2,63}$/.test(v) ? undefined : 'Invalid id'),
+    });
+    if (!id) {
+      return;
+    }
+    const title = await vscode.window.showInputBox({ prompt: 'Skill title' });
+    if (!title) {
+      return;
+    }
+    const scopePick = await vscode.window.showQuickPick(
+      ['workspace', 'module:example', 'feature:example', 'component:example'],
+      { placeHolder: 'Skill scope' }
+    );
+    if (!scopePick) {
+      return;
+    }
+    try {
+      const rel = await this.app.skills.createSkill(id, title, scopePick);
+      const uri = vscode.Uri.file(
+        path.join(vscode.workspace.workspaceFolders![0].uri.fsPath, rel.replace(/\//g, path.sep))
+      );
+      const doc = await vscode.workspace.openTextDocument(uri);
+      await vscode.window.showTextDocument(doc);
+      webviewView.webview.html = this.render(webviewView.webview);
+    } catch (e) {
+      void vscode.window.showErrorMessage(e instanceof Error ? e.message : String(e));
+    }
   }
 
   private render(webview: vscode.Webview): string {
     const s = this.app.platform.getSettings();
-    const model = this.app.platform.models.getSelected()?.name ?? 'none';
+    const model = this.app.platform.models.getSelected();
     const idx = this.app.indexManager.getState();
     const stage = this.app.stages.getStage();
+    const tier = resolveContextTier(model?.maxInputTokens, s.tierOverride);
+    const addonUrl = s.embeddingAddonUrl;
+    const downloadBtn = addonUrl
+      ? `<button type="button" onclick="vscode.postMessage({type:'downloadEmbeddingAddon'})">Download embedding add-on</button>`
+      : `<p style="font-size:11px;opacity:0.85">Mode B requires enterprise mirror URL in settings.</p>`;
+    const skills = this.app.skills.getSkills();
+    const skillRows = skills
+      .map(
+        (s) =>
+          `<div style="font-size:12px;margin-bottom:4px">
+            <button type="button" onclick="vscode.postMessage({type:'toggleSkill',id:'${escapeHtml(s.id)}'})">${s.enabled ? 'Disable' : 'Enable'}</button>
+            ${escapeHtml(s.title)} <span style="opacity:0.7">(${escapeHtml(s.scope)})</span>
+            ${s.valid ? '' : `<span style="color:var(--vscode-errorForeground)"> invalid</span>`}
+          </div>`
+      )
+      .join('');
+    const mcpServers = this.app.mcp.getServers();
+    const mcpRows = mcpServers
+      .map((s) => {
+        const reconnect =
+          s.state === 'error' || s.state === 'disconnected'
+            ? `<button type="button" onclick="vscode.postMessage({type:'reconnectMcp',id:'${escapeHtml(s.config.id)}'})">Reconnect</button>`
+            : '';
+        return `<div style="font-size:12px;margin-bottom:6px">
+          <strong>${escapeHtml(s.config.id)}</strong> · ${escapeHtml(s.state)} · ${s.tools.length} tool(s)
+          ${s.lastError ? `<div style="color:var(--vscode-errorForeground)">${escapeHtml(s.lastError)}</div>` : ''}
+          ${reconnect}
+        </div>`;
+      })
+      .join('');
     const body = `
       <div class="section" role="region" aria-label="Status">
         <h3>Status</h3>
-        <div>Model: ${escapeHtml(model)}</div>
+        <div>Model: ${escapeHtml(model?.name ?? 'none')}</div>
+        <div>Context tier: ${tier}</div>
         <div>Offline: ${this.app.platform.network.isOffline() ? 'yes' : 'no'}</div>
       </div>
       <div class="section" role="region" aria-label="Workflow Stage">
@@ -50,11 +142,24 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
       </div>
       <div class="section" role="region" aria-label="Indexing">
         <h3>Indexing</h3>
-        <div>Mode: ${escapeHtml(idx.embeddingMode)}</div>
+        <div>Mode: ${escapeHtml(idx.embeddingMode)}${idx.embeddingModelId ? ` (${escapeHtml(idx.embeddingModelId)})` : ''}</div>
+        ${idx.embeddingAddonVersion ? `<div>Add-on: ${escapeHtml(idx.embeddingAddonVersion)}</div>` : ''}
+        ${idx.embeddedChunks != null ? `<div>Embedded chunks: ${idx.embeddedChunks}</div>` : ''}
+        ${idx.embeddingNotice ? `<div style="font-size:11px;opacity:0.85">${escapeHtml(idx.embeddingNotice)}</div>` : ''}
         <div>Code: ${escapeHtml(idx.code)} (${idx.codeChunks} chunks)</div>
         <div>Docs: ${escapeHtml(idx.docs)} (${idx.docChunks} chunks)</div>
         ${idx.lastError ? `<div style="color:var(--vscode-errorForeground)">${escapeHtml(idx.lastError)}</div>` : ''}
         <button type="button" onclick="vscode.postMessage({type:'rebuildIndex'})">Rebuild index</button>
+        ${downloadBtn}
+      </div>
+      <div class="section" role="region" aria-label="Skills">
+        <h3>Skills</h3>
+        ${skills.length ? skillRows : '<p style="font-size:12px;opacity:0.85">No skills yet.</p>'}
+        <button type="button" onclick="vscode.postMessage({type:'createSkill'})">Create Skill</button>
+      </div>
+      <div class="section" role="region" aria-label="MCP Servers">
+        <h3>MCP Servers</h3>
+        ${mcpServers.length ? mcpRows : '<p style="font-size:12px;opacity:0.85">Configure .copilotPlus/mcp.json</p>'}
       </div>
       <div class="section" role="region" aria-label="Models">
         <h3>Models</h3>

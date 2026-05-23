@@ -13,6 +13,7 @@ import {
   registerDecisionCenterCommands,
 } from '../interaction/decisionStatusBar';
 import { getTabWorkspace } from '../interaction/workspace';
+import { registerTabCompletion } from '../editing/tabCompletion';
 
 export interface ActivationResult {
   app: AppServices | undefined;
@@ -52,6 +53,7 @@ export async function activatePlatform(context: vscode.ExtensionContext): Promis
         getTabWorkspace()?.refresh();
       })
     );
+    registerTabCompletion(context, app);
 
     for (const d of registrations) {
       context.subscriptions.push(d);

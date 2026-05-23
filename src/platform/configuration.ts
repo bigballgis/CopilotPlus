@@ -26,6 +26,12 @@ export interface CopilotPlusSettings {
   decisionTimeoutSec: number;
   maxConcurrentTasks: number;
   defaultModels: Record<string, string>;
+  summarizationMode: 'auto' | 'manual' | 'disabled';
+  summarizationKeepLastTurns: number;
+  staleThresholdDays: number;
+  embeddingAddonUrl: string;
+  embeddingAddonSha256: string;
+  tierOverride: 'auto' | 's' | 'm' | 'l';
 }
 
 const DEFAULTS: CopilotPlusSettings = {
@@ -51,6 +57,12 @@ const DEFAULTS: CopilotPlusSettings = {
   decisionTimeoutSec: 300,
   maxConcurrentTasks: 3,
   defaultModels: {},
+  summarizationMode: 'auto',
+  summarizationKeepLastTurns: 6,
+  staleThresholdDays: 90,
+  embeddingAddonUrl: '',
+  embeddingAddonSha256: '',
+  tierOverride: 'auto',
 };
 
 function clampInt(value: unknown, min: number, max: number, fallback: number): number {
@@ -123,6 +135,22 @@ export class ConfigurationService {
       decisionTimeoutSec: clampInt(cfg.get('decisions.timeoutSec'), 30, 1800, 300),
       maxConcurrentTasks: clampInt(cfg.get('workflow.maxConcurrentTasks'), 1, 8, 3),
       defaultModels: cfg.get<Record<string, string>>('models.defaults') ?? {},
+      summarizationMode: this.enumValue(
+        cfg.get('context.summarization.mode'),
+        ['auto', 'manual', 'disabled'] as const,
+        DEFAULTS.summarizationMode,
+        'context.summarization.mode'
+      ),
+      summarizationKeepLastTurns: clampInt(cfg.get('context.summarization.keepLastTurns'), 2, 20, 6),
+      staleThresholdDays: clampInt(cfg.get('docs.staleThresholdDays'), 30, 365, 90),
+      embeddingAddonUrl: cfg.get<string>('indexing.embeddingAddon.url', '') ?? '',
+      embeddingAddonSha256: cfg.get<string>('indexing.embeddingAddon.sha256', '') ?? '',
+      tierOverride: this.enumValue(
+        cfg.get('context.tierOverride'),
+        ['auto', 's', 'm', 'l'] as const,
+        DEFAULTS.tierOverride,
+        'context.tierOverride'
+      ),
     };
   }
 

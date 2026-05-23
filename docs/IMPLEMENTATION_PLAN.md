@@ -9,15 +9,15 @@
 ## 工作流程（固定）
 
 ```
-① 读 Kiro 需求 (R-*)
-② 对照 DESIGN.md 确认模块边界与接口
-③ 在本 PLAN 中标记「进行中」
-④ 写代码 + 测试
-⑤ 更新 STATUS.md → 「已完成」
-⑥ 你 review 后再进入下一项
+① 设计 — 读 Kiro 需求 (R-*)，对照 DESIGN.md 确认模块边界与接口，在 PLAN 中标记「进行中」
+② 开发 — 写代码（最小正确 diff，匹配现有约定）
+③ 测试 — npm run compile && npm run test:unit（必要时手动验收清单）
+④ 审查 — 对照 R-* 验收标准自检；记录已知差距与后续项
+⑤ 提交 — git commit + 更新 STATUS.md；未通过测试/审查不提交
 ```
 
-**不会**在没有 DESIGN + PLAN 条目的情况下直接写功能代码。
+**不会**在没有 DESIGN + PLAN 条目的情况下直接写功能代码。  
+**不会**跳过测试或审查直接提交。
 
 ---
 
@@ -128,11 +128,11 @@
 
 | 序号 | 需求 | 状态 |
 |------|------|------|
-| 7.1 | R-EDIT-4 Diff Review UI | ⬜ |
-| 7.2 | R-EDIT-1 Inline Edit | ⬜ |
-| 7.3 | R-EDIT-5,6 Checkpoints | ⬜ |
-| 7.4 | R-EDIT-2,7 Tab / NES | ⬜ |
-| 7.5 | R-EDIT-3,8 Composer / Cache | ⬜ |
+| 7.1 | R-EDIT-4 Diff Review UI | ✅ |
+| 7.2 | R-EDIT-1 Inline Edit | ✅ |
+| 7.3 | R-EDIT-5,6 Checkpoints | ✅ |
+| 7.4 | R-EDIT-2,7 Tab / NES | ✅ |
+| 7.5 | R-EDIT-3,8 Composer / Cache | 🔄 Composer ✅；Cache ⬜ |
 
 ---
 
@@ -140,9 +140,9 @@
 
 | 序号 | 需求 | 状态 |
 |------|------|------|
-| 8.1 | R-EXT-1 Skills runtime | ⬜ |
-| 8.2 | R-EXT-2 MCP | ⬜ |
-| 8.3 | R-EXT-3 Hooks | ⬜ |
+| 8.1 | R-EXT-1 Skills runtime | ✅ |
+| 8.2 | R-EXT-2 MCP | 🔄 配置/注入 ✅；传输层 ⬜ |
+| 8.3 | R-EXT-3 Hooks | ✅ |
 
 ---
 
@@ -150,7 +150,8 @@
 
 | 序号 | 需求 | 状态 |
 |------|------|------|
-| 9.1 | R-DEP-1–6 部署全流程 | ⬜ |
+| 9.1 | R-DEP-1–6 部署全流程 | ✅ |
+| 9.1b | R-DEP-7 CI CLI | ✅ |
 | 9.2 | R-KNOW-1–6 记忆与反思 | ⬜ |
 | 9.3 | R-PLAT-5 性能预算 | ⬜ |
 | 9.4 | 全量 i18n + a11y 审计 | ⬜ |

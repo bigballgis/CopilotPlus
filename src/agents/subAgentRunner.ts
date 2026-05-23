@@ -38,6 +38,7 @@ export class SubAgentRunner {
     const userPrompt = await this.buildTaskPrompt(role, task, buildId);
     const toolIds = this.app.tools.getEffectiveTools(role);
 
+    const ci = this.app.getCiSession();
     const result = await this.loop.run({
       role,
       buildId,
@@ -47,6 +48,52 @@ export class SubAgentRunner {
       toolIds,
       token,
       onStatus,
+      maxToolCalls: ci?.maxToolCalls,
+    });
+
+    return toRunResult(result);
+  }
+
+  /** R-DEP-2 / R-DEP-4 — Deployer agent for manifest generation or apply */
+  async runDeployer(
+    intent: 'generate' | 'apply',
+    token: vscode.CancellationToken,
+    onStatus?: (message: string) => void
+  ): Promise<SubAgentRunResult> {
+    const cfg = this.app.deploy.getConfig();
+    const system = this.app.docs.getEntries().find((e) => e.valid && e.frontmatter.level === 'system');
+    const scopeDoc = system?.relativePath ?? '.copilotPlus/docs/system/default.md';
+
+    const task: TaskNode = {
+      id: `deploy-${intent}-${Date.now()}`,
+      title: intent === 'generate' ? 'Generate deploy manifest' : 'Apply deployment',
+      description:
+        intent === 'generate'
+          ? 'Review project docs and build artifacts, then update deployment manifest files under .copilotPlus/deploy/. Use write_file for changes (Diff Review applies).'
+          : 'Verify manifest and prerequisites, then invoke deploy_apply when ready. Use deploy_rollback only when user requests rollback.',
+      agent: 'Deployer',
+      inputs: { intent, target: cfg.target, mode: cfg.mode },
+      depends_on: [],
+      status: 'Running',
+      scope_doc: scopeDoc,
+    };
+
+    const promptFile = roleToPromptFile('Deployer');
+    const systemPrompt = await loadAgentPrompt(this.extensionUri, promptFile);
+    const userPrompt = await this.buildDeployPrompt(intent, task);
+    const toolIds = this.app.tools.getEffectiveTools('Deployer');
+
+    const ci = this.app.getCiSession();
+    const result = await this.loop.run({
+      role: 'Deployer',
+      buildId: `deploy-${intent}`,
+      taskId: task.id,
+      systemPrompt,
+      userPrompt,
+      toolIds,
+      token,
+      onStatus,
+      maxToolCalls: ci?.maxToolCalls,
     });
 
     return toRunResult(result);
@@ -130,6 +177,49 @@ export class SubAgentRunner {
     return { ok: false, finalAnswer: '', failed: true, reason: 'lsp_regression' };
   }
 
+  private async buildDeployPrompt(intent: 'generate' | 'apply', task: TaskNode): Promise<string> {
+    const cfg = this.app.deploy.getConfig();
+    const manifestDir = this.app.deploy.manifestDir() ?? '';
+    const files = await this.app.deploy.listManifestFiles();
+    const recommended = this.app.deploy.recommendedCommands();
+    const entries = this.app.docs.getEntries();
+    const scope = resolveScope(task.scope_doc, entries);
+    const scopeBlock = scope
+      .map((s) => `- [${s.link_type}] ${s.title} (${s.document_path})`)
+      .join('\n');
+    const scopeEntry = entries.find((e) => e.relativePath === task.scope_doc.replace(/\\/g, '/'));
+    const skillBlock = this.app.skills.formatInstructions(
+      this.app.skills.getAutoAttached(task.scope_doc, scopeEntry?.frontmatter.id)
+    );
+
+    return `
+Workflow stage: Deploy
+Intent: ${intent}
+Target: ${cfg.target}
+Mode: ${cfg.mode}
+Manifest directory: ${manifestDir}
+Existing manifest files:
+${files.map((f) => `- ${f}`).join('\n') || '(none — baseline templates will be created)'}
+
+Recommended apply commands:
+${recommended.map((c) => `- ${c}`).join('\n')}
+
+Scope doc: ${task.scope_doc}
+## Scope resolution
+${scopeBlock || '(empty)'}
+
+## Skills
+${skillBlock || '(none)'}
+
+Task: ${task.title}
+${task.description}
+
+${intent === 'generate'
+  ? 'Update manifest files to match the current system design and build outputs. Propose changes via write_file only.'
+  : 'When manifest looks correct, call deploy_apply. Do not run raw bash for apply unless validating CLI availability.'}
+`.trim();
+  }
+
   private async buildTaskPrompt(role: string, task: TaskNode, buildId: string): Promise<string> {
     const entries = this.app.docs.getEntries();
     const scope = resolveScope(task.scope_doc, entries);
@@ -142,12 +232,16 @@ export class SubAgentRunner {
     const scopeBlock = scope
       .map((s) => `- [${s.link_type}] ${s.title} (${s.document_path})`)
       .join('\n');
+    const scopeEntry = this.app.docs.getByPath(task.scope_doc);
+    const skillBlock = this.app.skills.formatInstructions(
+      this.app.skills.getAutoAttached(task.scope_doc, scopeEntry?.frontmatter.id)
+    );
     const layerBlock = layerWalk
       .map((l) => `### ${l.documentPath}\n${l.content}`)
       .join('\n\n');
 
     return `
-Workflow stage: Build
+Workflow stage: ${role === 'Deployer' ? 'Deploy' : 'Build'}
 Build id: ${buildId}
 Sub-agent role: ${role}
 Task id: ${task.id}
@@ -157,6 +251,9 @@ Scope doc: ${task.scope_doc}
 
 ## Scope resolution
 ${scopeBlock || '(empty)'}
+
+## Skills
+${skillBlock || '(none)'}
 
 ## Layer walk
 ${layerBlock || '(empty)'}

@@ -1,6 +1,7 @@
 /** Decision notifications — R-INT-10, R-INT-11 */
 
 import * as vscode from 'vscode';
+import type { DecisionResolver } from '../cli/decisionResolver';
 
 export interface DecisionRequest {
   id: string;
@@ -20,10 +21,23 @@ export interface DecisionResponse {
 export class DecisionCenter {
   private pending = new Map<string, DecisionRequest>();
   private resolvers = new Map<string, (r: DecisionResponse) => void>();
+  private ciResolver: DecisionResolver | undefined;
   private readonly onChangeEmitter = new vscode.EventEmitter<number>();
   readonly onPendingCountChange = this.onChangeEmitter.event;
 
+  setCiResolver(resolver: DecisionResolver | undefined): void {
+    this.ciResolver = resolver;
+  }
+
   async ask(request: DecisionRequest): Promise<DecisionResponse> {
+    if (this.ciResolver) {
+      try {
+        const selected = this.ciResolver.resolve(request);
+        return { id: request.id, selected, timedOut: false };
+      } catch (err) {
+        throw err;
+      }
+    }
     this.pending.set(request.id, request);
     this.onChangeEmitter.fire(this.pending.size);
 

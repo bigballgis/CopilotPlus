@@ -5,6 +5,8 @@ import { bm25Search, buildBm25Index, reciprocalRankFusion, type Bm25Index } from
 import type { IndexChunk, SearchHit } from './types';
 import { resolveScope } from '../docs/scopeResolution';
 import type { DocEntry } from '../docs/documentTreeService';
+import { cosineSimilarity } from './vectorMath';
+import type { ResolvedEmbeddingMode } from './embeddingResolver';
 
 export type SearchThoroughness = 'quick' | 'medium' | 'thorough';
 
@@ -15,6 +17,7 @@ export interface CodeSearchOptions {
   topK?: number;
   tier?: ContextTier;
   docEntries?: DocEntry[];
+  queryEmbedding?: number[];
 }
 
 export interface CodeSearchResponse {
@@ -26,13 +29,22 @@ export interface CodeSearchResponse {
 export class UnifiedRetrieval {
   private codeIndex: Bm25Index = buildBm25Index([]);
   private docIndex: Bm25Index = buildBm25Index([]);
+  private codeChunks: IndexChunk[] = [];
+  private docChunks: IndexChunk[] = [];
+  private embeddingMode: ResolvedEmbeddingMode = 'sparse_only';
 
   setCodeChunks(chunks: IndexChunk[]): void {
+    this.codeChunks = chunks;
     this.codeIndex = buildBm25Index(chunks);
   }
 
   setDocChunks(chunks: IndexChunk[]): void {
+    this.docChunks = chunks;
     this.docIndex = buildBm25Index(chunks);
+  }
+
+  setEmbeddingMode(mode: ResolvedEmbeddingMode): void {
+    this.embeddingMode = mode;
   }
 
   getStats(): { codeChunks: number; docChunks: number } {
@@ -68,10 +80,23 @@ export class UnifiedRetrieval {
 
     const codeRanked = bm25Search(codeIdx, options.query, 100);
     const docRanked = bm25Search(docIdx, options.query, 100);
-    const fused = reciprocalRankFusion([
+
+    const rankLists: { id: string }[][] = [
       codeRanked.map((r) => ({ id: r.chunk.id })),
       docRanked.map((r) => ({ id: r.chunk.id })),
-    ]);
+    ];
+    if (options.queryEmbedding?.length && this.embeddingMode === 'proposed_lm') {
+      const denseCode = denseSearch(codePool, options.queryEmbedding, 50);
+      const denseDoc = denseSearch(docPool, options.queryEmbedding, 50);
+      if (denseCode.length) {
+        rankLists.push(denseCode.map((r) => ({ id: r.chunk.id })));
+      }
+      if (denseDoc.length) {
+        rankLists.push(denseDoc.map((r) => ({ id: r.chunk.id })));
+      }
+    }
+
+    const fused = reciprocalRankFusion(rankLists);
 
     const byId = new Map<string, IndexChunk>();
     for (const r of [...codeRanked, ...docRanked]) {
@@ -106,9 +131,18 @@ export class UnifiedRetrieval {
     return {
       results: picked.slice(0, effectiveTop),
       truncated: picked.length > effectiveTop,
-      mode: 'sparse_hybrid',
+      mode: options.queryEmbedding?.length ? 'hybrid_dense' : 'sparse_hybrid',
     };
   }
+}
+
+function denseSearch(pool: IndexChunk[], queryVec: number[], topK: number): { chunk: IndexChunk; score: number }[] {
+  const scored = pool
+    .filter((c) => c.embedding?.length)
+    .map((chunk) => ({ chunk, score: cosineSimilarity(queryVec, chunk.embedding!) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK);
+  return scored;
 }
 
 function toHit(r: { chunk: IndexChunk; score: number }): SearchHit {

@@ -12,6 +12,7 @@ const ALLOWED: WorkflowStage[] = ['Design', 'Build', 'Deploy'];
 
 export class StageManager {
   private stage: WorkflowStage = 'Design';
+  private transitionListeners = new Set<(from: WorkflowStage, to: WorkflowStage) => void>();
 
   constructor(private readonly hooks?: HookService) {}
 
@@ -46,7 +47,15 @@ export class StageManager {
     this.stage = to;
     await this.save();
     await this.hooks?.fire('stage.entered', { stage: to, from });
+    for (const listener of this.transitionListeners) {
+      listener(from, to);
+    }
     return true;
+  }
+
+  onTransition(listener: (from: WorkflowStage, to: WorkflowStage) => void): vscode.Disposable {
+    this.transitionListeners.add(listener);
+    return { dispose: () => this.transitionListeners.delete(listener) };
   }
 
   canTransition(from: WorkflowStage, to: WorkflowStage): boolean {

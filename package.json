@@ -72,6 +72,36 @@
         "command": "copilotPlus.deploy.generateManifest",
         "title": "Copilot Plus: Generate Deploy Manifest",
         "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.deploy.applyManifest",
+        "title": "Copilot Plus: Apply Deploy Manifest",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.skills.create",
+        "title": "Copilot Plus: Create Skill",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.composer.submit",
+        "title": "Copilot Plus: Run Composer",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.composer.attachFiles",
+        "title": "Copilot Plus: Composer Attach Files",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.composer.cancel",
+        "title": "Copilot Plus: Cancel Composer",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.cli",
+        "title": "Copilot Plus: CLI",
+        "category": "Copilot Plus"
       }
     ],
     "keybindings": [
@@ -168,6 +198,36 @@
         "copilotPlus.indexing.respectGitignore": {
           "type": "boolean",
           "default": true
+        },
+        "copilotPlus.indexing.embeddingAddon.url": {
+          "type": "string",
+          "default": ""
+        },
+        "copilotPlus.indexing.embeddingAddon.sha256": {
+          "type": "string",
+          "default": ""
+        },
+        "copilotPlus.context.summarization.mode": {
+          "type": "string",
+          "enum": ["auto", "manual", "disabled"],
+          "default": "auto"
+        },
+        "copilotPlus.context.summarization.keepLastTurns": {
+          "type": "number",
+          "default": 6,
+          "minimum": 2,
+          "maximum": 20
+        },
+        "copilotPlus.context.tierOverride": {
+          "type": "string",
+          "enum": ["auto", "s", "m", "l"],
+          "default": "auto"
+        },
+        "copilotPlus.docs.staleThresholdDays": {
+          "type": "number",
+          "default": 90,
+          "minimum": 30,
+          "maximum": 365
         },
         "copilotPlus.deploy.mode": {
           "type": "string",

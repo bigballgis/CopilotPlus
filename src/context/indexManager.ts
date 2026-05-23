@@ -1,14 +1,16 @@
-/** Codebase + RAG index builder — R-CTX-2, R-CTX-3 */
+/** Codebase + RAG index builder — R-CTX-2, R-CTX-3, R-CTX-5 */
 
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { COPILOT_PLUS_HOME } from '../shared/constants';
 import { chunkMarkdownDoc, chunkSourceFile, isIndexableCodeFile } from './chunking';
-import type { IndexChunk, IndexState, IndexStatus } from './types';
+import type { IndexChunk, IndexState } from './types';
 import { UnifiedRetrieval } from './unifiedRetrieval';
 import type { DocumentTreeService } from '../docs/documentTreeService';
 import type { PlatformServices } from '../platform/services';
+import { computeChunkEmbeddings, resolveEmbeddingMode, type EmbeddingResolution } from './embeddingResolver';
+import type { LocalEmbeddingAddon } from './localEmbeddingAddon';
 
 const CODE_INDEX = 'index/code/chunks.json';
 const DOC_INDEX = 'index/docs/chunks.json';
@@ -22,35 +24,43 @@ export class IndexManager {
     codeChunks: 0,
     docChunks: 0,
   };
+  private resolution: EmbeddingResolution = { mode: 'sparse_only' };
   private watchers: vscode.Disposable[] = [];
 
   constructor(
     private readonly platform: PlatformServices,
-    private readonly docs: DocumentTreeService
+    private readonly docs: DocumentTreeService,
+    private readonly localAddon: LocalEmbeddingAddon
   ) {}
 
   getState(): IndexState {
     return { ...this.state };
   }
 
-  resolveEmbeddingMode(): string {
-    const mode = this.platform.getSettings().embeddingMode;
-    if (mode === 'auto') {
-      return 'sparse_only';
-    }
-    if (mode === 'proposed_lm' || mode === 'local') {
-      return 'sparse_only';
-    }
-    return mode;
+  getResolution(): EmbeddingResolution {
+    return { ...this.resolution };
+  }
+
+  async resolveMode(): Promise<EmbeddingResolution> {
+    this.resolution = await resolveEmbeddingMode(
+      this.platform.getSettings().embeddingMode,
+      this.localAddon
+    );
+    this.state.embeddingMode = this.resolution.mode;
+    this.state.embeddingModelId = this.resolution.modelId;
+    this.state.embeddingAddonVersion = this.resolution.addonVersion;
+    this.state.embeddingNotice = this.resolution.notice;
+    return this.resolution;
   }
 
   async start(context: vscode.ExtensionContext): Promise<void> {
-    this.state.embeddingMode = this.resolveEmbeddingMode();
+    await this.resolveMode();
     await this.rebuildAll();
     this.watchWorkspace(context);
   }
 
   async rebuildAll(): Promise<void> {
+    await this.resolveMode();
     if (!this.platform.getSettings().ragEnabled) {
       this.state.code = 'Ready';
       this.state.docs = 'Ready';
@@ -63,8 +73,12 @@ export class IndexManager {
       const docChunks = await this.buildDocIndex();
       this.retrieval.setCodeChunks(codeChunks);
       this.retrieval.setDocChunks(docChunks);
+      this.retrieval.setEmbeddingMode(this.resolution.mode);
       this.state.codeChunks = codeChunks.length;
       this.state.docChunks = docChunks.length;
+      this.state.embeddedChunks =
+        codeChunks.filter((c) => c.embedding?.length).length +
+        docChunks.filter((c) => c.embedding?.length).length;
       this.state.code = 'Ready';
       this.state.docs = 'Ready';
       this.state.lastError = undefined;
@@ -73,6 +87,13 @@ export class IndexManager {
       this.state.docs = 'Failed';
       this.state.lastError = err instanceof Error ? err.message : String(err);
     }
+  }
+
+  private async embedIfNeeded(chunks: IndexChunk[]): Promise<void> {
+    if (this.resolution.mode === 'local') {
+      return;
+    }
+    await computeChunkEmbeddings(chunks, this.resolution);
   }
 
   private async buildCodeIndex(): Promise<IndexChunk[]> {
@@ -101,13 +122,14 @@ export class IndexManager {
         });
       }
     });
+    await this.embedIfNeeded(chunks);
     await this.persist(root, CODE_INDEX, chunks);
     return chunks;
   }
 
   private async buildDocIndex(): Promise<IndexChunk[]> {
     await this.docs.scan();
-    const entries = this.docs.getEntries().filter((e) => e.valid);
+    const entries = this.docs.getEntries().filter((e) => e.valid && !e.relativePath.includes('/archive/'));
     const chunks: IndexChunk[] = [];
     for (const entry of entries) {
       for (const part of chunkMarkdownDoc(entry.relativePath, entry.body)) {
@@ -121,6 +143,7 @@ export class IndexManager {
         });
       }
     }
+    await this.embedIfNeeded(chunks);
     const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (root) {
       await this.persist(root, DOC_INDEX, chunks);
