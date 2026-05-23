@@ -11,7 +11,9 @@ import {
   serverAllowsTool,
   type McpServerConfig,
 } from './mcpConfig';
+import type { McpTransportClient } from './mcpClient';
 import { McpStdioClient } from './mcpStdioClient';
+import { McpHttpClient } from './mcpHttpClient';
 
 export type McpConnectionState = 'connected' | 'connecting' | 'disconnected' | 'error';
 
@@ -25,7 +27,7 @@ export interface McpServerStatus {
 
 export class McpService {
   private servers: McpServerStatus[] = [];
-  private clients = new Map<string, McpStdioClient>();
+  private clients = new Map<string, McpTransportClient>();
   private watcher: vscode.FileSystemWatcher | undefined;
   private retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -190,19 +192,13 @@ export class McpService {
     }
 
     try {
-      if (server.config.url) {
-        server.state = 'error';
-        server.lastError = 'http_sse_transport_not_yet_supported';
-        this.scheduleRetry(server);
-        return;
-      }
-      if (!server.config.command) {
+      const client = server.config.url ? new McpHttpClient() : new McpStdioClient();
+      if (!server.config.url && !server.config.command) {
         server.state = 'error';
         server.lastError = 'missing_transport';
         return;
       }
 
-      const client = new McpStdioClient();
       await client.connect(server.config, root);
       this.clients.set(server.config.id, client);
       server.state = 'connected';

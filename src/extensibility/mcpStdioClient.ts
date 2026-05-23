@@ -9,12 +9,13 @@ import {
   type JsonRpcRequest,
 } from './mcpJsonRpc';
 import type { McpServerConfig } from './mcpConfig';
+import type { McpTransportClient } from './mcpClient';
 
 const PROTOCOL_VERSION = '2024-11-05';
 const CONNECT_TIMEOUT_MS = 5000;
 const CLIENT_INFO = { name: 'copilot-plus', version: '0.1.0' };
 
-export class McpStdioClient {
+export class McpStdioClient implements McpTransportClient {
   private proc: ChildProcessWithoutNullStreams | undefined;
   private reader = new McpMessageReader();
   private nextId = 1;

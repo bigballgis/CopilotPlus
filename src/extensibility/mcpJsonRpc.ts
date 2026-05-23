@@ -112,3 +112,65 @@ function extractTextContent(content: unknown): string {
     )
     .join('\n');
 }
+
+/** Parse JSON-RPC response body from HTTP (application/json). */
+export function parseHttpJsonRpcBody(raw: unknown): JsonRpcResponse {
+  if (typeof raw !== 'object' || raw === null) {
+    throw new Error('invalid_http_json');
+  }
+  const obj = raw as Record<string, unknown>;
+  if (obj.error && typeof obj.error === 'object') {
+    const err = obj.error as { message?: string };
+    throw new Error(String(err.message ?? 'jsonrpc_error'));
+  }
+  if ('result' in obj) {
+    return {
+      jsonrpc: '2.0',
+      id: typeof obj.id === 'number' ? obj.id : 0,
+      result: obj.result,
+    };
+  }
+  throw new Error('missing_jsonrpc_result');
+}
+
+/** Parse SSE `data:` lines into JSON-RPC responses. */
+export function parseSseJsonRpcMessages(text: string): JsonRpcResponse[] {
+  const out: JsonRpcResponse[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.startsWith('data:')) {
+      continue;
+    }
+    const payload = line.slice(5).trim();
+    if (!payload || payload === '[DONE]') {
+      continue;
+    }
+    try {
+      const msg = JSON.parse(payload) as Record<string, unknown>;
+      if (typeof msg.id === 'number') {
+        if (msg.error) {
+          out.push({
+            jsonrpc: '2.0',
+            id: msg.id,
+            error: msg.error as JsonRpcResponse['error'],
+          });
+        } else {
+          out.push({ jsonrpc: '2.0', id: msg.id, result: msg.result });
+        }
+      }
+    } catch {
+      // ignore malformed SSE data lines
+    }
+  }
+  return out;
+}
+
+export function extractSessionId(headers: Headers): string | undefined {
+  return headers.get('mcp-session-id') ?? headers.get('Mcp-Session-Id') ?? undefined;
+}
+
+export function unwrapJsonRpcResult(response: JsonRpcResponse): unknown {
+  if (response.error) {
+    throw new Error(response.error.message);
+  }
+  return response.result;
+}
