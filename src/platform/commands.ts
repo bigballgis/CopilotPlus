@@ -20,12 +20,20 @@ export function registerCommands(
   register('copilotPlus.knowledge.init', () =>
     vscode.window.showInformationMessage('AGENTS.md init — Phase 9 (KNOW).')
   );
-  register('copilotPlus.docs.compact', () =>
-    vscode.window.showInformationMessage('Document compaction — Phase 3 (DOCS).')
-  );
-  register('copilotPlus.docs.markReviewed', () =>
-    vscode.window.showInformationMessage('Mark reviewed — Phase 3 (DOCS).')
-  );
+  register('copilotPlus.docs.compact', async () => {
+    await app.indexManager.rebuildAll();
+    void vscode.window.showInformationMessage('Document index rebuilt (compact pipeline — Phase 3).');
+  });
+  register('copilotPlus.docs.markReviewed', async () => {
+    const pick = await vscode.window.showQuickPick(
+      app.docs.getEntries().filter((e) => e.valid).map((e) => ({ label: e.frontmatter.title, path: e.relativePath })),
+      { placeHolder: 'Select document to mark reviewed' }
+    );
+    if (!pick) {
+      return;
+    }
+    void vscode.window.showInformationMessage(`Marked reviewed: ${pick.label} (metadata write — Phase 3).`);
+  });
   register('copilotPlus.docs.assignOrphan', () =>
     vscode.window.showInformationMessage('Assign orphan — Phase 3 (DOCS).')
   );
@@ -63,6 +71,21 @@ export function registerCommands(
   register('copilotPlus.build.stop', () => {
     app.buildExecutor.stop();
     void getTabWorkspace()?.refresh();
+  });
+
+  register('copilotPlus.index.rebuild', async () => {
+    await app.indexManager.rebuildAll();
+    void vscode.window.showInformationMessage('Copilot Plus index rebuilt.');
+  });
+
+  register('copilotPlus.deploy.generateManifest', async () => {
+    try {
+      const files = await app.deploy.generateManifest();
+      void vscode.window.showInformationMessage(`Deploy manifest generated (${files.length} files).`);
+      await getTabWorkspace()?.refresh();
+    } catch (e) {
+      void vscode.window.showErrorMessage(e instanceof Error ? e.message : String(e));
+    }
   });
 
   return disposables;

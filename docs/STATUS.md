@@ -1,8 +1,8 @@
 # Copilot Plus — 进度总览
 
 > **最后更新**：2026-05-23  
-> **当前阶段**：Phase 5 🔄 · Phase 6 🔄 · Phase 8 起步  
-> **下一项**：RAG 索引 · Deploy 阶段 · Hooks UI
+> **当前阶段**：Phase 6 🔄 · Phase 9 🔄  
+> **下一项**：Mentions · Embedding Mode A/B · Auto Deploy 执行
 
 ---
 
@@ -16,13 +16,13 @@
 | 3 | M2 Document Tree | 5/6 | 🔄 进行中 |
 | 4 | M3 Tools + Agents | 4/4 | ✅ 完成 |
 | 5 | M4 Workflow | 4/4 | ✅ 完成 |
-| 6 | M5 Context/RAG | 0/5 | ⬜ 未开始 |
+| 6 | M5 Context/RAG | 3/5 | 🔄 进行中 |
 | 7 | M6 Editing | 3/5 | 🔄 进行中 |
 | 8 | M7 Extensibility | 1/3 | 🔄 进行中 |
-| 9 | M8 Deploy + Polish | 0/4 | ⬜ 未开始 |
+| 9 | M8 Deploy + Polish | 1/4 | 🔄 进行中 |
 
-**单元测试**：28/28 通过  
-**需求覆盖率（粗算）**：~55%
+**单元测试**：32/32 通过  
+**需求覆盖率（粗算）**：~60%
 
 ---
 
@@ -30,11 +30,11 @@
 
 | 模块 | 交付 | 需求 |
 |------|------|------|
-| Explorer | `explorerAgent.ts` + `explore` 工具委派 | R-AG-5 |
-| Post-edit LSP | `postEditVerification.ts` — Coder 最多 3 轮重试 | R-AG-6 |
-| LSP / Bash / Git 工具 | `lspTools.ts`、`bashRunner.ts`、executor 扩展 | R-TOOL-4/5 |
-| Hooks | `hookService.ts` — hooks.json + stage/task 事件 | R-EXT-3 |
-| Rollback | BuildExecutor.rollbackTask + Task Panel 按钮 | R-WF-5 |
+| Codebase Index | BM25 稀疏索引 + 文件 watcher | R-CTX-2 |
+| RAG Index | 文档树分块索引 | R-CTX-3 |
+| Unified Retrieval | `code_search` RRF + 结构加权 + 配额 | R-CTX-6, R-TOOL-6 |
+| Index Manager | Control Console 状态 + Rebuild | R-CTX-5 (Mode C) |
+| Deploy Service | config.json + manifest 模板 + Deploy Tab | R-DEP-1, R-DEP-2 |
 
 ---
 
@@ -42,9 +42,8 @@
 
 | 日期 | 内容 |
 |------|------|
-| 2026-05-23 | Explorer + LSP 后验 + Hooks + Rollback + 工具补全 |
-| 2026-05-23 | Sub-Agent 工具循环 + Build DAG 执行器 + Task Panel |
-| 2026-05-23 | Document Tree CRUD + Tool Executor + Tab 文档树 UI |
-| 2026-05-23 | Primary Agent + Inline Edit + Diff Review + Decision Center UI |
-| 2026-05-23 | Phase 1 完成；Platform 单元测试 |
-| 2026-05-23 | Phase 0 基建 |
+| 2026-05-23 | RAG 稀疏索引 + unified code_search + Deploy 骨架 |
+| 2026-05-23 | Explorer + LSP 后验 + Hooks + Rollback |
+| 2026-05-23 | Sub-Agent 工具循环 + Build DAG 执行器 |
+| 2026-05-23 | Document Tree CRUD + Tool Executor |
+| 2026-05-23 | Phase 0–1 基建与 Platform |

@@ -62,6 +62,16 @@
         "command": "copilotPlus.build.stop",
         "title": "Copilot Plus: Stop Build",
         "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.index.rebuild",
+        "title": "Copilot Plus: Rebuild Index",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.deploy.generateManifest",
+        "title": "Copilot Plus: Generate Deploy Manifest",
+        "category": "Copilot Plus"
       }
     ],
     "keybindings": [

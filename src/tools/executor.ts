@@ -332,20 +332,27 @@ export class ToolExecutor {
 
   private async codeSearch(args: Record<string, unknown>): Promise<ToolResult> {
     const query = String(args.query ?? args.pattern ?? '');
-    const grepResult = await this.grep({ pattern: query, max_results: args.max_results ?? 50 });
-    if (!grepResult.ok) {
-      return grepResult;
+    if (!this.app.platform.getSettings().ragEnabled) {
+      return this.grep({ pattern: query, max_results: args.max_results ?? 50 });
     }
-    const docMatches = this.app.docs
-      .getEntries()
-      .filter((e) => e.valid && (e.frontmatter.title + e.body).toLowerCase().includes(query.toLowerCase()))
-      .slice(0, 20)
-      .map((e) => ({ path: e.relativePath, title: e.frontmatter.title }));
+
+    const model = await this.app.platform.models.resolveSelectionForSurface('subAgent');
+    const tier = model ? this.app.platform.models.getContextTier(model) : 'M';
+    const response = this.app.indexManager.retrieval.search({
+      query,
+      scope: args.scope ? String(args.scope) : undefined,
+      thoroughness: (args.thoroughness as 'quick' | 'medium' | 'thorough') ?? 'medium',
+      topK: typeof args.top_k === 'number' ? args.top_k : undefined,
+      tier,
+      docEntries: this.docs.getEntries(),
+    });
+
     return {
       ok: true,
       data: {
-        code: grepResult.data,
-        docs: docMatches,
+        results: response.results,
+        truncated: response.truncated,
+        mode: response.mode,
       },
     };
   }

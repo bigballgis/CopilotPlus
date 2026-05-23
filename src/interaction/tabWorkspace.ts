@@ -84,6 +84,8 @@ export class TabWorkspaceProvider {
       await this.app.buildExecutor.createBuild();
     } else if (action === 'rollback' && taskId) {
       await this.app.buildExecutor.rollbackTask(taskId);
+    } else if (action === 'deployGenerate') {
+      await vscode.commands.executeCommand('copilotPlus.deploy.generateManifest');
     }
     await this.refresh();
   }
@@ -127,8 +129,33 @@ function panelContent(tab: TabId, app: AppServices, build?: BuildSnapshot): stri
     case 'commit':
       return '<p>AI commit history — Phase 6 (EDIT) + Phase 5.</p>';
     case 'deploy':
-      return '<p>Deployment status — Phase 9 (DEP).</p>';
+      return renderDeployPanel(app);
   }
+}
+
+function renderDeployPanel(app: AppServices): string {
+  const cfg = app.deploy.getConfig();
+  const runs = app.deploy.getRuns().slice(0, 5);
+  const commands = app.deploy.recommendedCommands();
+  const runRows = runs
+    .map(
+      (r) =>
+        `<tr><td>${escapeHtml(r.id)}</td><td>${escapeHtml(r.target)}</td><td>${escapeHtml(r.status)}</td></tr>`
+    )
+    .join('');
+  return `
+    <p><strong>Target</strong> ${escapeHtml(cfg.target)} · <strong>Mode</strong> ${escapeHtml(cfg.mode)}</p>
+    <div style="display:flex;gap:8px;margin:8px 0">
+      <button type="button" onclick="buildAction('deployGenerate')">Generate Manifest</button>
+    </div>
+    <p style="font-size:12px;opacity:0.85">Manual commands:</p>
+    <ul>${commands.map((c) => `<li><code>${escapeHtml(c)}</code></li>`).join('')}</ul>
+    ${
+      runs.length
+        ? `<table style="width:100%;font-size:12px"><thead><tr><th>Run</th><th>Target</th><th>Status</th></tr></thead><tbody>${runRows}</tbody></table>`
+        : '<p>No deploy runs yet.</p>'
+    }
+  `;
 }
 
 function renderTaskPanel(build?: BuildSnapshot): string {

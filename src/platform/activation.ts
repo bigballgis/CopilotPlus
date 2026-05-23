@@ -41,7 +41,7 @@ export async function activatePlatform(context: vscode.ExtensionContext): Promis
     registrations.push(
       vscode.window.registerWebviewViewProvider(
         ControlConsoleProvider.viewId,
-        new ControlConsoleProvider(app.platform)
+        new ControlConsoleProvider(app)
       )
     );
     registrations.push(...registerDecisionCenterCommands(app.decisions));
