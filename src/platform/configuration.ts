@@ -34,6 +34,7 @@ export interface CopilotPlusSettings {
   summarizationMode: 'auto' | 'manual' | 'disabled';
   summarizationKeepLastTurns: number;
   staleThresholdDays: number;
+  consistencyCheckBudget: number;
   embeddingAddonUrl: string;
   embeddingAddonSha256: string;
   tierOverride: 'auto' | 's' | 'm' | 'l';
@@ -72,6 +73,7 @@ const DEFAULTS: CopilotPlusSettings = {
   summarizationMode: 'auto',
   summarizationKeepLastTurns: 6,
   staleThresholdDays: 90,
+  consistencyCheckBudget: 50,
   embeddingAddonUrl: '',
   embeddingAddonSha256: '',
   tierOverride: 'auto',
@@ -182,6 +184,7 @@ export class ConfigurationService {
       ),
       summarizationKeepLastTurns: clampInt(cfg.get('context.summarization.keepLastTurns'), 2, 20, 6),
       staleThresholdDays: clampInt(cfg.get('docs.staleThresholdDays'), 30, 365, 90),
+      consistencyCheckBudget: clampInt(cfg.get('docs.consistencyCheckBudget'), 10, 500, 50),
       embeddingAddonUrl: cfg.get<string>('indexing.embeddingAddon.url', '') ?? '',
       embeddingAddonSha256: cfg.get<string>('indexing.embeddingAddon.sha256', '') ?? '',
       tierOverride: this.enumValue(

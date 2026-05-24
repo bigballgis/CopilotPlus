@@ -274,6 +274,13 @@
           "minimum": 30,
           "maximum": 365
         },
+        "copilotPlus.docs.consistencyCheckBudget": {
+          "type": "number",
+          "default": 50,
+          "minimum": 10,
+          "maximum": 500,
+          "description": "Maximum Reviewer/Architect consistency Sub-Agent calls per Build operation (R-DOCS-12.8)."
+        },
         "copilotPlus.deploy.mode": {
           "type": "string",
           "enum": [

@@ -1,8 +1,8 @@
 # Copilot Plus — 进度总览
 
 > **最后更新**：2026-05-23  
-> **当前阶段**：查漏补缺 — Drift / Layer Consistency  
-> **本 session 下一项（功能）**：F5 手动冒烟（Drift Resolve + Diff Review）
+> **当前阶段**：查漏补缺 — F5 手动冒烟（Drift Agent 一致性 + Resolve）
+> **本 session 下一项（功能）**：F5 手动冒烟（Committer 前 Reviewer 检查 + Decision 文档更新）
 
 ---
 
@@ -20,6 +20,8 @@
 | 8 | Control Console → Hierarchy | 一致性计数 + Drift 列表；Run consistency check |
 | 9 | 状态栏 Drift 计数 | 点击打开 Drift View |
 | 10 | Drift Resolve | Architect/Reviewer 委派 + Diff Review 接受后项清除 |
+| 11 | Committer 前一致性 | Reviewer 带 git diff 返回 verdict；Doc_Update → Decision |
+| 12 | Code_Mismatch | Problem 面板诊断 + `doc.drift.suspected` hook |
 
 ---
 
@@ -31,8 +33,8 @@
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 | 1 | Platform 补全 | 1.1–1.9 | ✅ 完成 |
 
-**单元测试**：205/205 通过  
-**需求覆盖率（粗算）**：~96%
+**单元测试**：210/210 通过  
+**需求覆盖率（粗算）**：~97%
 
 ---
 
@@ -46,6 +48,7 @@
 | Context Budget | 七级优先级裁剪 + Session cap + 摘要 80% 触发 + Tier M/L 策略 | R-CTX-4 / R-CTX-7 / R-CTX-8 |
 | Platform 补全 | 授权失效取消请求 + Conversation/Tab 模型 picker + PLAN 同步 | R-PLAT-2 / R-PLAT-3 |
 | Drift / Consistency | 静态诊断 + Sub-Agent Resolve + 队列 + 持久化 + Console/状态栏 | R-DOCS-12 / R-DOCS-13 |
+| Agent 一致性检查 | Reviewer/Architect 子代理 + verdict 解析 + Decision + Problem 面板 + Build 预算 | R-DOCS-12.3–12.8 |
 | Build 限额 | 工具调用/时长上限 + Decision + Stop All + 限额显示 | R-WF-8 |
 | Autonomy Levels | Manual Build/Deploy 全工具 Decision + deny list + Full_Auto Diff 绕过 + Control Console 选择器 | R-WF-7 |
 | Build 六步流水线 | Coder/Tester/Reviewer/Committer + 3 轮测试 + Decision | R-WF-4 |
@@ -88,6 +91,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | R-DOCS-12.3–12.8 Agent 一致性检查（Reviewer/Architect 刷新队列、verdict、Decision、Problem 面板、Build 预算 50） |
 | 2026-05-23 | R-DOCS-12/13 Layer Consistency + Drift（静态诊断、队列、持久化、Console/状态栏、Committer/Background 触发） |
 | 2026-05-23 | F5 验收脚本 + Control Console 构建链 + 冒烟清单（verify:f5） |
 | 2026-05-23 | R-DOCS-12/13 Drift MVP（静态诊断 + drift_state 持久化 + Console Hierarchy + 状态栏） |

@@ -76,4 +76,10 @@ describe('R-DOCS-12 consistency queue', () => {
     assert.equal(queue.flush('comp-a').length, 20);
     assert.equal(queue.pendingCount(), 0);
   });
+
+  it('tracks upward doc changes separately', () => {
+    const queue = new ConsistencyQueue();
+    queue.enqueueDocChange('.copilotPlus/docs/feature/a.md');
+    assert.deepEqual(queue.flushDocChanges(), ['.copilotPlus/docs/feature/a.md']);
+  });
 });

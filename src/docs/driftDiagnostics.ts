@@ -149,6 +149,16 @@ export function dedupeDriftItems(items: DriftItem[]): DriftItem[] {
   return [...map.values()];
 }
 
+export function createDriftItem(
+  type: DriftType,
+  layer: string,
+  target: string,
+  detail: string | undefined,
+  detectedAt: string
+): DriftItem {
+  return makeItem(type, layer, target, detail, detectedAt);
+}
+
 function makeItem(
   type: DriftType,
   layer: string,

@@ -15,6 +15,10 @@ import {
   resolveDriftAgentRole,
   resolveDriftScopeDoc,
 } from '../docs/driftResolution';
+import {
+  buildComponentConsistencyPrompt,
+  buildUpwardConsistencyPrompt,
+} from '../docs/consistencyPrompt';
 import type { DriftDismissal, DriftItem } from '../docs/driftTypes';
 import { MultiAgentVerificationService } from './verificationService';
 import {
@@ -194,6 +198,93 @@ export class SubAgentRunner {
       onStatus,
       temperature,
       maxToolCalls: this.resolveMaxToolCalls(),
+    });
+
+    return toRunResult(result);
+  }
+
+  /** R-DOCS-12.3 — Reviewer consistency check for a Component doc */
+  async runComponentConsistencyCheck(
+    componentDocPath: string,
+    changedFiles: string[],
+    gitDiff: string,
+    dismissals: DriftDismissal[],
+    buildId: string,
+    token: vscode.CancellationToken,
+    onStatus?: (message: string) => void
+  ): Promise<SubAgentRunResult> {
+    const role = 'Reviewer';
+    const task: TaskNode = {
+      id: `consistency-component-${Date.now()}`,
+      title: 'Component layer consistency check',
+      description: buildComponentConsistencyPrompt(componentDocPath, changedFiles, gitDiff, dismissals),
+      agent: role,
+      inputs: { componentDocPath, changedFiles },
+      depends_on: [],
+      status: 'Running',
+      scope_doc: componentDocPath,
+    };
+
+    return this.runConsistencyRole(role, task, buildId, token, onStatus);
+  }
+
+  /** R-DOCS-12.7 — Architect upward summary check */
+  async runUpwardConsistencyCheck(
+    childDocPath: string,
+    parentDocPath: string,
+    dismissals: DriftDismissal[],
+    buildId: string,
+    token: vscode.CancellationToken,
+    onStatus?: (message: string) => void
+  ): Promise<SubAgentRunResult> {
+    const role = 'Architect';
+    const task: TaskNode = {
+      id: `consistency-upward-${Date.now()}`,
+      title: 'Upward layer consistency check',
+      description: buildUpwardConsistencyPrompt(childDocPath, parentDocPath, dismissals),
+      agent: role,
+      inputs: { childDocPath, parentDocPath },
+      depends_on: [],
+      status: 'Running',
+      scope_doc: parentDocPath,
+    };
+
+    return this.runConsistencyRole(role, task, buildId, token, onStatus);
+  }
+
+  async captureGitDiffForPaths(paths: string[]): Promise<string> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!root || paths.length === 0) {
+      return '(no diff)';
+    }
+    const quoted = paths.map((p) => `"${p.replace(/"/g, '')}"`).join(' ');
+    const result = await runBash(`git diff -- ${quoted} && git diff --staged -- ${quoted}`, root, 120_000);
+    const combined = [result.stdout, result.stderr].filter(Boolean).join('\n').trim();
+    return combined || '(no diff)';
+  }
+
+  private async runConsistencyRole(
+    role: string,
+    task: TaskNode,
+    buildId: string,
+    token: vscode.CancellationToken,
+    onStatus?: (message: string) => void
+  ): Promise<SubAgentRunResult> {
+    const systemPrompt = await loadAgentPrompt(this.extensionUri, roleToPromptFile(role));
+    const writeTools = new Set(['write_file', 'doc_write', 'apply_patch', 'delete_file']);
+    const toolIds = this.app.tools.getEffectiveTools(role).filter((id) => !writeTools.has(id));
+    const userPrompt = await this.buildConsistencyPrompt(role, task);
+
+    const result = await this.loop.run({
+      role,
+      buildId,
+      taskId: task.id,
+      systemPrompt,
+      userPrompt,
+      toolIds,
+      token,
+      onStatus,
+      maxToolCalls: Math.min(15, this.resolveMaxToolCalls()),
     });
 
     return toRunResult(result);
@@ -467,7 +558,7 @@ export class SubAgentRunner {
       autoAttempts += 1;
       if (autoAttempts === 1) {
         onStatus?.('Running layer consistency check before commit…');
-        await this.app.drift.runConsistencyCheck(false);
+        await this.app.drift.runConsistencyCheck(false, { buildId, token, onStatus });
       }
       onStatus?.(`Running Committer for ${task.id} (attempt ${autoAttempts})`);
       const committerResult = await this.runRole(
@@ -961,6 +1052,36 @@ ${layerBlock || '(empty)'}
 ${knowledgeBlock || '(none)'}
 
 Apply doc_write or write_file for proposed fixes. Summarize what you changed when done.
+`.trim();
+  }
+
+  private async buildConsistencyPrompt(role: string, task: TaskNode): Promise<string> {
+    const entries = this.app.docs.getEntries();
+    const model = await this.app.platform.models.resolveSelectionForSurface('subAgent');
+    const tierOverride = this.app.platform.getSettings().tierOverride;
+    const tier = model ? this.app.platform.models.getContextTier(model, tierOverride) : ('M' as const);
+    const scope = resolveScope(task.scope_doc, entries, scopeMaxDocs(tier));
+    const layerWalk = buildLayerWalkForDoc(task.scope_doc, entries, tier);
+    const scopeBlock = scope
+      .map((s) => `- [${s.link_type}] ${s.title} (${s.document_path})`)
+      .join('\n');
+    const layerBlock = layerWalk.map((l) => `### ${l.documentPath}\n${l.content}`).join('\n\n');
+
+    return `
+Workflow stage: Layer consistency check
+Sub-agent role: ${role}
+Scope doc: ${task.scope_doc}
+
+## Consistency task
+${task.description}
+
+## Scope resolution
+${scopeBlock || '(empty)'}
+
+## Layer walk
+${layerBlock || '(empty)'}
+
+Return the JSON verdict object described above. Do not modify files.
 `.trim();
   }
 

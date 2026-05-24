@@ -2,6 +2,7 @@
 
 export class ConsistencyQueue {
   private readonly byComponent = new Map<string, Set<string>>();
+  private readonly docChanges = new Set<string>();
 
   enqueue(componentId: string, filePath: string): void {
     const norm = filePath.replace(/\\/g, '/');
@@ -13,12 +14,28 @@ export class ConsistencyQueue {
     set.add(norm);
   }
 
+  enqueueDocChange(docPath: string): void {
+    this.docChanges.add(docPath.replace(/\\/g, '/'));
+  }
+
   pendingCount(): number {
     let total = 0;
     for (const set of this.byComponent.values()) {
       total += set.size;
     }
     return total;
+  }
+
+  componentIds(): string[] {
+    return [...this.byComponent.keys()];
+  }
+
+  filesForComponent(componentId: string): string[] {
+    return [...(this.byComponent.get(componentId) ?? [])];
+  }
+
+  pendingDocChanges(): string[] {
+    return [...this.docChanges];
   }
 
   componentCount(componentId: string): number {
@@ -41,5 +58,11 @@ export class ConsistencyQueue {
     }
     this.byComponent.clear();
     return all;
+  }
+
+  flushDocChanges(): string[] {
+    const docs = [...this.docChanges];
+    this.docChanges.clear();
+    return docs;
   }
 }
