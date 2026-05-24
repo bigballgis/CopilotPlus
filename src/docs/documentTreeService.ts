@@ -93,7 +93,7 @@ export class DocumentTreeService {
   getTree(): DocTreeNode[] {
     const byId = new Map<string, DocTreeNode>();
     for (const e of this.cache) {
-      if (!e.valid) {
+      if (!e.valid || e.relativePath.includes('/archive/')) {
         continue;
       }
       byId.set(e.frontmatter.id, {
@@ -107,13 +107,13 @@ export class DocumentTreeService {
     }
     const roots: DocTreeNode[] = [];
     for (const e of this.cache) {
-      if (!e.valid || e.frontmatter.level !== 'system') {
+      if (!e.valid || e.frontmatter.level !== 'system' || e.relativePath.includes('/archive/')) {
         continue;
       }
       roots.push(byId.get(e.frontmatter.id)!);
     }
     for (const e of this.cache) {
-      if (!e.valid) {
+      if (!e.valid || e.relativePath.includes('/archive/')) {
         continue;
       }
       const node = byId.get(e.frontmatter.id);
@@ -323,6 +323,24 @@ export class DocumentTreeService {
 
   reviewBadge(entry: DocEntry): ReviewBadge {
     return computeReviewBadge(entry);
+  }
+
+  getArchivedEntries(): DocEntry[] {
+    return this.cache.filter((e) => e.valid && e.relativePath.includes('/archive/'));
+  }
+
+  async readRaw(relativePath: string): Promise<string> {
+    return fs.readFile(this.absFromRelative(relativePath), 'utf8');
+  }
+
+  async writeRaw(relativePath: string, content: string): Promise<void> {
+    await fs.mkdir(path.dirname(this.absFromRelative(relativePath)), { recursive: true });
+    await fs.writeFile(this.absFromRelative(relativePath), content, 'utf8');
+  }
+
+  async deleteDocument(relativePath: string): Promise<void> {
+    await fs.unlink(this.absFromRelative(relativePath));
+    await this.scan();
   }
 
   async archiveDocument(relativePath: string): Promise<string> {

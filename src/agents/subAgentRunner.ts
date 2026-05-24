@@ -15,6 +15,7 @@ import {
   resolveDriftAgentRole,
   resolveDriftScopeDoc,
 } from '../docs/driftResolution';
+import { buildCompactionPrompt } from '../docs/compactionPrompt';
 import { formatUnreviewedDocNotice } from '../docs/reviewBadge';
 import {
   buildComponentConsistencyPrompt,
@@ -286,6 +287,45 @@ export class SubAgentRunner {
       token,
       onStatus,
       maxToolCalls: Math.min(15, this.resolveMaxToolCalls()),
+    });
+
+    return toRunResult(result);
+  }
+
+  /** R-DOCS-9.2 — Architect proposes compaction plan for stale documents */
+  async runCompactionArchitect(
+    stalePaths: string[],
+    thresholdDays: number,
+    token: vscode.CancellationToken,
+    onStatus?: (message: string) => void
+  ): Promise<SubAgentRunResult> {
+    const entries = this.app.docs.getEntries().filter((e) => stalePaths.includes(e.relativePath));
+    const system = entries.find((e) => e.frontmatter.level === 'system') ??
+      this.app.docs.getEntries().find((e) => e.valid && e.frontmatter.level === 'system' && !e.relativePath.includes('/archive/'));
+    const scopeDoc = system?.relativePath ?? '.copilotPlus/docs/system/default.md';
+    const task: TaskNode = {
+      id: `compact-${Date.now()}`,
+      title: 'Document compaction plan',
+      description: buildCompactionPrompt(entries, thresholdDays),
+      agent: 'Architect',
+      inputs: { staleCount: entries.length },
+      depends_on: [],
+      status: 'Running',
+      scope_doc: scopeDoc,
+    };
+
+    const systemPrompt = await loadAgentPrompt(this.extensionUri, roleToPromptFile('Architect'));
+    const userPrompt = await this.buildDesignPrompt('Architect', 'compact', task);
+    const result = await this.loop.run({
+      role: 'Architect',
+      buildId: 'doc-compaction',
+      taskId: task.id,
+      systemPrompt,
+      userPrompt,
+      toolIds: this.app.tools.getEffectiveTools('Architect'),
+      token,
+      onStatus,
+      maxToolCalls: Math.min(20, this.resolveMaxToolCalls()),
     });
 
     return toRunResult(result);

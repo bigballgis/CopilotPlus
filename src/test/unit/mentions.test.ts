@@ -20,9 +20,9 @@ import * as path from 'path';
 describe('R-CTX-1 Mentions', () => {
   it('parses inline mention tokens for all kinds', () => {
     const parsed = parseMentionTokens(
-      '@file:src/a.ts @folder:src @symbol:src/a.ts @selection:b.ts @doc:docs/x.md @web:https://x.com @skill:api-style'
+      '@file:src/a.ts @folder:src @symbol:src/a.ts @selection:b.ts @doc:docs/x.md @archive:docs/archive/y.md @web:https://x.com @skill:api-style'
     );
-    assert.equal(parsed.length, 7);
+    assert.equal(parsed.length, 8);
     assert.deepEqual(parsed.map((p) => p.kind), MENTION_KINDS);
   });
 

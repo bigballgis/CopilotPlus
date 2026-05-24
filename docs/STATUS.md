@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：查漏补缺 — F5 手动冒烟（Drift Agent 一致性 + Resolve）
-> **本 session 下一项（功能）**：F5 手动冒烟 #8–15（Control Console Resolve + 层级路径）
+> **本 session 下一项（功能）**：F5 手动冒烟 #8–15（含 Architect Compact + @archive mention）
 
 ---
 
@@ -25,6 +25,8 @@
 | 13 | 代码归属状态栏 | 聚焦代码文件时显示 System › Module › Feature › Component |
 | 14 | Architecture Stale 徽章 | 过期文档显示 Stale + 子树 Compact 一键触发 |
 | 15 | Scope 引用追踪 | Sub-Agent / @doc 后 `last_referenced_at` 更新，Stale 状态刷新 |
+| 16 | Architect Compact | `copilotPlus.docs.compact` → Architect 计划 → 审批后 archive/merge/delete |
+| 17 | @archive mention | Conversation 中 `@archive:…` 可附加归档文档内容 |
 
 ---
 
@@ -36,7 +38,7 @@
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 | 1 | Platform 补全 | 1.1–1.9 | ✅ 完成 |
 
-**单元测试**：226/226 通过  
+**单元测试**：228/228 通过  
 **需求覆盖率（粗算）**：~97%
 
 ---
@@ -53,7 +55,7 @@
 | Drift / Consistency | 静态诊断 + Sub-Agent Resolve + 队列 + 持久化 + Console/状态栏 | R-DOCS-12 / R-DOCS-13 |
 | Agent 一致性检查 | Reviewer/Architect 子代理 + verdict 解析 + Decision + Problem 面板 + Build 预算 | R-DOCS-12.3–12.8 |
 | Review badge + 代码归属 | 审查徽章 + 状态栏 Layer Walk + orphan hook + Sub-Agent 未审阅提示 | R-DOCS-10.4–10.5 / R-DOCS-11.6 |
-| 文档生命周期 | last_referenced_at 追踪 + Architecture Stale 徽章 + 子树 Compact | R-DOCS-9.1 / R-DOCS-9.6 |
+| 文档生命周期 | last_referenced_at + Stale 徽章 + Architect Compact + @archive mention | R-DOCS-9.1–9.6 |
 | Build 限额 | 工具调用/时长上限 + Decision + Stop All + 限额显示 | R-WF-8 |
 | Autonomy Levels | Manual Build/Deploy 全工具 Decision + deny list + Full_Auto Diff 绕过 + Control Console 选择器 | R-WF-7 |
 | Build 六步流水线 | Coder/Tester/Reviewer/Committer + 3 轮测试 + Decision | R-WF-4 |
@@ -96,6 +98,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | R-DOCS-9.2–9.5 Architect Compact 计划 + @archive mention（解析/执行/checkpoint + 归档文档树过滤） |
 | 2026-05-23 | R-DOCS-14.3 / R-DOCS-11.4 代码 Layer Walk（兄弟文件 + shared co-owner）+ drift merge 提取 + Console Resolve 刷新 |
 | 2026-05-23 | R-DOCS-10.2/11.3/11.6 doc_write 自动审阅标记 + Problem 面板静态诊断 + Architecture 层级路径 + Agent drift 合并修复 |
 | 2026-05-23 | R-DOCS-9.1/9.6 文档生命周期（last_referenced_at 追踪 + Architecture Stale 徽章 + 子树 Compact） |

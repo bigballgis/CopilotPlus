@@ -52,6 +52,8 @@ export async function pickMention(app: AppServices): Promise<MentionAttachment |
       return pickSelection();
     case 'doc':
       return pickDoc(app);
+    case 'archive':
+      return pickArchive(app);
     case 'web':
       return pickWeb();
     case 'skill':
@@ -145,6 +147,22 @@ async function pickSelection(): Promise<MentionAttachment | undefined> {
   }
   const rel = vscode.workspace.asRelativePath(editor.document.uri).replace(/\\/g, '/');
   return { kind: 'selection', target: rel, label: 'selection' };
+}
+
+async function pickArchive(app: AppServices): Promise<MentionAttachment | undefined> {
+  const archived = app.docs.getArchivedEntries();
+  if (!archived.length) {
+    void vscode.window.showInformationMessage(t('mentions.noArchiveDocs'));
+    return undefined;
+  }
+  const pick = await vscode.window.showQuickPick(
+    archived.map((d) => ({ label: d.frontmatter.title, description: d.relativePath, target: d.relativePath })),
+    { placeHolder: t('mentions.pickArchive') }
+  );
+  if (!pick) {
+    return undefined;
+  }
+  return { kind: 'archive', target: pick.target, label: pick.label };
 }
 
 async function pickDoc(app: AppServices): Promise<MentionAttachment | undefined> {
@@ -315,6 +333,24 @@ async function resolveOneMention(
         return { attachment, text: `[@selection ${attachment.target}] empty selection`, blocked: true };
       }
       return { attachment, text: `[@selection ${attachment.target}]\n${clip(text)}` };
+    }
+    case 'archive': {
+      const docPath = attachment.target.startsWith('.copilotPlus/')
+        ? attachment.target
+        : `.copilotPlus/docs/archive/${attachment.target.replace(/^archive\//, '')}`;
+      const doc = await app.docs.read(docPath);
+      const body = `${doc.frontmatter.title}\n${doc.body}`;
+      if (body.length > maxChars) {
+        void vscode.window.showWarningMessage(
+          t('mentions.docTooLarge', docPath, String(perAttachmentTokenLimit(tokenBudget)))
+        );
+        return {
+          attachment,
+          text: `[@archive ${docPath}] blocked: exceeds attachment limit`,
+          blocked: true,
+        };
+      }
+      return { attachment, text: `[@archive ${docPath}]\n${body}` };
     }
     case 'doc': {
       const doc = await app.docs.read(attachment.target);

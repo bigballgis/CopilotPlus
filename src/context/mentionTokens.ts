@@ -6,6 +6,7 @@ export type MentionKind =
   | 'symbol'
   | 'selection'
   | 'doc'
+  | 'archive'
   | 'web'
   | 'skill';
 
@@ -17,7 +18,7 @@ export interface MentionAttachment {
   range?: string;
 }
 
-const TOKEN = /@(file|folder|symbol|selection|doc|web|skill):([^\s]+)/g;
+const TOKEN = /@(file|folder|symbol|selection|doc|archive|web|skill):([^\s]+)/g;
 
 export function parseMentionTokens(text: string): MentionAttachment[] {
   const found: MentionAttachment[] = [];
@@ -65,6 +66,7 @@ export const MENTION_KINDS: MentionKind[] = [
   'symbol',
   'selection',
   'doc',
+  'archive',
   'web',
   'skill',
 ];
