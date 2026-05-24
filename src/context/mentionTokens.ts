@@ -1,14 +1,23 @@
 /** @-mention token parsing — R-CTX-1 (pure, testable) */
 
-export type MentionKind = 'file' | 'doc' | 'selection' | 'skill';
+export type MentionKind =
+  | 'file'
+  | 'folder'
+  | 'symbol'
+  | 'selection'
+  | 'doc'
+  | 'web'
+  | 'skill';
 
 export interface MentionAttachment {
   kind: MentionKind;
   target: string;
   label: string;
+  /** Optional line range for @symbol attachments — "start-end" 1-based */
+  range?: string;
 }
 
-const TOKEN = /@(file|doc|selection|skill):([^\s]+)/g;
+const TOKEN = /@(file|folder|symbol|selection|doc|web|skill):([^\s]+)/g;
 
 export function parseMentionTokens(text: string): MentionAttachment[] {
   const found: MentionAttachment[] = [];
@@ -29,7 +38,7 @@ export function mergeAttachments(
   const seen = new Set<string>();
   const out: MentionAttachment[] = [];
   for (const a of [...explicit, ...parsed]) {
-    const key = `${a.kind}:${a.target}`;
+    const key = `${a.kind}:${a.target}:${a.range ?? ''}`;
     if (seen.has(key)) {
       continue;
     }
@@ -49,3 +58,13 @@ export function parseSlashSkill(text: string): { skillId?: string; message: stri
   }
   return { skillId: match[1], message: (match[2] ?? '').trim() };
 }
+
+export const MENTION_KINDS: MentionKind[] = [
+  'file',
+  'folder',
+  'symbol',
+  'selection',
+  'doc',
+  'web',
+  'skill',
+];

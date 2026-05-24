@@ -15,12 +15,14 @@ import {
   parseMentionTokens,
   parseSlashSkill,
   pickMention,
-  resolveMentionContext,
+  resolveMentionBlocks,
   type MentionAttachment,
 } from '../context/mentions';
+import { estimateAttachmentsBudget } from '../context/mentionBudget';
 import { buildScopePreheatKey, runScopePreheat } from '../context/scopePreheat';
 import { estimateTokens } from '../platform/chatClient';
 import { t } from '../platform/l10n';
+import { isDesignWorkflowStep } from '../workflow/designSteps';
 
 export class ConversationPaneProvider {
   private panel: vscode.WebviewPanel | undefined;
@@ -160,6 +162,9 @@ export class ConversationPaneProvider {
       continueAria: t('design.continueAria'),
       pickStepLabel: t('design.pickStepLabel'),
       pickStepAria: t('design.pickStepAria'),
+      pickStepPlaceHolder: t('design.pickStepPlaceHolder'),
+      stepComplete: t('design.stepComplete'),
+      stepCurrent: t('design.currentStep'),
     };
   }
 
@@ -199,9 +204,10 @@ export class ConversationPaneProvider {
       return;
     }
     const result = await this.app.designWorkflow.continueToNextStep();
-    if (result.ok) {
-      await this.syncWebviewState();
+    if (result.ok && result.nextStep) {
+      await this.app.designWorkflow.refreshPanelsForStep(result.nextStep);
     }
+    await this.syncWebviewState();
   }
 
   private async handlePickDesignStep(step: string): Promise<void> {
@@ -209,9 +215,10 @@ export class ConversationPaneProvider {
       return;
     }
     const picked = await this.app.designWorkflow.pickStep(step);
-    if (picked) {
-      await this.syncWebviewState();
+    if (picked && isDesignWorkflowStep(step)) {
+      await this.app.designWorkflow.refreshPanelsForStep(step);
     }
+    await this.syncWebviewState();
   }
 
   private async handleSubmit(text: string, webAttachments: MentionAttachment[]): Promise<void> {
@@ -244,10 +251,30 @@ export class ConversationPaneProvider {
     const autoSkills = this.app.skills.getAutoAttached(systemDoc?.relativePath, systemDoc?.frontmatter.id);
     const skillPrefix = this.app.skills.formatInstructions(autoSkills);
 
-    let contextPrefix =
-      attachments.length > 0
-        ? await resolveMentionContext(attachments, this.app, this.app.platform.getSettings().sessionTokenCap)
-        : undefined;
+    const tokenBudget = this.app.platform.getSettings().sessionTokenCap;
+    let contextPrefix: string | undefined;
+    if (attachments.length > 0) {
+      const blocks = await resolveMentionBlocks(attachments, this.app, tokenBudget);
+      const activeBlocks = blocks.filter((b) => !b.blocked);
+      const budget = estimateAttachmentsBudget(
+        activeBlocks.map((b) => b.text),
+        userText,
+        tokenBudget
+      );
+      if (budget.exceedsBudget) {
+        const sendAnyway = t('mentions.budgetSendAnyway');
+        const choice = await vscode.window.showWarningMessage(
+          t('mentions.budgetExceeded', String(budget.estimatedTokens), String(tokenBudget)),
+          { modal: true },
+          sendAnyway,
+          t('common.cancel')
+        );
+        if (choice !== sendAnyway) {
+          return;
+        }
+      }
+      contextPrefix = activeBlocks.map((b) => b.text).join('\n\n');
+    }
 
     const preheatRawKey = buildScopePreheatKey(userText, attachments);
     const preheatKey = this.app.speculative.makeKey('scopePreheat', { key: preheatRawKey });
