@@ -55,6 +55,13 @@ const DOCS_NAMING_MARKERS = [
   { file: 'src/tools/executor.ts', tokens: ['lateral_depth_exceeded', 'Reuse_Existing'] },
 ];
 
+const DOCS_TREE_OPS_MARKERS = [
+  { file: 'src/docs/treeOps.ts', tokens: ['renameDocumentTree', 'moveDocumentTree', 'deleteLeafDocumentTree'] },
+  { file: 'src/docs/docTreeCommands.ts', tokens: ['runCreateChildDoc', 'runDocTreeAction'] },
+  { file: 'src/shared/tabWorkspaceWebviewProtocol.ts', tokens: ["type: 'docTreeAction'", 'DocTreePanelAction'] },
+  { file: 'webview-ui/src/shared/components/DocTreeActionBar.tsx', tokens: ['createChildDoc', 'onAction'] },
+];
+
 async function main() {
   const errors = [];
 
@@ -77,7 +84,13 @@ async function main() {
     }
   }
 
-  for (const { file, tokens } of [...DOCS_LIFECYCLE_MARKERS, ...COMMIT_PANEL_MARKERS, ...DECISION_CENTER_MARKERS, ...DOCS_NAMING_MARKERS]) {
+  for (const { file, tokens } of [
+    ...DOCS_LIFECYCLE_MARKERS,
+    ...COMMIT_PANEL_MARKERS,
+    ...DECISION_CENTER_MARKERS,
+    ...DOCS_NAMING_MARKERS,
+    ...DOCS_TREE_OPS_MARKERS,
+  ]) {
     const source = await fs.readFile(path.join(root, file), 'utf8');
     for (const token of tokens) {
       if (!source.includes(token)) {

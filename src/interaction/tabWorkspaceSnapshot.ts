@@ -103,6 +103,11 @@ export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
     staleBadge: t('docs.staleBadge'),
     compactSubtree: t('docs.compactSubtree'),
     compactSubtreeAria: t('docs.compactSubtreeAria'),
+    createChildDoc: t('tabWorkspace.createChildDoc'),
+    deleteDoc: t('tabWorkspace.deleteDoc'),
+    linkDoc: t('tabWorkspace.linkDoc'),
+    unlinkDoc: t('tabWorkspace.unlinkDoc'),
+    markReviewedDoc: t('tabWorkspace.markReviewedDoc'),
   };
 }
 

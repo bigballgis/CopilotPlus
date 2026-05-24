@@ -40,6 +40,36 @@
         "category": "Copilot Plus"
       },
       {
+        "command": "copilotPlus.docs.createChild",
+        "title": "Copilot Plus: Create Child Document",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.docs.rename",
+        "title": "Copilot Plus: Rename Document",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.docs.move",
+        "title": "Copilot Plus: Move Document",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.docs.delete",
+        "title": "Copilot Plus: Delete Document",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.docs.link",
+        "title": "Copilot Plus: Link Documents",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.docs.unlink",
+        "title": "Copilot Plus: Unlink Documents",
+        "category": "Copilot Plus"
+      },
+      {
         "command": "copilotPlus.docs.markReviewed",
         "title": "Copilot Plus: Mark Document Reviewed",
         "category": "Copilot Plus"

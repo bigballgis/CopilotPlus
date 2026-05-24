@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import type { AppServices } from '../app/appServices';
 import { openWorkspace, getTabWorkspace } from '../interaction/workspace';
 import { runDocCompact } from '../docs/compactFlow';
+import { runDocTreeAction, runCreateChildDoc, runRenameDoc, runMoveDoc, runDeleteDoc, runLinkDoc, runUnlinkDoc } from '../docs/docTreeCommands';
 import { runCli, getCliOutputChannel } from '../cli/cliRunner';
 import { t } from './l10n';
 
@@ -22,7 +23,33 @@ export function registerCommands(
   register('copilotPlus.inlineEdit', () => app.inlineEdit.invoke());
   register('copilotPlus.knowledge.init', () => app.knowledge.initAgentsMd(app));
   register('copilotPlus.docs.compact', () => runDocCompact(app));
-  register('copilotPlus.docs.markReviewed', async () => {
+  register('copilotPlus.docs.createChild', (parentPath?: unknown) =>
+    runCreateChildDoc(app, typeof parentPath === 'string' ? parentPath : undefined)
+  );
+  register('copilotPlus.docs.rename', (docPath?: unknown) =>
+    runRenameDoc(app, typeof docPath === 'string' ? docPath : undefined)
+  );
+  register('copilotPlus.docs.move', (docPath?: unknown) =>
+    runMoveDoc(app, typeof docPath === 'string' ? docPath : undefined)
+  );
+  register('copilotPlus.docs.delete', (docPath?: unknown) =>
+    runDeleteDoc(app, typeof docPath === 'string' ? docPath : undefined)
+  );
+  register('copilotPlus.docs.link', (sourcePath?: unknown) =>
+    runLinkDoc(app, typeof sourcePath === 'string' ? sourcePath : undefined)
+  );
+  register('copilotPlus.docs.unlink', (sourcePath?: unknown) =>
+    runUnlinkDoc(app, typeof sourcePath === 'string' ? sourcePath : undefined)
+  );
+  register('copilotPlus.docs.markReviewed', async (docPath?: unknown) => {
+    if (typeof docPath === 'string') {
+      const reviewer =
+        (await vscode.authentication.getSession('github', [], { createIfNone: false }))?.account?.label ?? 'user';
+      await app.docs.markReviewed(docPath, reviewer);
+      void vscode.window.showInformationMessage(t('docs.markedReviewed', docPath));
+      await getTabWorkspace()?.refresh();
+      return;
+    }
     const active = vscode.window.activeTextEditor;
     let rel: string | undefined;
     if (active) {

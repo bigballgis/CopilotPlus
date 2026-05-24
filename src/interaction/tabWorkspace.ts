@@ -3,11 +3,13 @@
 import * as vscode from 'vscode';
 import type { AppServices } from '../app/appServices';
 import { buildDocBreadcrumb, buildDocPreviewNav } from '../docs/scopeResolution';
+import { childLevelFor } from '../docs/treeOps';
 import type { BuildSnapshot } from '../workflow/buildExecutor';
 import { getTabWorkspaceWebviewHtml } from './webviewBundle';
 import { buildTabWorkspaceStateSync } from './tabWorkspaceSnapshot';
 import type { TabId, TabWorkspaceWebviewMessage } from '../shared/tabWorkspaceWebviewProtocol';
 import { runDocCompact } from '../docs/compactFlow';
+import { runDocTreeAction } from '../docs/docTreeCommands';
 import { t } from '../platform/l10n';
 
 export class TabWorkspaceProvider {
@@ -94,6 +96,14 @@ export class TabWorkspaceProvider {
         await this.syncWebviewState();
         return;
       }
+      if (msg.type === 'docTreeAction') {
+        await runDocTreeAction(this.app, msg.action, msg.path);
+        await this.syncWebviewState();
+        if (this.app.docs.getByPath(msg.path)) {
+          this.postDocPreview(msg.path);
+        }
+        return;
+      }
       if (msg.type === 'selectModel' && msg.modelId) {
         await this.app.platform.models.pickModel(msg.modelId);
         await this.syncWebviewState();
@@ -114,6 +124,10 @@ export class TabWorkspaceProvider {
 
   async refresh(): Promise<void> {
     await this.syncWebviewState();
+  }
+
+  previewDoc(relativePath: string): void {
+    this.postDocPreview(relativePath);
   }
 
   private async syncWebviewState(): Promise<void> {
@@ -152,6 +166,7 @@ export class TabWorkspaceProvider {
     const entries = this.app.docs.getEntries();
     const resolveId = (id: string) => this.app.namingAliases.resolve(id);
     const nav = buildDocPreviewNav(relativePath, entries, resolveId);
+    const childLevel = childLevelFor(entry.frontmatter.level);
     this.postMessage({
       type: 'docPreview',
       path: relativePath,
@@ -160,6 +175,8 @@ export class TabWorkspaceProvider {
       breadcrumb: buildDocBreadcrumb(relativePath, entries),
       children: nav.children,
       lateralByType: nav.lateralByType,
+      hasChildren: (entry.frontmatter.children?.length ?? 0) > 0,
+      canCreateChild: !!childLevel,
     });
   }
 

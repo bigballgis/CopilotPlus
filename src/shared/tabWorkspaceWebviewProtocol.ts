@@ -83,6 +83,11 @@ export interface TabWorkspaceLabels {
   staleBadge: string;
   compactSubtree: string;
   compactSubtreeAria: string;
+  createChildDoc: string;
+  deleteDoc: string;
+  linkDoc: string;
+  unlinkDoc: string;
+  markReviewedDoc: string;
 }
 
 export interface DocNavLinkWire {
@@ -233,9 +238,21 @@ export interface DocBreadcrumbWire {
 
 export type TabWorkspaceHostMessage =
   | TabWorkspaceStateSync
-  | { type: 'docPreview'; path: string; title: string; markdown: string; breadcrumb?: DocBreadcrumbWire[]; children?: DocNavLinkWire[]; lateralByType?: Record<string, DocNavLinkWire[]> }
+  | {
+      type: 'docPreview';
+      path: string;
+      title: string;
+      markdown: string;
+      breadcrumb?: DocBreadcrumbWire[];
+      children?: DocNavLinkWire[];
+      lateralByType?: Record<string, DocNavLinkWire[]>;
+      hasChildren?: boolean;
+      canCreateChild?: boolean;
+    }
   | { type: 'taskLog'; taskId: string; content: string }
   | { type: 'commitDiff'; hash: string; diff: string };
+
+export type DocTreePanelAction = 'createChild' | 'delete' | 'markReviewed' | 'link' | 'unlink';
 
 export type TabWorkspaceWebviewMessage =
   | { type: 'ready' }
@@ -251,6 +268,7 @@ export type TabWorkspaceWebviewMessage =
       files?: string[];
     }
   | { type: 'compactDocSubtree'; path: string }
+  | { type: 'docTreeAction'; action: DocTreePanelAction; path: string }
   | { type: 'selectModel'; modelId: string }
   | { type: 'commitAction'; action: 'select' | 'rollback'; hash: string };
 

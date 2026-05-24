@@ -1,6 +1,12 @@
-import { VSCodeButton } from '@vscode/webview-ui-toolkit/react';
-import type { DocTreeNodeWire, DocBreadcrumbWire, DocNavLinkWire, TabWorkspaceLabels } from '@shared/tabWorkspaceWebviewProtocol';
-import { ActionBar } from './ActionBar';
+import type {
+  DocTreeNodeWire,
+  DocBreadcrumbWire,
+  DocNavLinkWire,
+  DocTreePanelAction,
+  TabWorkspaceLabels,
+} from '@shared/tabWorkspaceWebviewProtocol';
+import { DocNavPreview } from './DocNavPreview';
+import { DocTreeActionBar } from './DocTreeActionBar';
 import { DocTreePicker } from './DocTreePicker';
 import { MarkdownBody } from './MarkdownBody';
 import { postToHost } from '../vscode';
@@ -14,7 +20,10 @@ interface RequirementPreviewPanelProps {
   breadcrumb?: DocBreadcrumbWire[];
   children?: DocNavLinkWire[];
   lateralByType?: Record<string, DocNavLinkWire[]>;
+  hasChildren?: boolean;
+  canCreateChild?: boolean;
   onSelectDoc: (path: string) => void;
+  onDocTreeAction: (action: DocTreePanelAction) => void;
 }
 
 export function RequirementPreviewPanel({
@@ -26,7 +35,10 @@ export function RequirementPreviewPanel({
   breadcrumb,
   children,
   lateralByType,
+  hasChildren,
+  canCreateChild,
   onSelectDoc,
+  onDocTreeAction,
 }: RequirementPreviewPanelProps): JSX.Element {
   if (panel.docCount === 0) {
     return <p className="cp-meta">{panel.emptyText}</p>;
@@ -49,76 +61,27 @@ export function RequirementPreviewPanel({
         <div className="cp-viz-header">
           <h4 className="cp-viz-title">{labels.requirementPreview}</h4>
           {selectedPath ? (
-            <ActionBar>
-              <VSCodeButton
-                appearance="secondary"
-                aria-label={labels.editDoc}
-                onClick={() => postToHost({ type: 'editDoc', path: selectedPath })}
-              >
-                {labels.editDoc}
-              </VSCodeButton>
-              <VSCodeButton
-                appearance="secondary"
-                aria-label={labels.openDoc}
-                onClick={() => postToHost({ type: 'openDoc', path: selectedPath })}
-              >
-                {labels.openDoc}
-              </VSCodeButton>
-            </ActionBar>
+            <DocTreeActionBar
+              labels={labels}
+              selectedPath={selectedPath}
+              hasChildren={hasChildren}
+              canCreateChild={canCreateChild}
+              onAction={onDocTreeAction}
+              onEdit={() => postToHost({ type: 'editDoc', path: selectedPath })}
+              onOpen={() => postToHost({ type: 'openDoc', path: selectedPath })}
+            />
           ) : null}
         </div>
         {previewTitle && previewMarkdown ? (
           <>
-            {breadcrumb && breadcrumb.length > 0 ? (
-              <nav className="cp-breadcrumb" aria-label={labels.docBreadcrumb}>
-                {breadcrumb.map((seg, i) => (
-                  <span key={seg.path} className="cp-breadcrumb-segment">
-                    {i > 0 ? <span className="cp-breadcrumb-sep" aria-hidden="true"> › </span> : null}
-                    <button
-                      type="button"
-                      className={`cp-breadcrumb-link${seg.path === selectedPath ? ' cp-breadcrumb-current' : ''}`}
-                      onClick={() => onSelectDoc(seg.path)}
-                    >
-                      {seg.title}
-                    </button>
-                  </span>
-                ))}
-              </nav>
-            ) : null}
-            {children && children.length > 0 ? (
-              <div className="cp-doc-nav">
-                <h5 className="cp-doc-nav-title">{labels.childDocsHeading}</h5>
-                <ul className="cp-doc-nav-list">
-                  {children.map((child) => (
-                    <li key={child.path}>
-                      <button type="button" className="cp-breadcrumb-link" onClick={() => onSelectDoc(child.path)}>
-                        {child.title}
-                      </button>
-                      <span className="cp-meta"> ({child.level})</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            {lateralByType && Object.keys(lateralByType).length > 0 ? (
-              <div className="cp-doc-nav">
-                <h5 className="cp-doc-nav-title">{labels.lateralLinksHeading}</h5>
-                {Object.entries(lateralByType).map(([type, links]) => (
-                  <div key={type} className="cp-doc-nav-group">
-                    <p className="cp-meta">{type}</p>
-                    <ul className="cp-doc-nav-list">
-                      {links.map((link) => (
-                        <li key={`${type}-${link.path}`}>
-                          <button type="button" className="cp-breadcrumb-link" onClick={() => onSelectDoc(link.path)}>
-                            {link.title}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            ) : null}
+            <DocNavPreview
+              labels={labels}
+              selectedPath={selectedPath}
+              breadcrumb={breadcrumb}
+              children={children}
+              lateralByType={lateralByType}
+              onSelectDoc={onSelectDoc}
+            />
             <p className="cp-meta">{previewTitle}</p>
             <div className="cp-req-preview-body">
               <MarkdownBody

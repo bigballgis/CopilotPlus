@@ -3,6 +3,7 @@ import { VSCodeButton, VSCodeDropdown, VSCodeOption, VSCodeTextArea } from '@vsc
 import type {
   DocBreadcrumbWire,
   DocNavLinkWire,
+  DocTreePanelAction,
   TabId,
   TabWorkspaceHostMessage,
   TabWorkspaceLabels,
@@ -15,6 +16,8 @@ import { DocTreePicker } from '@ui/components/DocTreePicker';
 import { Icon } from '@ui/components/Icon';
 import { PanelShell } from '@ui/components/PanelShell';
 import { RequirementPreviewPanel } from '@ui/components/RequirementPreviewPanel';
+import { DocNavPreview } from '@ui/components/DocNavPreview';
+import { DocTreeActionBar } from '@ui/components/DocTreeActionBar';
 import { StatusChip } from '@ui/components/StatusChip';
 import { TabStrip } from '@ui/components/TabStrip';
 import { TaskDagView } from '@ui/components/TaskDagView';
@@ -100,6 +103,11 @@ const DEFAULT_LABELS: TabWorkspaceLabels = {
   staleBadge: 'Stale',
   compactSubtree: 'Compact',
   compactSubtreeAria: 'Compact stale documents under {0}',
+  createChildDoc: 'Add child',
+  deleteDoc: 'Delete',
+  linkDoc: 'Link',
+  unlinkDoc: 'Unlink',
+  markReviewedDoc: 'Mark reviewed',
 };
 
 const EMPTY_SYNC: TabWorkspaceStateSync = {
@@ -555,6 +563,7 @@ function PanelBody({
   selectedDocPath,
   docPreview,
   onSelectDoc,
+  onDocTreeAction,
   taskLog,
   onCloseTaskLog,
   selectedCommitHash,
@@ -570,8 +579,11 @@ function PanelBody({
     breadcrumb?: DocBreadcrumbWire[];
     children?: DocNavLinkWire[];
     lateralByType?: Record<string, DocNavLinkWire[]>;
+    hasChildren?: boolean;
+    canCreateChild?: boolean;
   };
   onSelectDoc: (path: string) => void;
+  onDocTreeAction: (action: DocTreePanelAction) => void;
   taskLog?: { taskId: string; content: string };
   onCloseTaskLog: () => void;
   selectedCommitHash?: string;
@@ -609,12 +621,34 @@ function PanelBody({
             <h4 className="cp-viz-title">{state.labels.architectureDocs}</h4>
             <DocTreePicker
               nodes={state.architecture.tree}
+              selectedPath={selectedDocPath}
               ariaLabel={state.labels.architectureDocs}
               labels={state.labels}
-              onSelect={(path) => postToHost({ type: 'openDoc', path })}
+              onSelect={onSelectDoc}
               onCompactSubtree={(path) => postToHost({ type: 'compactDocSubtree', path })}
             />
           </div>
+          {selectedDocPath && docPreview ? (
+            <div className="cp-arch-preview">
+              <DocTreeActionBar
+                labels={state.labels}
+                selectedPath={selectedDocPath}
+                hasChildren={docPreview.hasChildren}
+                canCreateChild={docPreview.canCreateChild}
+                onAction={onDocTreeAction}
+                onEdit={() => postToHost({ type: 'editDoc', path: selectedDocPath })}
+                onOpen={() => postToHost({ type: 'openDoc', path: selectedDocPath })}
+              />
+              <DocNavPreview
+                labels={state.labels}
+                selectedPath={selectedDocPath}
+                breadcrumb={docPreview.breadcrumb}
+                children={docPreview.children}
+                lateralByType={docPreview.lateralByType}
+                onSelectDoc={onSelectDoc}
+              />
+            </div>
+          ) : null}
         </>
       );
     case 'requirement':
@@ -628,7 +662,10 @@ function PanelBody({
           breadcrumb={docPreview?.breadcrumb}
           children={docPreview?.children}
           lateralByType={docPreview?.lateralByType}
+          hasChildren={docPreview?.hasChildren}
+          canCreateChild={docPreview?.canCreateChild}
           onSelectDoc={onSelectDoc}
+          onDocTreeAction={onDocTreeAction}
         />
       );
     case 'commit':
@@ -656,6 +693,8 @@ export function App(): JSX.Element {
         breadcrumb?: DocBreadcrumbWire[];
         children?: DocNavLinkWire[];
         lateralByType?: Record<string, DocNavLinkWire[]>;
+        hasChildren?: boolean;
+        canCreateChild?: boolean;
       }
     | undefined
   >();
@@ -666,6 +705,13 @@ export function App(): JSX.Element {
   const handleSelectDoc = (path: string) => {
     setSelectedDocPath(path);
     postToHost({ type: 'selectDoc', path });
+  };
+
+  const handleDocTreeAction = (action: DocTreePanelAction) => {
+    if (!selectedDocPath) {
+      return;
+    }
+    postToHost({ type: 'docTreeAction', action, path: selectedDocPath });
   };
 
   useEffect(() => {
@@ -684,6 +730,8 @@ export function App(): JSX.Element {
           breadcrumb: event.data.breadcrumb,
           children: event.data.children,
           lateralByType: event.data.lateralByType,
+          hasChildren: event.data.hasChildren,
+          canCreateChild: event.data.canCreateChild,
         });
         return;
       }
@@ -747,6 +795,7 @@ export function App(): JSX.Element {
           selectedDocPath={selectedDocPath}
           docPreview={docPreview}
           onSelectDoc={handleSelectDoc}
+          onDocTreeAction={handleDocTreeAction}
           taskLog={taskLog}
           onCloseTaskLog={() => setTaskLog(undefined)}
           selectedCommitHash={selectedCommitHash}

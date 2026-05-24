@@ -16,6 +16,16 @@ import { isDocumentStale, collectSubtreeDocPaths } from './docLifecycle';
 import { NamingAliasStore } from './namingAliases';
 import { docsRoot, parseDocRelativePath, pathForDoc, systemDocPath } from './paths';
 import type { DiffReviewService } from '../editing/diffReview';
+import {
+  childLevelFor,
+  deleteLeafDocumentTree,
+  moveDocumentTree,
+  renameDocumentTree,
+  renameDocFile,
+  unlinkLateralTree,
+  type TreeOpResult,
+  type TreeOpsWriter,
+} from './treeOps';
 
 export interface DocEntry {
   relativePath: string;
@@ -360,8 +370,120 @@ export class DocumentTreeService {
   }
 
   async deleteDocument(relativePath: string): Promise<void> {
-    await fs.unlink(this.absFromRelative(relativePath));
-    await this.scan();
+    const result = await this.deleteLeafDocument(relativePath);
+    if (!result.ok) {
+      throw new Error(result.reason);
+    }
+  }
+
+  /** R-DOCS-6 — delete leaf document and repair all inbound links */
+  async deleteLeafDocument(relativePath: string): Promise<TreeOpResult> {
+    const result = await deleteLeafDocumentTree(this.treeOpsWriter(), relativePath);
+    if (result.ok) {
+      await this.scan();
+      this.onChangeEmitter.fire();
+    }
+    return result;
+  }
+
+  async renameDocument(relativePath: string, newId: string, newTitle?: string): Promise<TreeOpResult> {
+    const result = await renameDocumentTree(this.treeOpsWriter(), relativePath, newId, newTitle);
+    if (result.ok) {
+      await this.scan();
+      this.onChangeEmitter.fire();
+    }
+    return result;
+  }
+
+  async moveDocument(
+    relativePath: string,
+    newParentId: string,
+    maxLateralDepth: number,
+    resolveId: (id: string) => string = (id) => id
+  ): Promise<TreeOpResult> {
+    const result = await moveDocumentTree(
+      this.treeOpsWriter(),
+      relativePath,
+      newParentId,
+      maxLateralDepth,
+      resolveId
+    );
+    if (result.ok) {
+      await this.scan();
+      this.onChangeEmitter.fire();
+    }
+    return result;
+  }
+
+  async unlinkLateral(
+    sourcePath: string,
+    targetId: string,
+    resolveId: (id: string) => string = (id) => id
+  ): Promise<TreeOpResult> {
+    const result = await unlinkLateralTree(this.treeOpsWriter(), sourcePath, targetId, resolveId);
+    if (result.ok) {
+      await this.scan();
+      this.onChangeEmitter.fire();
+    }
+    return result;
+  }
+
+  async createChildDocument(
+    parentPath: string,
+    id: string,
+    title: string
+  ): Promise<TreeOpResult & { path?: string }> {
+    const parent = this.getByPath(parentPath);
+    if (!parent?.valid) {
+      return { ok: false, reason: 'parent_not_found' };
+    }
+    const childLevel = childLevelFor(parent.frontmatter.level);
+    if (!childLevel) {
+      return { ok: false, reason: 'level_violation', detail: 'cannot_add_child' };
+    }
+    const parsed = parseDocRelativePath(parentPath);
+    if (!parsed) {
+      return { ok: false, reason: 'invalid_path' };
+    }
+
+    const input: Parameters<DocumentTreeService['createDocument']>[0] = {
+      systemId: parsed.systemId,
+      level: childLevel,
+      id,
+      title,
+      parent: parent.frontmatter.id,
+    };
+    if (childLevel === 'feature') {
+      input.moduleId = parent.frontmatter.id;
+    } else if (childLevel === 'component') {
+      input.moduleId = parsed.ids[0]!;
+      input.featureId = parent.frontmatter.id;
+    }
+
+    try {
+      const created = await this.createDocument(input);
+      return { ok: true, path: created.relativePath };
+    } catch (e) {
+      return { ok: false, reason: e instanceof Error ? e.message : 'create_failed' };
+    }
+  }
+
+  private treeOpsWriter(): TreeOpsWriter {
+    const root = this.workspaceRoot();
+    if (!root) {
+      throw new Error('no_workspace');
+    }
+    return {
+      absFromRelative: (rel) => this.absFromRelative(rel),
+      getEntries: () => this.cache,
+      writeRaw: (rel, content) => this.writeRaw(rel, content),
+      deleteRaw: async (rel) => {
+        await fs.unlink(this.absFromRelative(rel));
+      },
+      renameRaw: async (fromRel, toRel) => {
+        await renameDocFile(root, fromRel, toRel);
+      },
+    };
   }
 
   async archiveDocument(relativePath: string): Promise<string> {
