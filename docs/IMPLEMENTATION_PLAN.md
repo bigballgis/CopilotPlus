@@ -66,7 +66,7 @@
 | 序号 | 需求 | 交付物 | 状态 |
 |------|------|--------|------|
 | 2.1 | R-INT-1 | `copilotPlus.openWorkspace` 左右分栏 | ⬜ |
-| 2.2 | R-INT-2 | Conversation Pane webview + session 持久化 | ⬜ |
+| 2.2 | R-INT-2 | Conversation Pane webview + session 持久化 | ✅ React webview |
 | 2.3 | R-INT-3 | Tab Workspace 五 Tab + 快捷键 | ⬜ |
 | 2.4 | R-INT-9 | Control Console 各 section 骨架 | ⬜ |
 | 2.5 | R-INT-10 | Decision Notification 封装 | ⬜ |

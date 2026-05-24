@@ -89,24 +89,38 @@ function auditHardcodedNotifications() {
 }
 
 function auditWebviewButtons() {
-  if (!fs.existsSync(interactionDir)) {
-    return;
-  }
-  for (const file of readAllTsFiles(interactionDir)) {
-    const rel = path.relative(root, file).replace(/\\/g, '/');
-    const content = fs.readFileSync(file, 'utf8');
-    const buttonRe = /<button\b[^>]*>/gi;
-    let m;
-    while ((m = buttonRe.exec(content)) !== null) {
-      const tag = m[0];
-      if (!/aria-label\s*=/.test(tag) && !/role="tab"/.test(tag)) {
-        failures.push(`${rel}: button missing aria-label: ${tag.slice(0, 80)}…`);
+  const dirs = [interactionDir, path.join(root, 'webview-ui', 'src')];
+  for (const dir of dirs) {
+    if (!fs.existsSync(dir)) {
+      continue;
+    }
+    for (const file of readAllTsFiles(dir)) {
+      const rel = path.relative(root, file).replace(/\\/g, '/');
+      const content = fs.readFileSync(file, 'utf8');
+      const buttonRe = /<button\b[^>]*>/gi;
+      let m;
+      while ((m = buttonRe.exec(content)) !== null) {
+        const tag = m[0];
+        if (!/aria-label\s*=/.test(tag) && !/role="tab"/.test(tag)) {
+          failures.push(`${rel}: button missing aria-label: ${tag.slice(0, 80)}…`);
+        }
       }
     }
   }
 }
 
 function auditLiveRegions() {
+  const convReact = path.join(root, 'webview-ui', 'src', 'conversation', 'App.tsx');
+  if (fs.existsSync(convReact)) {
+    const content = fs.readFileSync(convReact, 'utf8');
+    if (!content.includes('aria-live="assertive"') || !content.includes('announce(')) {
+      failures.push('conversation App.tsx missing assertive a11y status region');
+    }
+    if (!content.includes('aria-live="polite"')) {
+      failures.push('conversation App.tsx missing polite message log region');
+    }
+    return;
+  }
   const conv = path.join(interactionDir, 'conversationPane.ts');
   const content = fs.readFileSync(conv, 'utf8');
   if (!content.includes('id="a11y-status"') || !content.includes('aria-live="assertive"')) {

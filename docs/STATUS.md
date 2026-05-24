@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：Polish / 后续增强  
-> **下一项**：webview-ui 完整 React 化（或 Multi-Agent Verification）
+> **下一项**：Tab Workspace / Control Console React 化（或 Multi-Agent Verification）
 
 ---
 
@@ -21,6 +21,7 @@
 
 | 模块 | 交付 | 需求 |
 |------|------|------|
+| Conversation React | `webview-ui/` Vite+React + 消息协议 + 宿主 stateSync | R-INT-2 / R-PLAT-9 |
 | Primary 委派循环 | Design 四步分类 + Sub-Agent 委派 + 3 次失败 Decision | R-AG-1 / R-AG-3 / R-WF-2 |
 | Speculative 预取 | Tab Completion 并发预取 + Scope RAG 预热 + 30s 持有 | R-PLAT-11 |
 | Composer cache | Response Cache 接入 Composer 多文件编辑 | R-EDIT-8 |
@@ -49,6 +50,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | Conversation Pane React 化（webview-ui + Vite 构建 + stateSync 协议） |
 | 2026-05-23 | Primary Agent Design 委派循环（四步分类 + Sub-Agent + Decision 重试） |
 | 2026-05-23 | Speculative 预取（Tab + Scope 预热）+ Composer Response Cache |
 | 2026-05-23 | NES 委派模式 + LSP symbol Response Cache 失效 |

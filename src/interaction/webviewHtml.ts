@@ -17,6 +17,10 @@ export interface WebviewHtmlOptions {
   lang?: string;
   /** Page title for assistive tech. */
   title?: string;
+  /** Bundled stylesheet URIs (already resolved for webview). */
+  styles?: string[];
+  /** Bundled script URIs (already resolved for webview). */
+  scripts?: string[];
 }
 
 /** @param bodyHtml Main panel markup (no script tags). @param initScript Optional webview bootstrap JS. */
@@ -30,6 +34,12 @@ export function getWebviewHtml(
   const lang = options?.lang ?? vscode.env.language ?? 'en';
   const title = options?.title ?? t('webview.title');
   const skipLabel = t('webview.skipToContent');
+  const styleLinks = (options?.styles ?? [])
+    .map((href) => `<link rel="stylesheet" href="${escapeAttr(href)}">`)
+    .join('\n  ');
+  const scriptTags = (options?.scripts ?? [])
+    .map((src) => `<script src="${escapeAttr(src)}"></script>`)
+    .join('\n  ');
   const scriptBlock = initScript
     ? `<script nonce="${nonce}">\n${initScript}\n</script>`
     : '';
@@ -37,9 +47,10 @@ export function getWebviewHtml(
 <html lang="${escapeAttr(lang)}">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'nonce-${nonce}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)}</title>
+  ${styleLinks}
   <style>
     body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); background: var(--vscode-editor-background); margin: 0; padding: 8px; }
     button, select, input, textarea { font: inherit; }
@@ -60,6 +71,7 @@ export function getWebviewHtml(
   <main id="main-content">
   ${bodyHtml}
   </main>
+  ${scriptTags}
   ${scriptBlock}
 </body>
 </html>`;
