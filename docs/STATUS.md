@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：Phase 5 — Workflow  
-> **本 session 下一项（功能）**：R-WF-7 Autonomy Levels
+> **本 session 下一项（功能）**：R-WF-8 Build 限额
 
 ---
 
@@ -13,7 +13,7 @@
 | 0–9 | 全部 Phase | — | ✅ 完成 |
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 
-**单元测试**：145/145 通过  
+**单元测试**：158/158 通过  
 **需求覆盖率（粗算）**：~96%
 
 ---
@@ -22,7 +22,7 @@
 
 | 模块 | 交付 | 需求 |
 |------|------|------|
-| Build 六步深化 | Tester 3 轮重试 + testCommand 注入 + Reviewer diff/Blocked Decision + Committer 失败 Decision | R-WF-4 |
+| Autonomy Levels | Manual Build/Deploy 全工具 Decision + deny list + Full_Auto Diff 绕过 + Control Console 选择器 | R-WF-7 |
 | Build 六步流水线 | Coder/Tester/Reviewer/Committer + 3 轮测试 + Decision | R-WF-4 |
 | Task DAG + Panel 控制 | scope 校验 + 诊断 + Pause/Resume/Skip/Retry/Logs + elapsed | R-WF-3 / R-INT-4 |
 | Background Agent | 空闲检测 + 7 类任务 + 暂停/恢复 + Decision 队列 + Control Console 状态 | R-AG-9 |
@@ -63,7 +63,7 @@
 
 | 日期 | 内容 |
 |------|------|
-| 2026-05-23 | R-WF-4 Build 六步 Decision 同步门禁（Tester/Reviewer/Commit + Pause Task） |
+| 2026-05-23 | R-WF-7 Autonomy Levels（阶段门禁 + deny list Decision + Full_Auto Diff + Console 选择器） |
 | 2026-05-23 | Build 六步深化（Tester 重试 / Reviewer Blocked / Committer Decision） |
 | 2026-05-23 | Phase 2.8.7 Conversation Continue/Step picker UI |
 | 2026-05-23 | Phase 2.8.6 Panel 可视化（Task DAG + Architecture 图 + Requirement 预览） |

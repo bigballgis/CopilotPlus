@@ -125,7 +125,7 @@
 | 5.1 | R-WF-1,2 Design 四步 | ✅ 委派 + 步骤持久化 + Continue/Step picker |
 | 5.2 | R-WF-3 Task DAG + R-INT-4 面板控制 | ✅ 校验 + 并发 + Pause/Resume/Skip/Retry/Logs |
 | 5.3 | R-WF-4 Build 六步 | ✅ Coder→Tester→Reviewer→Committer + Decision 同步门禁 |
-| 5.4 | R-WF-7 Autonomy | ⬜ |
+| 5.4 | R-WF-7 Autonomy | ✅ Manual/Approve/Full_Auto + deny list + Console 选择器 |
 
 ---
 

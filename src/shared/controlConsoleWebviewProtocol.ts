@@ -23,6 +23,8 @@ export interface ControlConsoleLabels {
   backgroundPaused: string;
   backgroundDisabled: string;
   labelAutonomy: string;
+  selectAutonomy: string;
+  selectAutonomyAria: string;
   labelMode: string;
   labelAddon: string;
   labelEmbeddedChunks: string;
@@ -104,6 +106,7 @@ export interface ControlConsoleStateSync {
   workflow: {
     stage: string;
     autonomy: string;
+    autonomyLevels: string[];
   };
   indexing: {
     embeddingMode: string;
@@ -137,4 +140,5 @@ export type ControlConsoleWebviewMessage =
   | { type: 'reconnectMcp'; id: string }
   | { type: 'initAgents' }
   | { type: 'removeMemory'; id: string }
-  | { type: 'pinMemory'; id: string };
+  | { type: 'pinMemory'; id: string }
+  | { type: 'setAutonomy'; level: string };

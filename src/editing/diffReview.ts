@@ -62,17 +62,18 @@ export class DiffReviewService {
     original: string,
     proposed: string,
     operation: string,
-    taskId?: string
+    taskId?: string,
+    options?: { autoApply?: boolean }
   ): Promise<boolean> {
     if (original === proposed) {
-      if (!this.ciAutoApply) {
+      if (!this.ciAutoApply && !options?.autoApply) {
         void vscode.window.showInformationMessage(t('diffReview.noChanges'));
       }
       return false;
     }
 
     const relativePath = this.relativePath(fileUri);
-    if (this.ciAutoApply) {
+    if (this.ciAutoApply || options?.autoApply) {
       return this.applyDirectly(fileUri, relativePath, original, proposed, operation, taskId);
     }
     const id = `change-${Date.now()}`;

@@ -12,12 +12,17 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
   static readonly viewId = 'copilotPlus.controlConsole';
 
   private webviewView: vscode.WebviewView | undefined;
+  readonly disposables: vscode.Disposable[] = [];
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly app: AppServices
   ) {
-    app.backgroundAgent.onChange(() => this.syncWebviewState());
+    this.disposables.push(
+      app.backgroundAgent.onChange(() => this.syncWebviewState()),
+      app.platform.config.onDidChange(() => this.syncWebviewState()),
+      app.stages.onTransition(() => this.syncWebviewState())
+    );
   }
 
   resolveWebviewView(
@@ -106,6 +111,16 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
       await this.app.knowledge.togglePinSessionMemory(msg.id);
       this.syncWebviewState();
       return;
+    }
+    if (msg.type === 'setAutonomy') {
+      const allowed = ['Manual', 'Approve_Edits', 'Approve_Commands', 'Full_Auto'] as const;
+      if (!(allowed as readonly string[]).includes(msg.level)) {
+        return;
+      }
+      await vscode.workspace
+        .getConfiguration('copilotPlus')
+        .update('workflow.autonomyLevel', msg.level, vscode.ConfigurationTarget.Workspace);
+      this.syncWebviewState();
     }
   }
 

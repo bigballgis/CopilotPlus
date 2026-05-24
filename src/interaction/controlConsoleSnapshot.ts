@@ -21,6 +21,8 @@ export function buildControlConsoleLabels(): ControlConsoleLabels {
     backgroundPaused: t('controlConsole.backgroundPaused', '{0}'),
     backgroundDisabled: t('controlConsole.backgroundDisabled'),
     labelAutonomy: t('controlConsole.labelAutonomy'),
+    selectAutonomy: t('controlConsole.selectAutonomy'),
+    selectAutonomyAria: t('controlConsole.selectAutonomyAria'),
     labelMode: t('controlConsole.labelMode'),
     labelAddon: t('controlConsole.labelAddon'),
     labelEmbeddedChunks: t('controlConsole.labelEmbeddedChunks'),
@@ -98,6 +100,7 @@ export function buildControlConsoleStateSync(app: AppServices): ControlConsoleSt
     workflow: {
       stage: app.stages.getStage(),
       autonomy: s.autonomyLevel,
+      autonomyLevels: ['Manual', 'Approve_Edits', 'Approve_Commands', 'Full_Auto'],
     },
     indexing: {
       embeddingMode: idx.embeddingMode,

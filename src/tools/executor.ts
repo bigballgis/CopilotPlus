@@ -17,9 +17,11 @@ import {
   getHover,
   getReferences,
 } from './lspTools';
-import { matchesCommandDenyList } from '../platform/configuration';
 import { computeQueryEmbedding } from '../context/embeddingResolver';
 import { parseMcpToolId } from '../extensibility/mcpConfig';
+import { requiresAutonomyApproval, shouldBypassDiffReview } from '../workflow/autonomyGate';
+import { matchesCommandDenyList } from '../platform/configuration';
+import { t } from '../platform/l10n';
 
 export type ToolResult = { ok: true; data: unknown } | { ok: false; reason: string; pattern?: string };
 
@@ -56,6 +58,10 @@ export class ToolExecutor {
       if (!this.getEffectiveTools(role).includes(toolId)) {
         return { ok: false, reason: 'tool_denied' };
       }
+      const mcpDenied = await this.ensureToolApproved(toolId, args);
+      if (mcpDenied) {
+        return mcpDenied;
+      }
       const result = await this.app.mcp.invokeTool(mcpParsed.serverId, mcpParsed.toolName, args);
       await this.app.hooks.fire('mcp.tool.called', {
         serverId: mcpParsed.serverId,
@@ -70,28 +76,13 @@ export class ToolExecutor {
       return { ok: false, reason: 'tool_denied' };
     }
 
-    if (toolId === 'explore') {
-      return this.explore(args);
+    const denied = await this.ensureToolApproved(toolId, args);
+    if (denied) {
+      return denied;
     }
 
-    const perm = this.app.platform.resolveToolPermission(
-      toolId,
-      typeof args.command === 'string' ? args.command : undefined
-    );
-    if (perm.effective === 'deny') {
-      return { ok: false, reason: 'tool_denied' };
-    }
-    if (perm.effective === 'ask') {
-      const approved = await this.app.decisions.ask({
-        id: `tool-${Date.now()}`,
-        question: `Allow ${toolId}?`,
-        options: ['Approve', 'Reject'],
-        defaultOption: 'Reject',
-        timeoutSec: 300,
-      });
-      if (approved.selected !== 'Approve') {
-        return { ok: false, reason: 'user_rejected' };
-      }
+    if (toolId === 'explore') {
+      return this.explore(args);
     }
 
     switch (toolId) {
@@ -307,7 +298,9 @@ export class ToolExecutor {
       uri,
       await fs.readFile(uri.fsPath, 'utf8').catch(() => ''),
       content,
-      'write_file'
+      'write_file',
+      undefined,
+      { autoApply: shouldBypassDiffReview(this.app.platform.getSettings().autonomyLevel) }
     );
     if (ok) {
       await this.app.postEdit.recordEdit(rel);
@@ -332,7 +325,14 @@ export class ToolExecutor {
     if (!result.ok) {
       return { ok: false, reason: result.reason };
     }
-    const ok = await this.app.diffReview.reviewFullFile(uri, original, result.content, 'apply_patch');
+    const ok = await this.app.diffReview.reviewFullFile(
+      uri,
+      original,
+      result.content,
+      'apply_patch',
+      undefined,
+      { autoApply: shouldBypassDiffReview(this.app.platform.getSettings().autonomyLevel) }
+    );
     if (ok) {
       await this.app.postEdit.recordEdit(rel);
     }
@@ -351,7 +351,14 @@ export class ToolExecutor {
     }
     const uri = vscode.Uri.file(path.join(root, rel));
     const original = await fs.readFile(uri.fsPath, 'utf8').catch(() => '');
-    const ok = await this.app.diffReview.reviewFullFile(uri, original, '', 'delete_file');
+    const ok = await this.app.diffReview.reviewFullFile(
+      uri,
+      original,
+      '',
+      'delete_file',
+      undefined,
+      { autoApply: shouldBypassDiffReview(this.app.platform.getSettings().autonomyLevel) }
+    );
     if (!ok) {
       return { ok: false, reason: 'user_rejected' };
     }
@@ -488,13 +495,6 @@ export class ToolExecutor {
     const root = this.workspaceRoot();
     if (!root) {
       return { ok: false, reason: 'no_workspace' };
-    }
-    const deny = matchesCommandDenyList(
-      command,
-      this.app.platform.getSettings().commandDenyList
-    );
-    if (deny) {
-      return { ok: false, reason: 'command_denied' };
     }
     const timeout = Math.min(Number(args.timeout_ms) || 60_000, 600_000);
     const result = await runBash(command, root, timeout, args.cwd ? String(args.cwd) : undefined);
@@ -647,6 +647,47 @@ export class ToolExecutor {
       return { ok: true, data: { runId } };
     }
     return { ok: false, reason: result.reason ?? 'rollback_failed' };
+  }
+
+  private async ensureToolApproved(
+    toolId: string,
+    args: Record<string, unknown>
+  ): Promise<ToolResult | null> {
+    const settings = this.app.platform.getSettings();
+    const command = typeof args.command === 'string' ? args.command : undefined;
+    const perm = this.app.platform.resolveToolPermission(toolId, command);
+    if (perm.effective === 'deny') {
+      return { ok: false, reason: 'tool_denied' };
+    }
+
+    const stage = this.app.stages.getStage();
+    if (
+      !requiresAutonomyApproval(stage, settings.autonomyLevel, toolId, perm.effective)
+    ) {
+      return null;
+    }
+
+    const onDenyList = command
+      ? matchesCommandDenyList(command, settings.commandDenyList)
+      : false;
+    const question = command
+      ? onDenyList
+        ? t('autonomy.denyListPrompt', command.slice(0, 300))
+        : t('autonomy.toolWithCommandPrompt', toolId, command.slice(0, 300))
+      : t('autonomy.toolPrompt', toolId);
+
+    const response = await this.app.decisions.ask({
+      id: `tool-${toolId}-${Date.now()}`,
+      question,
+      options: ['Approve', 'Reject'],
+      defaultOption: 'Reject',
+      timeoutSec: settings.decisionTimeoutSec,
+    });
+
+    if (response.timedOut || response.selected !== 'Approve') {
+      return { ok: false, reason: 'user_rejected' };
+    }
+    return null;
   }
 
   private async walkFiles(
