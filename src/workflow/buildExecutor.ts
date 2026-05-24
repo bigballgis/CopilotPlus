@@ -15,6 +15,7 @@ import {
   type BuildLimitReason,
   type BuildLimitsSnapshot,
 } from './buildLimits';
+import { formatIsolationDisplayPath } from './buildIsolationTypes';
 import { t } from '../platform/l10n';
 
 export interface BuildSnapshot {
@@ -25,6 +26,8 @@ export interface BuildSnapshot {
   validationErrors: DagValidationError[];
   lastMessage?: string;
   limits?: BuildLimitsSnapshot;
+  workPath?: string;
+  fallbackNotice?: string;
 }
 
 type ChangeListener = () => void;
@@ -112,9 +115,13 @@ export class BuildExecutor {
 
   async getSnapshotAsync(): Promise<BuildSnapshot> {
     const dag = this.activeBuildId ? await this.store.load(this.activeBuildId) : undefined;
+    const manifest = this.activeBuildId
+      ? await this.store.loadManifest(this.activeBuildId)
+      : undefined;
     if (this.activeBuildId) {
       await this.validateBuild(this.activeBuildId, dag);
     }
+    const workPath = this.resolveWorkPath(manifest);
     return {
       buildId: this.activeBuildId,
       status: this.status,
@@ -123,6 +130,8 @@ export class BuildExecutor {
       validationErrors: this.lastValidationErrors,
       lastMessage: this.lastMessage,
       limits: this.limits.isActive() ? this.limits.snapshot() : undefined,
+      workPath,
+      fallbackNotice: manifest?.fallbackReason,
     };
   }
 
@@ -236,6 +245,8 @@ export class BuildExecutor {
       return false;
     }
 
+    const isolation = await this.app.buildIsolation.prepare(id);
+
     this.activeBuildId = id;
     this.status = 'Running';
     this.cancelSource = new vscode.CancellationTokenSource();
@@ -246,8 +257,19 @@ export class BuildExecutor {
       id,
       status: 'Running',
       startedAt: new Date().toISOString(),
+      isolation: isolation.requestedMode,
+      effectiveIsolation: isolation.effectiveMode,
+      worktreePath: isolation.worktreePath,
+      branch: isolation.branch,
+      fallbackReason: isolation.fallbackReason,
     });
-    this.setMessage(`Build ${id} started`);
+    if (isolation.fallbackReason) {
+      this.setMessage(t('buildIsolation.fallbackShort', isolation.fallbackReason));
+    } else if (isolation.effectiveMode !== 'inline') {
+      this.setMessage(t('buildIsolation.started', isolation.displayPath));
+    } else {
+      this.setMessage(`Build ${id} started`);
+    }
     this.notify();
     void this.runLoop();
     return true;
@@ -271,6 +293,7 @@ export class BuildExecutor {
 
     await this.blockAllRunningTasks();
     this.status = 'Paused';
+    this.app.buildIsolation.clearActive();
     this.setMessage(t('build.stoppedByUser'));
     this.notify();
   }
@@ -491,12 +514,18 @@ export class BuildExecutor {
           this.status = allDone ? 'Completed' : 'Failed';
           if (allDone) {
             this.clearDurationTimer();
+            const manifest = (await this.store.loadManifest(buildId)) ?? { id: buildId, status: 'Completed' as const };
             await this.store.saveManifest(buildId, {
-              id: buildId,
+              ...manifest,
               status: 'Completed',
               completedAt: new Date().toISOString(),
             });
             this.setMessage('Build completed');
+            void this.app.buildIsolation.handleBuildCompleted(buildId, {
+              ...manifest,
+              status: 'Completed',
+              completedAt: new Date().toISOString(),
+            });
             void this.promptDeployStage();
             void this.runSelfReflection(buildId, dag.tasks.length, 'Completed');
           } else if (allTasksTerminal(dag.tasks)) {
@@ -804,6 +833,22 @@ export class BuildExecutor {
 
   private setMessage(message: string): void {
     this.lastMessage = message;
+  }
+
+  private resolveWorkPath(manifest?: BuildManifest): string {
+    if (this.status === 'Running') {
+      const active = this.app.buildIsolation.getDisplayPath();
+      if (active !== 'inline') {
+        return active;
+      }
+    }
+    if (manifest?.effectiveIsolation && manifest.effectiveIsolation !== 'inline') {
+      return formatIsolationDisplayPath({
+        effectiveMode: manifest.effectiveIsolation,
+        branch: manifest.branch,
+      });
+    }
+    return 'inline';
   }
 
   private notify(): void {

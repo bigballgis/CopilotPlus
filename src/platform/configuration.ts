@@ -28,6 +28,8 @@ export interface CopilotPlusSettings {
   maxConcurrentTasks: number;
   maxToolCalls: number;
   maxBuildDurationSec: number;
+  buildIsolation: 'inline' | 'worktree' | 'worktree_branch';
+  worktreeRetentionDays: number;
   defaultModels: Record<string, string>;
   summarizationMode: 'auto' | 'manual' | 'disabled';
   summarizationKeepLastTurns: number;
@@ -64,6 +66,8 @@ const DEFAULTS: CopilotPlusSettings = {
   maxConcurrentTasks: 3,
   maxToolCalls: 200,
   maxBuildDurationSec: 7200,
+  buildIsolation: 'inline',
+  worktreeRetentionDays: 7,
   defaultModels: {},
   summarizationMode: 'auto',
   summarizationKeepLastTurns: 6,
@@ -156,6 +160,18 @@ export class ConfigurationService {
         60,
         86_400,
         DEFAULTS.maxBuildDurationSec
+      ),
+      buildIsolation: this.enumValue(
+        cfg.get('workflow.buildIsolation'),
+        ['inline', 'worktree', 'worktree_branch'] as const,
+        DEFAULTS.buildIsolation,
+        'workflow.buildIsolation'
+      ),
+      worktreeRetentionDays: clampInt(
+        cfg.get('workflow.worktreeRetentionDays'),
+        1,
+        90,
+        DEFAULTS.worktreeRetentionDays
       ),
       defaultModels: cfg.get<Record<string, string>>('models.defaults') ?? {},
       summarizationMode: this.enumValue(

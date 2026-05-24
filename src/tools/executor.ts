@@ -157,7 +157,10 @@ export class ToolExecutor {
   }
 
   private workspaceRoot(): string | undefined {
-    return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    return (
+      this.app.buildIsolation.getToolRoot() ??
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+    );
   }
 
   private checkSensitive(rel: string): ToolResult | null {

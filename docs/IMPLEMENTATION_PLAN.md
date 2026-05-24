@@ -126,6 +126,8 @@
 | 5.2 | R-WF-3 Task DAG + R-INT-4 面板控制 | ✅ 校验 + 并发 + Pause/Resume/Skip/Retry/Logs |
 | 5.3 | R-WF-4 Build 六步 | ✅ Coder→Tester→Reviewer→Committer + Decision 同步门禁 |
 | 5.4 | R-WF-7 Autonomy | ✅ Manual/Approve/Full_Auto + deny list + Console 选择器 |
+| 5.5 | R-WF-8 Build 限额 | ✅ maxToolCalls / maxBuildDuration + Decision + Stop All |
+| 5.6 | R-WF-9 Build isolation | ✅ worktree / branch + fallback + completion Decision + prune |
 
 ---
 

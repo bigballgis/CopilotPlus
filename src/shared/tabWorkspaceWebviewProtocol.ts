@@ -15,6 +15,8 @@ export interface TabWorkspaceLabels {
   stop: string;
   stopAll: string;
   buildLimits: string;
+  workPath: string;
+  fallbackNotice: string;
   rollback: string;
   noTasks: string;
   composerTitle: string;
@@ -128,6 +130,8 @@ export interface TaskPanelWire {
     elapsedSec: number;
     maxDurationSec: number;
   };
+  workPath?: string;
+  fallbackNotice?: string;
 }
 
 export interface DeployRunWire {

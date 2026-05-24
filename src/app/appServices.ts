@@ -31,7 +31,7 @@ import { KnowledgeService } from '../knowledge/knowledgeService';
 import { SpeculativeService } from '../platform/speculativeService';
 import { DesignWorkflowService } from '../workflow/designWorkflowService';
 import { BackgroundAgentService } from '../agents/backgroundAgentService';
-import { TaskDagDiagnostics } from '../workflow/taskDagDiagnostics';
+import { BuildIsolationService } from '../workflow/buildIsolationService';
 import type { CiSession } from '../cli/ciSession';
 
 export class AppServices {
@@ -66,6 +66,7 @@ export class AppServices {
   readonly designWorkflow: DesignWorkflowService;
   readonly backgroundAgent: BackgroundAgentService;
   readonly taskDagDiagnostics: TaskDagDiagnostics;
+  readonly buildIsolation: BuildIsolationService;
   private ciSession: CiSession | undefined;
 
   private constructor(
@@ -87,6 +88,10 @@ export class AppServices {
     this.diffReview = new DiffReviewService(this.checkpoints, proposedContent, invalidateCache);
     this.inlineEdit = new InlineEditService(platform, this.diffReview, this.responseCache);
     this.decisions = new DecisionCenter();
+    this.buildIsolation = new BuildIsolationService(
+      () => this.platform.getSettings(),
+      this.decisions
+    );
     this.hooks = new HookService(context);
     this.skills = new SkillService(context);
     this.stages = new StageManager(this.hooks);
@@ -140,6 +145,7 @@ export class AppServices {
     );
     this.backgroundAgent.start();
     this.context.subscriptions.push({ dispose: () => this.backgroundAgent.dispose() });
+    void this.buildIsolation.pruneCompletedWorktrees();
     this.taskDagDiagnostics.register(this.context);
     const workspace = vscode.workspace.workspaceFolders?.[0];
     if (workspace) {

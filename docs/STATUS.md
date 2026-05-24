@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：Phase 5 — Workflow  
-> **本 session 下一项（功能）**：R-WF-9 Build isolation (worktree)
+> **本 session 下一项（功能）**：Phase 6 Context / RAG 或 Phase 1 补全
 
 ---
 
@@ -13,7 +13,7 @@
 | 0–9 | 全部 Phase | — | ✅ 完成 |
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 
-**单元测试**：162/162 通过  
+**单元测试**：166/166 通过  
 **需求覆盖率（粗算）**：~96%
 
 ---
@@ -22,6 +22,7 @@
 
 | 模块 | 交付 | 需求 |
 |------|------|------|
+| Build isolation | git worktree / branch + inline fallback + 完成 Decision + 保留期清理 | R-WF-9 |
 | Build 限额 | 工具调用/时长上限 + Decision + Stop All + 限额显示 | R-WF-8 |
 | Autonomy Levels | Manual Build/Deploy 全工具 Decision + deny list + Full_Auto Diff 绕过 + Control Console 选择器 | R-WF-7 |
 | Build 六步流水线 | Coder/Tester/Reviewer/Committer + 3 轮测试 + Decision | R-WF-4 |
@@ -64,6 +65,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | R-WF-9 Build isolation（worktree + 完成 Decision + prune） |
 | 2026-05-23 | R-WF-8 Build 限额（tool calls / duration + Decision + Stop All） |
 | 2026-05-23 | R-WF-7 Autonomy Levels（阶段门禁 + deny list Decision + Full_Auto Diff + Console 选择器） |
 | 2026-05-23 | Build 六步深化（Tester 重试 / Reviewer Blocked / Committer Decision） |

@@ -346,6 +346,17 @@
           "minimum": 60,
           "maximum": 86400
         },
+        "copilotPlus.workflow.buildIsolation": {
+          "type": "string",
+          "enum": ["inline", "worktree", "worktree_branch"],
+          "default": "inline"
+        },
+        "copilotPlus.workflow.worktreeRetentionDays": {
+          "type": "number",
+          "default": 7,
+          "minimum": 1,
+          "maximum": 90
+        },
         "copilotPlus.sensitiveFilePatterns": {
           "type": "array",
           "default": [],

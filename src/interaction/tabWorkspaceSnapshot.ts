@@ -32,6 +32,8 @@ export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
     stop: t('tabWorkspace.stop'),
     stopAll: t('tabWorkspace.stopAll'),
     buildLimits: t('tabWorkspace.buildLimits', '{0}', '{1}', '{2}', '{3}'),
+    workPath: t('tabWorkspace.workPath'),
+    fallbackNotice: t('tabWorkspace.fallbackNotice'),
     rollback: t('tabWorkspace.rollback'),
     noTasks: t('tabWorkspace.noTasks'),
     composerTitle: t('tabWorkspace.composerTitle'),
@@ -138,6 +140,8 @@ function buildTaskPanel(app: AppServices, build: BuildSnapshot | undefined): Tas
     edges,
     composer: buildComposerSnapshot(composer),
     limits: build?.limits,
+    workPath: build?.workPath,
+    fallbackNotice: build?.fallbackNotice,
   };
 }
 
