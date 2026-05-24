@@ -14,6 +14,7 @@ export async function openWorkspace(context: vscode.ExtensionContext, app: AppSe
   }
   if (!tabProvider) {
     tabProvider = new TabWorkspaceProvider(context.extensionUri, app);
+    tabProvider.bindEditorRefresh(context);
   }
 
   await conversationProvider.show(column);

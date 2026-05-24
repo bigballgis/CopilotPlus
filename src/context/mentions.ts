@@ -319,6 +319,7 @@ async function resolveOneMention(
     case 'doc': {
       const doc = await app.docs.read(attachment.target);
       const scope = resolveScope(attachment.target, app.docs.getEntries());
+      void app.docs.touchLastReferenced(scope.map((s) => s.document_path));
       const scopeBlock = scope.length ? `\n\nScope:\n${formatScopeBlock(scope)}` : '';
       const body = `${doc.frontmatter.title}\n${doc.body}${scopeBlock}`;
       if (body.length > maxChars) {

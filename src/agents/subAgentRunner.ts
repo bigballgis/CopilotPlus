@@ -6,9 +6,9 @@ import { loadAgentPrompt } from './promptLoader';
 import { roleToPromptFile } from './roleMapping';
 import { SubAgentLoop, type AgentLoopResult } from './subAgentLoop';
 import type { TaskNode } from '../workflow/taskDag';
-import { buildLayerWalkForDoc } from '../docs/scopeResolution';
+import { buildLayerWalkForDoc, buildComponentCodeContext } from '../docs/scopeResolution';
 import { scopeMaxDocs } from '../context/tierPolicy';
-import { resolveScope } from '../docs/scopeResolution';
+import { resolveScope, type ScopeDoc } from '../docs/scopeResolution';
 import {
   buildDriftResolutionPrompt,
   extraToolsForDriftRole,
@@ -913,6 +913,10 @@ export class SubAgentRunner {
     return { ok: false, finalAnswer: '', failed: true, reason: 'lsp_regression' };
   }
 
+  private async recordScopeReferences(scope: ScopeDoc[]): Promise<void> {
+    await this.app.docs.touchLastReferenced(scope.map((s) => s.document_path));
+  }
+
   private async buildDeployPrompt(intent: 'generate' | 'apply', task: TaskNode): Promise<string> {
     const cfg = this.app.deploy.getConfig();
     const manifestDir = this.app.deploy.manifestDir() ?? '';
@@ -923,6 +927,7 @@ export class SubAgentRunner {
     const tierOverride = this.app.platform.getSettings().tierOverride;
     const tier = model ? this.app.platform.models.getContextTier(model, tierOverride) : ('M' as const);
     const scope = resolveScope(task.scope_doc, entries, scopeMaxDocs(tier));
+    await this.recordScopeReferences(scope);
     const scopeBlock = scope
       .map((s) => `- [${s.link_type}] ${s.title} (${s.document_path})`)
       .join('\n');
@@ -971,6 +976,7 @@ ${intent === 'generate'
     const tierOverride = this.app.platform.getSettings().tierOverride;
     const tier = model ? this.app.platform.models.getContextTier(model, tierOverride) : ('M' as const);
     const scope = resolveScope(task.scope_doc, entries, scopeMaxDocs(tier));
+    await this.recordScopeReferences(scope);
     const layerWalk = buildLayerWalkForDoc(task.scope_doc, entries, tier);
 
     const scopeBlock = scope
@@ -1020,6 +1026,7 @@ Respond with a concise final answer for the Conversation Pane. Use tools when yo
     const tierOverride = this.app.platform.getSettings().tierOverride;
     const tier = model ? this.app.platform.models.getContextTier(model, tierOverride) : ('M' as const);
     const scope = resolveScope(task.scope_doc, entries, scopeMaxDocs(tier));
+    await this.recordScopeReferences(scope);
     const layerWalk = buildLayerWalkForDoc(task.scope_doc, entries, tier);
     const scopeBlock = scope
       .map((s) => `- [${s.link_type}] ${s.title} (${s.document_path})`)
@@ -1064,6 +1071,7 @@ Apply doc_write or write_file for proposed fixes. Summarize what you changed whe
     const tierOverride = this.app.platform.getSettings().tierOverride;
     const tier = model ? this.app.platform.models.getContextTier(model, tierOverride) : ('M' as const);
     const scope = resolveScope(task.scope_doc, entries, scopeMaxDocs(tier));
+    await this.recordScopeReferences(scope);
     const layerWalk = buildLayerWalkForDoc(task.scope_doc, entries, tier);
     const scopeBlock = scope
       .map((s) => `- [${s.link_type}] ${s.title} (${s.document_path})`)
@@ -1096,6 +1104,7 @@ Return the JSON verdict object described above. Do not modify files.
     const tierOverride = this.app.platform.getSettings().tierOverride;
     const tier = model ? this.app.platform.models.getContextTier(model, tierOverride) : ('M' as const);
     const scope = resolveScope(task.scope_doc, entries, scopeMaxDocs(tier));
+    await this.recordScopeReferences(scope);
     const layerWalk = buildLayerWalkForDoc(task.scope_doc, entries, tier);
 
     const scopeBlock = scope
@@ -1108,6 +1117,11 @@ Return the JSON verdict object described above. Do not modify files.
     const layerBlock = layerWalk
       .map((l) => `### ${l.documentPath}\n${l.content}`)
       .join('\n\n');
+    const indexedCodePaths = this.app.indexManager.listIndexedCodePaths();
+    const componentCodeBlock =
+      scopeEntry?.frontmatter.level === 'component'
+        ? buildComponentCodeContext(task.scope_doc, entries, indexedCodePaths)
+        : '';
     const scopeFile = scopeEntry?.relativePath ?? task.scope_doc.replace(/^\.copilotPlus\/docs\//, 'src/');
     const knowledgeBlock = await this.app.knowledge.buildContextBlock(scopeFile, task.id, tier);
 
@@ -1129,6 +1143,7 @@ ${skillBlock || '(none)'}
 ## Layer walk
 ${layerBlock || '(empty)'}
 
+${componentCodeBlock ? `${componentCodeBlock}\n` : ''}
 ## Project memory
 ${knowledgeBlock || '(none)'}
 

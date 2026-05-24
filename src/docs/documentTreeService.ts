@@ -11,7 +11,8 @@ import {
   type DocLevel,
 } from './frontmatter';
 import { composeDocument, defaultBody, normalizeFrontmatter, serializeFrontmatter } from './frontmatterSerialize';
-import { computeReviewBadge, type ReviewBadge } from './reviewBadge';
+import { computeReviewBadge, shouldAutoMarkReviewedOnAccept, type ReviewBadge } from './reviewBadge';
+import { isDocumentStale, collectSubtreeDocPaths } from './docLifecycle';
 import { docsRoot, parseDocRelativePath, pathForDoc, systemDocPath } from './paths';
 import type { DiffReviewService } from '../editing/diffReview';
 
@@ -231,13 +232,33 @@ export class DocumentTreeService {
       );
       if (accepted) {
         await this.scan();
+        await this.applyAutoReviewMarkerIfNeeded(relativePath);
       }
       return accepted;
     }
 
     await fs.writeFile(abs, content, 'utf8');
     await this.scan();
+    await this.applyAutoReviewMarkerIfNeeded(relativePath);
     return true;
+  }
+
+  /** R-DOCS-10.2 — mark system/module docs reviewed when user accepts doc_write diff */
+  private async applyAutoReviewMarkerIfNeeded(relativePath: string): Promise<void> {
+    const entry = this.getByPath(relativePath);
+    if (!entry?.valid || !shouldAutoMarkReviewedOnAccept(entry.frontmatter.level)) {
+      return;
+    }
+    const reviewer =
+      (await vscode.authentication.getSession('github', [], { createIfNone: false }))?.account?.label ?? 'user';
+    const fm = {
+      ...entry.frontmatter,
+      human_reviewed_at: new Date().toISOString(),
+      human_reviewed_by: reviewer,
+    };
+    const abs = this.absFromRelative(relativePath);
+    await fs.writeFile(abs, composeDocument(fm, entry.body), 'utf8');
+    await this.scan();
   }
 
   async read(relativePath: string): Promise<{ frontmatter: DocFrontmatter; body: string }> {
@@ -269,17 +290,35 @@ export class DocumentTreeService {
   }
 
   findStaleDocuments(thresholdDays: number): DocEntry[] {
-    const cutoff = Date.now() - thresholdDays * 86_400_000;
-    return this.cache.filter((e) => {
-      if (!e.valid || e.relativePath.includes('/archive/')) {
-        return false;
+    return this.cache.filter((e) => e.valid && isDocumentStale(e, thresholdDays));
+  }
+
+  findStaleInSubtree(rootPath: string, thresholdDays: number): DocEntry[] {
+    const subtree = new Set(collectSubtreeDocPaths(rootPath, this.cache));
+    return this.findStaleDocuments(thresholdDays).filter((e) => subtree.has(e.relativePath));
+  }
+
+  /** R-DOCS-9.1 — update last_referenced_at when docs enter scope resolution */
+  async touchLastReferenced(relativePaths: string[]): Promise<void> {
+    const now = new Date().toISOString();
+    const unique = [...new Set(relativePaths.map((p) => p.replace(/\\/g, '/')))];
+    let changed = false;
+    for (const rel of unique) {
+      const entry = this.getByPath(rel);
+      if (!entry?.valid || rel.includes('/archive/')) {
+        continue;
       }
-      const ref = e.frontmatter.last_referenced_at;
-      if (!ref) {
-        return true;
+      if (entry.frontmatter.last_referenced_at === now) {
+        continue;
       }
-      return new Date(ref).getTime() < cutoff;
-    });
+      const fm = { ...entry.frontmatter, last_referenced_at: now };
+      await fs.writeFile(this.absFromRelative(rel), composeDocument(fm, entry.body), 'utf8');
+      changed = true;
+    }
+    if (changed) {
+      await this.scan();
+      this.onChangeEmitter.fire();
+    }
   }
 
   reviewBadge(entry: DocEntry): ReviewBadge {

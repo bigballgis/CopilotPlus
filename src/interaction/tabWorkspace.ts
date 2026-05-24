@@ -6,6 +6,7 @@ import type { BuildSnapshot } from '../workflow/buildExecutor';
 import { getTabWorkspaceWebviewHtml } from './webviewBundle';
 import { buildTabWorkspaceStateSync } from './tabWorkspaceSnapshot';
 import type { TabId, TabWorkspaceWebviewMessage } from '../shared/tabWorkspaceWebviewProtocol';
+import { runDocCompact } from '../docs/compactFlow';
 import { t } from '../platform/l10n';
 
 export class TabWorkspaceProvider {
@@ -21,6 +22,13 @@ export class TabWorkspaceProvider {
     this.app.composer.onChange(() => void this.syncWebviewState());
     this.app.buildExecutor.onChange(() => void this.syncWebviewState());
     this.app.platform.models.onDidChange(() => void this.syncWebviewState());
+    this.app.drift.onChange(() => void this.syncWebviewState());
+  }
+
+  bindEditorRefresh(context: vscode.ExtensionContext): void {
+    context.subscriptions.push(
+      vscode.window.onDidChangeActiveTextEditor(() => void this.syncWebviewState())
+    );
   }
 
   async show(column: vscode.ViewColumn): Promise<void> {
@@ -77,6 +85,11 @@ export class TabWorkspaceProvider {
       }
       if (msg.type === 'composerAction') {
         await this.handleComposerAction(msg.action, msg.goal, msg.files);
+        return;
+      }
+      if (msg.type === 'compactDocSubtree') {
+        await runDocCompact(this.app, msg.path);
+        await this.syncWebviewState();
         return;
       }
       if (msg.type === 'selectModel' && msg.modelId) {

@@ -1,7 +1,9 @@
 /** Scope resolution and layer walk — R-DOCS-5, R-DOCS-14 */
 
 import type { DocEntry } from './documentTreeService';
-import { buildLayerWalk } from './layerWalk';
+import { buildLayerWalk, type LayerWalkEntry } from './layerWalk';
+import { resolveOwners } from './ownershipIndex';
+import { matchesGlob } from '../platform/sensitiveFiles';
 import type { ContextTier } from '../shared/types';
 
 export interface ScopeDoc {
@@ -21,6 +23,9 @@ export function resolveScope(startPath: string, entries: DocEntry[], maxDocs = 1
   const seen = new Set<string>();
 
   const add = (e: DocEntry, link_type: ScopeDoc['link_type']) => {
+    if (e.relativePath.includes('/archive/')) {
+      return;
+    }
     if (seen.has(e.relativePath) || result.length >= maxDocs) {
       return;
     }
@@ -93,4 +98,90 @@ export function buildLayerWalkForDoc(startPath: string, entries: DocEntry[], tie
     chain.map((c) => ({ path: c.path, doc: c.doc, body: c.body })),
     tier
   );
+}
+
+/** R-DOCS-14.3 — layer walk for a code file through its owning component(s) */
+export function buildLayerWalkForCodeFile(
+  filePath: string,
+  entries: DocEntry[],
+  indexedCodePaths: string[],
+  tier: ContextTier
+): LayerWalkEntry[] {
+  const ownership = resolveOwners(filePath, entries);
+  if (ownership.orphan || ownership.owners.length === 0) {
+    return [];
+  }
+
+  const primary = entries.find((e) => e.valid && e.frontmatter.id === ownership.owners[0]);
+  if (!primary) {
+    return [];
+  }
+
+  const walk = buildLayerWalkForDoc(primary.relativePath, entries, tier);
+  const appendix = buildComponentCodeContext(
+    primary.relativePath,
+    entries,
+    indexedCodePaths,
+    filePath,
+    ownership.owners.slice(1)
+  );
+  if (!appendix || walk.length === 0) {
+    return walk;
+  }
+
+  const last = walk[walk.length - 1]!;
+  return [
+    ...walk.slice(0, -1),
+    {
+      ...last,
+      content: `${last.content}\n\n${appendix}`,
+    },
+  ];
+}
+
+export function listComponentCodeFiles(componentEntry: DocEntry, indexedCodePaths: string[]): string[] {
+  const patterns = componentEntry.frontmatter.code_paths ?? [];
+  if (patterns.length === 0) {
+    return [];
+  }
+  return indexedCodePaths
+    .filter((file) => patterns.some((pattern) => matchesGlob(pattern, file)))
+    .sort();
+}
+
+/** Code_paths + sibling files (+ shared co-owners) for component scope — R-DOCS-14.3 / R-DOCS-11.4 */
+export function buildComponentCodeContext(
+  componentDocPath: string,
+  entries: DocEntry[],
+  indexedCodePaths: string[],
+  activeFile?: string,
+  coOwnerIds: string[] = [],
+  allEntries: DocEntry[] = entries
+): string {
+  const entry = entries.find((e) => e.valid && e.relativePath === componentDocPath.replace(/\\/g, '/'));
+  if (!entry || entry.frontmatter.level !== 'component') {
+    return '';
+  }
+
+  const siblings = listComponentCodeFiles(entry, indexedCodePaths);
+  const lines = [
+    '## Component code ownership',
+    `code_paths: ${(entry.frontmatter.code_paths ?? []).join(', ') || '(none)'}`,
+  ];
+  if (activeFile) {
+    lines.push(`Active file: ${activeFile.replace(/\\/g, '/')}`);
+  }
+  lines.push('Sibling code files:');
+  lines.push(...(siblings.length ? siblings.map((f) => `- ${f}`) : ['- (none indexed)']));
+
+  if (coOwnerIds.length > 0) {
+    lines.push('Co-owner components (shared authority):');
+    for (const id of coOwnerIds) {
+      const co = allEntries.find((e) => e.valid && e.frontmatter.id === id);
+      if (co) {
+        lines.push(`- ${co.frontmatter.title} (${co.relativePath})`);
+      }
+    }
+  }
+  return lines.join('\n');
 }

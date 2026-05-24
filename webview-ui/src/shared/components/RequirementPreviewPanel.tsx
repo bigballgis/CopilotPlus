@@ -34,7 +34,9 @@ export function RequirementPreviewPanel({
           nodes={panel.tree}
           selectedPath={selectedPath}
           ariaLabel={labels.requirementTree}
+          labels={labels}
           onSelect={onSelectDoc}
+          onCompactSubtree={(path) => postToHost({ type: 'compactDocSubtree', path })}
         />
       </div>
       <div className="cp-req-preview">

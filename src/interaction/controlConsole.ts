@@ -135,6 +135,7 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
     }
     if (msg.type === 'resolveDrift') {
       await this.app.drift.resolveItem(msg.id);
+      this.syncWebviewState();
       return;
     }
     if (msg.type === 'dismissDrift') {

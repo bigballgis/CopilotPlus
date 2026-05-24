@@ -16,7 +16,11 @@ import type {
   TabWorkspaceStateSync,
   TaskEdgeWire,
   TaskPanelWire,
+  CodeLayerPathWire,
 } from '../shared/tabWorkspaceWebviewProtocol';
+import { isDocumentStale } from '../docs/docLifecycle';
+import { resolveCodeLayerPath } from '../docs/codeLayerPath';
+import * as vscode from 'vscode';
 
 export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
   return {
@@ -84,6 +88,11 @@ export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
     selectModel: t('models.selectModel'),
     selectModelAria: t('models.selectModelAria'),
     noModelsAvailable: t('models.noModelsAvailable'),
+    activeCodeLayer: t('tabWorkspace.activeCodeLayer'),
+    activeCodeLayerOrphan: t('tabWorkspace.activeCodeLayerOrphan'),
+    staleBadge: t('docs.staleBadge'),
+    compactSubtree: t('docs.compactSubtree'),
+    compactSubtreeAria: t('docs.compactSubtreeAria'),
   };
 }
 
@@ -101,8 +110,8 @@ export function buildTabWorkspaceStateSync(
     labels,
     ...app.platform.models.getHeaderState(),
     task: buildTaskPanel(app, build),
-    architecture: buildDocPanel(tree, labels.architectureDocs, app, labels, idToPath),
-    requirement: buildDocPanel(tree, labels.requirementDocs, app, labels, idToPath),
+    architecture: buildDocPanel(tree, labels.architectureDocs, app, labels, idToPath, true),
+    requirement: buildDocPanel(tree, labels.requirementDocs, app, labels, idToPath, false),
     commitPlaceholder: labels.commitPlaceholder,
     deploy: buildDeployPanel(app, labels),
   };
@@ -166,16 +175,53 @@ function buildDocPanel(
   heading: string,
   app: AppServices,
   labels: TabWorkspaceLabels,
-  idToPath: Map<string, string>
+  idToPath: Map<string, string>,
+  includeCodeLayer: boolean
 ): DocPanelWire {
   const docCount = countNodes(tree);
-  const serialized = serializeDocTree(tree, app, idToPath);
+  const threshold = app.platform.getSettings().staleThresholdDays;
+  const serialized = serializeDocTree(tree, app, idToPath, threshold);
   return {
     heading,
     docCount,
     tree: serialized.tree,
     diagramEdges: serialized.edges,
     emptyText: labels.noDocTree.replace('{0}', heading),
+    activeCodeLayer: includeCodeLayer ? buildActiveCodeLayer(app) : undefined,
+  };
+}
+
+function buildActiveCodeLayer(app: AppServices): CodeLayerPathWire | undefined {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || editor.document.uri.scheme !== 'file') {
+    return undefined;
+  }
+  const rel = vscode.workspace.asRelativePath(editor.document.uri).replace(/\\/g, '/');
+  if (rel.startsWith('.copilotPlus/')) {
+    return undefined;
+  }
+  const layerPath = resolveCodeLayerPath(rel, app.docs.getEntries());
+  if (layerPath.orphan) {
+    return { file: rel, segments: '', orphan: true };
+  }
+  if (!layerPath.component) {
+    return undefined;
+  }
+  const segments = [
+    layerPath.system?.title,
+    layerPath.module?.title,
+    layerPath.feature?.title,
+    layerPath.component.title,
+    ...(layerPath.coComponents?.map((c) => c.title) ?? []),
+  ]
+    .filter(Boolean)
+    .join(' › ');
+  return {
+    file: rel,
+    segments,
+    orphan: false,
+    componentPath: layerPath.component.path,
+    coOwnerTitles: layerPath.coComponents?.map((c) => c.title),
   };
 }
 
@@ -201,7 +247,8 @@ function buildDeployPanel(app: AppServices, labels: TabWorkspaceLabels): DeployP
 function serializeDocTree(
   nodes: DocTreeNode[],
   app: AppServices,
-  idToPath: Map<string, string>
+  idToPath: Map<string, string>,
+  staleThresholdDays: number
 ): { tree: DocTreeNodeWire[]; edges: DocDiagramEdgeWire[] } {
   const edges: DocDiagramEdgeWire[] = [];
 
@@ -217,6 +264,7 @@ function serializeDocTree(
     }
     const entry = app.docs.getByPath(node.path);
     const reviewBadge = entry ? app.docs.reviewBadge(entry) : undefined;
+    const stale = entry ? isDocumentStale(entry, staleThresholdDays) : false;
     const lateralLinks = (node.lateral ?? [])
       .map((link) => {
         const targetPath = idToPath.get(link.target);
@@ -237,6 +285,7 @@ function serializeDocTree(
       title: node.title,
       level: node.level,
       reviewBadge,
+      stale,
       lateralLinks,
       children: node.children.map((child) => walk(child, node.path)),
     };

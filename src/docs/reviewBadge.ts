@@ -1,8 +1,14 @@
 /** Human review badge — R-DOCS-10.4 */
 
 import type { DocEntry } from './documentTreeService';
+import type { DocLevel } from './frontmatter';
 
 export type ReviewBadge = 'green' | 'yellow' | 'red';
+
+/** R-DOCS-10.2 — auto-review marker only for system/module doc_write accepts */
+export function shouldAutoMarkReviewedOnAccept(level: DocLevel): boolean {
+  return level === 'system' || level === 'module';
+}
 
 export function computeReviewBadge(entry: Pick<DocEntry, 'frontmatter'>): ReviewBadge {
   const reviewed = entry.frontmatter.human_reviewed_at;

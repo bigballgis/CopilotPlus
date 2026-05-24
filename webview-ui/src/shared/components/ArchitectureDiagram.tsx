@@ -15,10 +15,10 @@ interface ArchitectureDiagramProps {
   edges: DocDiagramEdgeWire[];
 }
 
-function flattenNodes(nodes: DocTreeNodeWire[]): { path: string; title: string; level: string }[] {
-  const out: { path: string; title: string; level: string }[] = [];
+function flattenNodes(nodes: DocTreeNodeWire[]): { path: string; title: string; level: string; stale?: boolean }[] {
+  const out: { path: string; title: string; level: string; stale?: boolean }[] = [];
   const visit = (node: DocTreeNodeWire) => {
-    out.push({ path: node.path, title: node.title, level: node.level });
+    out.push({ path: node.path, title: node.title, level: node.level, stale: node.stale });
     node.children.forEach(visit);
   };
   nodes.forEach(visit);
@@ -85,7 +85,7 @@ export function ArchitectureDiagram({ labels, tree, edges }: ArchitectureDiagram
               aria-label={node.title}
             >
               <rect
-                className={`cp-arch-node cp-arch-node--${node.level}`}
+                className={`cp-arch-node cp-arch-node--${node.level}${node.stale ? ' cp-arch-node--stale' : ''}`}
                 x={node.x}
                 y={node.y}
                 width={DOC_DIAGRAM_BOX_W}

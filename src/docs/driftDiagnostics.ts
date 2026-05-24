@@ -149,6 +149,21 @@ export function dedupeDriftItems(items: DriftItem[]): DriftItem[] {
   return [...map.values()];
 }
 
+const AGENT_DETAIL_PREFIX = 'agent:';
+
+/** Preserve Reviewer/Architect agent drift items when merging static scan results */
+export function mergeDriftScanResults(
+  scanned: DriftItem[],
+  existing: DriftItem[],
+  isDismissed: (item: DriftItem) => boolean
+): DriftItem[] {
+  const agentItems = existing.filter((item) => item.detail?.startsWith(AGENT_DETAIL_PREFIX));
+  return dedupeDriftItems([
+    ...scanned.filter((item) => !isDismissed(item)),
+    ...agentItems.filter((item) => !isDismissed(item)),
+  ]);
+}
+
 export function createDriftItem(
   type: DriftType,
   layer: string,

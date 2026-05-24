@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { computeReviewBadge, formatUnreviewedDocNotice } from '../../docs/reviewBadge.js';
+import { computeReviewBadge, formatUnreviewedDocNotice, shouldAutoMarkReviewedOnAccept } from '../../docs/reviewBadge.js';
 import type { DocEntry } from '../../docs/documentTreeService.js';
 
 function entry(partial: Partial<DocEntry> & Pick<DocEntry, 'relativePath' | 'frontmatter' | 'body'>): DocEntry {
@@ -34,5 +34,12 @@ describe('R-DOCS-10.5 unreviewed doc notice', () => {
       body: '## Summary\nx',
     });
     assert.equal(computeReviewBadge(recent), 'green');
+  });
+
+  it('auto-marks only system and module on doc_write accept', () => {
+    assert.equal(shouldAutoMarkReviewedOnAccept('system'), true);
+    assert.equal(shouldAutoMarkReviewedOnAccept('module'), true);
+    assert.equal(shouldAutoMarkReviewedOnAccept('feature'), false);
+    assert.equal(shouldAutoMarkReviewedOnAccept('component'), false);
   });
 });

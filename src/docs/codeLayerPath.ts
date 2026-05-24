@@ -12,6 +12,7 @@ export interface LayerDocRef {
 export interface CodeLayerPath {
   file: string;
   component?: LayerDocRef;
+  coComponents?: LayerDocRef[];
   feature?: LayerDocRef;
   module?: LayerDocRef;
   system?: LayerDocRef;
@@ -36,6 +37,13 @@ export function resolveCodeLayerPath(filePath: string, entries: DocEntry[]): Cod
   }
 
   result.component = toRef(ownerEntry);
+  if (ownership.owners.length > 1 && !ownership.conflict) {
+    result.coComponents = ownership.owners
+      .slice(1)
+      .map((id) => entries.find((e) => e.valid && e.frontmatter.id === id))
+      .filter((e): e is DocEntry => Boolean(e))
+      .map(toRef);
+  }
   let current: DocEntry | undefined = ownerEntry;
   while (current?.frontmatter.parent) {
     const parent = entries.find((e) => e.valid && e.frontmatter.id === current!.frontmatter.parent);
@@ -74,6 +82,9 @@ export function formatCodeLayerPathTooltip(path: CodeLayerPath): string {
   }
   if (path.component) {
     parts.push(`Component: ${path.component.title}`);
+  }
+  if (path.coComponents?.length) {
+    parts.push(`Co-owners: ${path.coComponents.map((c) => c.title).join(', ')}`);
   }
   parts.push(`File: ${path.file}`);
   if (path.conflict) {

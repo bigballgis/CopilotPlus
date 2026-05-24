@@ -53,6 +53,7 @@ export class CodeOwnershipStatusBar {
       layerPath.module?.title,
       layerPath.feature?.title,
       layerPath.component.title,
+      ...(layerPath.coComponents?.map((c) => c.title) ?? []),
     ].filter(Boolean);
 
     this.item.text = t('ownership.statusBar', segments.join(' › '));

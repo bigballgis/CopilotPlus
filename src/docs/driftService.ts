@@ -11,6 +11,7 @@ import {
   createDriftItem,
   dedupeDriftItems,
   driftItemKey,
+  mergeDriftScanResults,
   scanDriftDiagnostics,
   summarizeLayerConsistency,
 } from './driftDiagnostics';
@@ -102,9 +103,8 @@ export class DriftService {
     const dismissedKeys = new Set(
       this.dismissals.map((d) => `${d.target}`).concat(this.dismissals.map((d) => d.driftId))
     );
-    this.items = dedupeDriftItems(
-      scanned.filter((item) => !this.isDismissed(item, dismissedKeys))
-    );
+    this.items = mergeDriftScanResults(scanned, this.items, (item) => this.isDismissed(item, dismissedKeys));
+    this.consistencyDiagnostics.syncStaticCodeDrift(this.items);
     await this.emitNewOrphanHooks(this.items);
     await this.saveState();
     this.onChangeEmitter.fire();
@@ -399,7 +399,7 @@ export class DriftService {
       case 'Consistent':
         this.removeAgentDriftForTarget(componentDocPath);
         for (const file of changedFiles) {
-          this.consistencyDiagnostics.clearPath(file);
+          this.consistencyDiagnostics.clearMismatchPath(file);
         }
         break;
       case 'Doc_Update_Recommended': {

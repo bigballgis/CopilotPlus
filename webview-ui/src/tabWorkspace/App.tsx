@@ -9,6 +9,7 @@ import type {
 import { TAB_IDS } from '@shared/tabWorkspaceWebviewProtocol';
 import { ActionBar } from '@ui/components/ActionBar';
 import { ArchitectureDiagram } from '@ui/components/ArchitectureDiagram';
+import { DocTreePicker } from '@ui/components/DocTreePicker';
 import { Icon } from '@ui/components/Icon';
 import { PanelShell } from '@ui/components/PanelShell';
 import { RequirementPreviewPanel } from '@ui/components/RequirementPreviewPanel';
@@ -83,6 +84,11 @@ const DEFAULT_LABELS: TabWorkspaceLabels = {
   selectModel: 'Model',
   selectModelAria: 'Select Copilot model',
   noModelsAvailable: 'No Copilot models are available.',
+  activeCodeLayer: 'Active file layer path',
+  activeCodeLayerOrphan: 'Orphan code — no Component doc',
+  staleBadge: 'Stale',
+  compactSubtree: 'Compact',
+  compactSubtreeAria: 'Compact stale documents under {0}',
 };
 
 const EMPTY_SYNC: TabWorkspaceStateSync = {
@@ -464,6 +470,17 @@ function PanelBody({
         <p className="cp-meta">{state.architecture.emptyText}</p>
       ) : (
         <>
+          {state.architecture.activeCodeLayer ? (
+            <p className="cp-meta">
+              {state.architecture.activeCodeLayer.orphan
+                ? `${state.labels.activeCodeLayerOrphan}: ${state.architecture.activeCodeLayer.file}`
+                : `${state.labels.activeCodeLayer}: ${state.architecture.activeCodeLayer.segments}${
+                    state.architecture.activeCodeLayer.coOwnerTitles?.length
+                      ? ` (+${state.architecture.activeCodeLayer.coOwnerTitles.length} co-owner)`
+                      : ''
+                  }`}
+            </p>
+          ) : null}
           <p className="cp-meta">
             {state.architecture.heading} ({state.architecture.docCount} docs)
           </p>
@@ -472,6 +489,16 @@ function PanelBody({
             tree={state.architecture.tree}
             edges={state.architecture.diagramEdges}
           />
+          <div className="cp-arch-tree">
+            <h4 className="cp-viz-title">{state.labels.architectureDocs}</h4>
+            <DocTreePicker
+              nodes={state.architecture.tree}
+              ariaLabel={state.labels.architectureDocs}
+              labels={state.labels}
+              onSelect={(path) => postToHost({ type: 'openDoc', path })}
+              onCompactSubtree={(path) => postToHost({ type: 'compactDocSubtree', path })}
+            />
+          </div>
         </>
       );
     case 'requirement':

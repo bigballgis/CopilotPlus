@@ -69,6 +69,11 @@ export interface TabWorkspaceLabels {
   selectModel: string;
   selectModelAria: string;
   noModelsAvailable: string;
+  activeCodeLayer: string;
+  activeCodeLayerOrphan: string;
+  staleBadge: string;
+  compactSubtree: string;
+  compactSubtreeAria: string;
 }
 
 export interface DocLateralLinkWire {
@@ -82,6 +87,7 @@ export interface DocTreeNodeWire {
   title: string;
   level: string;
   reviewBadge?: 'green' | 'yellow' | 'red';
+  stale?: boolean;
   lateralLinks: DocLateralLinkWire[];
   children: DocTreeNodeWire[];
 }
@@ -156,12 +162,21 @@ export interface DeployPanelWire {
   showApply: boolean;
 }
 
+export interface CodeLayerPathWire {
+  file: string;
+  segments: string;
+  orphan: boolean;
+  componentPath?: string;
+  coOwnerTitles?: string[];
+}
+
 export interface DocPanelWire {
   heading: string;
   docCount: number;
   tree: DocTreeNodeWire[];
   diagramEdges: DocDiagramEdgeWire[];
   emptyText: string;
+  activeCodeLayer?: CodeLayerPathWire;
 }
 
 export interface TabWorkspaceStateSync {
@@ -197,6 +212,7 @@ export type TabWorkspaceWebviewMessage =
       goal?: string;
       files?: string[];
     }
+  | { type: 'compactDocSubtree'; path: string }
   | { type: 'selectModel'; modelId: string };
 
 export const TAB_IDS: TabId[] = ['task', 'architecture', 'requirement', 'commit', 'deploy'];

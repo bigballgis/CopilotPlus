@@ -63,6 +63,41 @@ describe('R-DOCS-11.6 code layer path', () => {
     assert.equal(path.system?.title, 'Platform');
   });
 
+  it('includes shared co-owners without conflict flag', () => {
+    const sharedEntries: DocEntry[] = [
+      ...entries.slice(0, 3),
+      entry({
+        relativePath: '.copilotPlus/docs/component/shared-a.md',
+        frontmatter: {
+          id: 'comp-a',
+          level: 'component',
+          title: 'Shared A',
+          parent: 'feat-login',
+          children: [],
+          code_paths: ['src/shared/**'],
+          code_owner_authority: 'shared',
+        },
+        body: '## Summary\nA',
+      }),
+      entry({
+        relativePath: '.copilotPlus/docs/component/shared-b.md',
+        frontmatter: {
+          id: 'comp-b',
+          level: 'component',
+          title: 'Shared B',
+          parent: 'feat-login',
+          children: [],
+          code_paths: ['src/shared/**'],
+          code_owner_authority: 'shared',
+        },
+        body: '## Summary\nB',
+      }),
+    ];
+    const path = resolveCodeLayerPath('src/shared/util.ts', sharedEntries);
+    assert.equal(path.conflict, false);
+    assert.equal(path.coComponents?.length, 1);
+  });
+
   it('marks orphan files without component ownership', () => {
     const path = resolveCodeLayerPath('src/unowned.ts', entries);
     assert.equal(path.orphan, true);

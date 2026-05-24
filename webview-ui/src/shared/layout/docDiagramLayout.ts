@@ -4,6 +4,7 @@ export interface DocDiagramNodeLayout {
   path: string;
   title: string;
   level: string;
+  stale?: boolean;
   x: number;
   y: number;
 }
@@ -31,7 +32,7 @@ const COL_GAP = 40;
 const ROW_GAP = 12;
 
 export function layoutDocDiagram(
-  nodes: { path: string; title: string; level: string }[],
+  nodes: { path: string; title: string; level: string; stale?: boolean }[],
   edges: { from: string; to: string; kind: 'hierarchical' | 'lateral' }[]
 ): { nodes: DocDiagramNodeLayout[]; edges: DocDiagramEdgeLayout[]; width: number; height: number } {
   if (nodes.length === 0) {
