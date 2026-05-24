@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：查漏补缺 — F5 手动冒烟（Drift Agent 一致性 + Resolve）
-> **本 session 下一项（功能）**：F5 手动冒烟 #8–25
+> **本 session 下一项（功能）**：F5 手动冒烟 #8–26
 
 ---
 
@@ -35,6 +35,7 @@
 | 23 | 子树 rename/move | 有子文档时重命名 module/feature 应同步迁移子路径；预览标题显示审查徽章 |
 | 24 | 子树 delete + Summary | Delete subtree 整棵删除；缺/短 ## Summary → Add summary → Diff Review 后 Drift 清除 |
 | 25 | Architecture 完整预览 | Architecture 树选中文档 → 导航 + Markdown 正文 + 文档操作栏 |
+| 26 | Architecture 导出 | Architecture 图 → Export SVG / Export PNG → 保存对话框 → 文件写入成功 |
 
 ---
 
@@ -76,7 +77,7 @@
 | 子树路径迁移 | rename/move 递归更新 descendant 路径 + mapSubtreePaths + 链接 patch | R-DOCS-6.2–6.3 |
 | 子树 delete | deleteDocumentTree 整棵删除 + patchLinksForRemovedIds + Delete subtree 确认 | R-DOCS-6.5 |
 | Summary 补全 | 100–800 字校验 + ensureSummary 命令/面板 + Diff Review 草稿 | R-DOCS-14.6 |
-| Architecture 预览 | DocPreviewContent 共享 + Markdown 正文 + 审查徽章 + 与 Requirement 同等操作 | R-INT-5 |
+| Architecture 预览 | DocPreviewContent + 图 zoom/fit + SVG/PNG 导出 + 横向边 + 完整文档预览 | R-INT-5 |
 | 文档树操作 | rename/move/delete/link + 面板/命令面板 + 链接一致性修复 | R-DOCS-6 |
 | Web 工具 | webfetch（https/15s/截断）+ websearch（可配置 provider） | R-TOOL-12 |
 | LSP 重命名 | lsp_rename → Diff Review + Checkpoint + post_edit | R-TOOL-5.5 |
@@ -125,6 +126,8 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | R-INT-5.4 Architecture 图 Export SVG/PNG + fit-to-view 自适应缩放 |
+| 2026-05-23 | R-INT-5.4 Architecture 图导出（Export SVG/PNG + SaveDialog + diagramExport） |
 | 2026-05-23 | R-INT-12.8 fork DAG 重启恢复（reconcileForkDag + loadDag 持久化对齐 forks.json） |
 | 2026-05-23 | R-DOCS-6.2–6.5 子树 rename/move 路径迁移 + delete subtree；R-DOCS-14.6 Summary 补全；R-INT-5 Architecture 完整预览 |
 | 2026-05-23 | verify:docs-smoke 扩展（treeOps 路径迁移/链接清理 + summarySection + preview nav） |

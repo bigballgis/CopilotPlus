@@ -53,6 +53,8 @@ export interface TabWorkspaceLabels {
   zoomIn: string;
   zoomOut: string;
   fitView: string;
+  exportSvg: string;
+  exportPng: string;
   requirementTree: string;
   requirementPreview: string;
   architecturePreview: string;
@@ -306,6 +308,7 @@ export type TabWorkspaceWebviewMessage =
   | { type: 'compactDocSubtree'; path: string }
   | { type: 'docTreeAction'; action: DocTreePanelAction; path: string }
   | { type: 'selectModel'; modelId: string }
-  | { type: 'commitAction'; action: 'select' | 'rollback'; hash: string };
+  | { type: 'commitAction'; action: 'select' | 'rollback'; hash: string }
+  | { type: 'exportArchitectureDiagram'; format: 'svg' | 'png'; content: string };
 
 export const TAB_IDS: TabId[] = ['task', 'architecture', 'requirement', 'commit', 'deploy'];

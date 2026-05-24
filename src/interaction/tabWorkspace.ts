@@ -113,6 +113,10 @@ export class TabWorkspaceProvider {
       }
       if (msg.type === 'commitAction') {
         await this.handleCommitAction(msg.action, msg.hash);
+        return;
+      }
+      if (msg.type === 'exportArchitectureDiagram') {
+        await this.handleExportArchitectureDiagram(msg.format, msg.content);
       }
     });
 
@@ -213,6 +217,36 @@ export class TabWorkspaceProvider {
       void vscode.window.showErrorMessage(result.reason ?? 'rollback_failed');
     }
     await this.syncWebviewState();
+  }
+
+  private async handleExportArchitectureDiagram(format: 'svg' | 'png', content: string): Promise<void> {
+    const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
+    const defaultUri = folder
+      ? vscode.Uri.joinPath(folder, format === 'png' ? 'architecture-diagram.png' : 'architecture-diagram.svg')
+      : undefined;
+    const filters =
+      format === 'png'
+        ? { PNG: ['png'] }
+        : { SVG: ['svg'] };
+    const target = await vscode.window.showSaveDialog({
+      defaultUri,
+      filters,
+      saveLabel: format === 'png' ? t('tabWorkspace.exportPng') : t('tabWorkspace.exportSvg'),
+    });
+    if (!target) {
+      return;
+    }
+    try {
+      const bytes =
+        format === 'png'
+          ? Buffer.from(content, 'base64')
+          : Buffer.from(content, 'utf8');
+      await vscode.workspace.fs.writeFile(target, bytes);
+      void vscode.window.showInformationMessage(t('tabWorkspace.exportDiagramDone', target.fsPath));
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      void vscode.window.showErrorMessage(t('tabWorkspace.exportDiagramFailed', reason));
+    }
   }
 
   private async handleComposerAction(action: string, goal?: string, files?: string[]): Promise<void> {

@@ -72,6 +72,8 @@ export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
     zoomIn: t('tabWorkspace.zoomIn'),
     zoomOut: t('tabWorkspace.zoomOut'),
     fitView: t('tabWorkspace.fitView'),
+    exportSvg: t('tabWorkspace.exportSvg'),
+    exportPng: t('tabWorkspace.exportPng'),
     requirementTree: t('tabWorkspace.requirementTree'),
     requirementPreview: t('tabWorkspace.requirementPreview'),
     architecturePreview: t('tabWorkspace.architecturePreview'),

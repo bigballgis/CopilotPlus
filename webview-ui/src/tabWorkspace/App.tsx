@@ -70,6 +70,8 @@ const DEFAULT_LABELS: TabWorkspaceLabels = {
   zoomIn: 'Zoom in',
   zoomOut: 'Zoom out',
   fitView: 'Fit view',
+  exportSvg: 'Export SVG',
+  exportPng: 'Export PNG',
   requirementTree: 'Document tree',
   requirementPreview: 'Preview',
   architecturePreview: 'Document preview',

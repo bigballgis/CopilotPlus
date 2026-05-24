@@ -64,6 +64,13 @@ const DOCS_TREE_OPS_MARKERS = [
   { file: 'src/docs/summarySection.ts', tokens: ['upsertSummarySection', 'SUMMARY_MIN_CHARS'] },
 ];
 
+const ARCHITECTURE_PANEL_MARKERS = [
+  { file: 'webview-ui/src/shared/components/ArchitectureDiagram.tsx', tokens: ['exportDiagram', 'exportSvg', 'fitToView'] },
+  { file: 'webview-ui/src/shared/utils/diagramExport.ts', tokens: ['serializeSvgElement', 'svgMarkupToPngBase64'] },
+  { file: 'src/interaction/tabWorkspace.ts', tokens: ['handleExportArchitectureDiagram', 'exportArchitectureDiagram'] },
+  { file: 'src/shared/tabWorkspaceWebviewProtocol.ts', tokens: ['exportSvg', "type: 'exportArchitectureDiagram'"] },
+];
+
 const TASK_FORK_MARKERS = [
   { file: 'src/workflow/taskFork.ts', tokens: ['createTaskFork', 'forks.json', 'reconcileForkDag'] },
   { file: 'src/workflow/taskTranscript.ts', tokens: ['groupTranscriptIterations', 'readStructuredTaskTranscript'] },
@@ -101,6 +108,7 @@ async function main() {
     ...DECISION_CENTER_MARKERS,
     ...DOCS_NAMING_MARKERS,
     ...DOCS_TREE_OPS_MARKERS,
+    ...ARCHITECTURE_PANEL_MARKERS,
     ...TASK_FORK_MARKERS,
   ]) {
     const source = await fs.readFile(path.join(root, file), 'utf8');
