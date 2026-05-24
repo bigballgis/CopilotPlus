@@ -256,26 +256,28 @@ async function resolveOneMention(
       const files = await listFolderFiles(root, attachment.target);
       let snippetBlock = '';
       const folderPrefix = attachment.target.replace(/\\/g, '/').replace(/\/$/, '');
-      const resolution = app.indexManager.getResolution();
-      const queryEmbedding =
-        resolution.mode === 'proposed_lm' || resolution.mode === 'local'
-          ? await computeQueryEmbedding(folderPrefix, resolution, app.localEmbeddingAddon)
-          : undefined;
-      const model = await app.platform.models.resolveSelectionForSurface('subAgent');
-      const tier = model ? app.platform.models.getContextTier(model) : 'M';
-      const response = app.indexManager.retrieval.search({
-        query: folderPrefix,
-        thoroughness: 'quick',
-        topK: 12,
-        tier,
-        docEntries: app.docs.getEntries(),
-        queryEmbedding,
-      });
-      snippetBlock = response.results
-        .filter((hit) => hit.kind === 'code' && hit.path.replace(/\\/g, '/').startsWith(folderPrefix))
-        .slice(0, 6)
-        .map((hit) => `${hit.path}${hit.line != null ? `:${hit.line}` : ''}\n${hit.snippet}`)
-        .join('\n\n');
+      if (app.indexManager.isRetrievalAvailable()) {
+        const resolution = app.indexManager.getResolution();
+        const queryEmbedding =
+          resolution.mode === 'proposed_lm' || resolution.mode === 'local'
+            ? await computeQueryEmbedding(folderPrefix, resolution, app.localEmbeddingAddon)
+            : undefined;
+        const model = await app.platform.models.resolveSelectionForSurface('subAgent');
+        const tier = model ? app.platform.models.getContextTier(model) : 'M';
+        const response = app.indexManager.retrieval.search({
+          query: folderPrefix,
+          thoroughness: 'quick',
+          topK: 12,
+          tier,
+          docEntries: app.docs.getEntries(),
+          queryEmbedding,
+        });
+        snippetBlock = response.results
+          .filter((hit) => hit.kind === 'code' && hit.path.replace(/\\/g, '/').startsWith(folderPrefix))
+          .slice(0, 6)
+          .map((hit) => `${hit.path}${hit.line != null ? `:${hit.line}` : ''}\n${hit.snippet}`)
+          .join('\n\n');
+      }
       const listing = files.map((f) => `- ${f}`).join('\n');
       return {
         attachment,

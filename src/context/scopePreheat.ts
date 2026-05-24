@@ -24,6 +24,10 @@ export function runScopePreheat(
   const model = app.platform.models.getSelected();
   const tier = resolveContextTier(model?.maxInputTokens, app.platform.getSettings().tierOverride);
 
+  if (!app.indexManager.isRetrievalAvailable()) {
+    return '';
+  }
+
   const response = app.indexManager.retrieval.search({
     query,
     scope,

@@ -136,7 +136,7 @@
 | 序号 | 需求 | 状态 |
 |------|------|------|
 | 6.1 | R-CTX-1 Mentions | ✅ 七类 + 25% 限额 + 预算确认 |
-| 6.2 | R-CTX-2 Codebase Index | ⬜ |
+| 6.2 | R-CTX-2 Codebase Index | ✅ gitignore + 800/200 分块 + 增量更新 + 持久化 |
 | 6.3 | R-CTX-3,6 RAG 混合检索 | ⬜ |
 | 6.4 | R-CTX-4,7,8 Budget / 摘要 / Tier | ⬜ |
 | 6.5 | R-CTX-5 Embedding 三模式 | ✅ enterprise manifest + token_ids ONNX |
