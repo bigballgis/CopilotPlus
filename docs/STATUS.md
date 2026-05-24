@@ -50,8 +50,7 @@
 | Platform 补全 | 授权失效取消请求 + Conversation/Tab 模型 picker + PLAN 同步 | R-PLAT-2 / R-PLAT-3 |
 | Drift / Consistency | 静态诊断 + Sub-Agent Resolve + 队列 + 持久化 + Console/状态栏 | R-DOCS-12 / R-DOCS-13 |
 | Agent 一致性检查 | Reviewer/Architect 子代理 + verdict 解析 + Decision + Problem 面板 + Build 预算 | R-DOCS-12.3–12.8 |
-| 代码归属 + 审阅提示 | 状态栏 Layer Walk + orphan hook + Sub-Agent 未审阅文档通知 | R-DOCS-10.5 / R-DOCS-11.5–11.6 |
-| Review badge + 所有权状态栏 | 审查徽章计算 + Sub-Agent 未审阅提示 + 代码层级路径状态栏 | R-DOCS-10.4–10.5 / R-DOCS-11.6 |
+| Review badge + 代码归属 | 审查徽章 + 状态栏 Layer Walk + orphan hook + Sub-Agent 未审阅提示 | R-DOCS-10.4–10.5 / R-DOCS-11.6 |
 | Build 限额 | 工具调用/时长上限 + Decision + Stop All + 限额显示 | R-WF-8 |
 | Autonomy Levels | Manual Build/Deploy 全工具 Decision + deny list + Full_Auto Diff 绕过 + Control Console 选择器 | R-WF-7 |
 | Build 六步流水线 | Coder/Tester/Reviewer/Committer + 3 轮测试 + Decision | R-WF-4 |
