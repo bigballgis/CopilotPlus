@@ -1,8 +1,8 @@
 # Copilot Plus — 进度总览
 
 > **最后更新**：2026-05-23  
-> **当前阶段**：Polish / 后续增强  
-> **下一项**：Control Console React 化（或 Multi-Agent Verification）
+> **当前阶段**：Phase 2.8 — UI Experience  
+> **下一项**：Design 工作流补全（Continue / step picker）或 R-AG-9 背景 Agent
 
 ---
 
@@ -11,8 +11,9 @@
 | Phase | 名称 | 进度 | 状态 |
 |-------|------|------|------|
 | 0–9 | 全部 Phase | — | ✅ 完成 |
+| 2.8 | UI Experience | 2.8.1–2.8.4 | 🔄 进行中 |
 
-**单元测试**：119/119 通过  
+**单元测试**：124/124 通过  
 **需求覆盖率（粗算）**：~96%
 
 ---
@@ -21,6 +22,7 @@
 
 | 模块 | 交付 | 需求 |
 |------|------|------|
+| UI 设计系统 Phase 2.8 | `webview-ui/shared` theme + toolkit + codicons + 消息气泡/Markdown | R-INT-2 / R-INT-3 / R-PLAT-9 |
 | Conversation React | `webview-ui/` Vite+React + 消息协议 + 宿主 stateSync | R-INT-2 / R-PLAT-9 |
 | Tab Workspace React | 五 Tab React + snapshot 协议 + Composer/Build/Deploy 面板 | R-INT-3 |
 | Primary 委派循环 | Design 四步分类 + Sub-Agent 委派 + 3 次失败 Decision | R-AG-1 / R-AG-3 / R-WF-2 |
@@ -51,8 +53,9 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | Multi-Agent Verification（并行候选 + 策略选择 + audit） |
 | 2026-05-23 | Tab Workspace React 化（Task/Architecture/Requirement/Commit/Deploy） |
-| 2026-05-23 | Conversation Pane React 化（webview-ui + Vite 构建 + stateSync 协议） |
+| 2026-05-23 | Phase 2.8 UI：shared 设计系统 + toolkit/codicons + Conversation 气泡/Markdown + Tab 样式统一 |
 | 2026-05-23 | Primary Agent Design 委派循环（四步分类 + Sub-Agent + Decision 重试） |
 | 2026-05-23 | Speculative 预取（Tab + Scope 预热）+ Composer Response Cache |
 | 2026-05-23 | NES 委派模式 + LSP symbol Response Cache 失效 |

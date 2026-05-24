@@ -31,6 +31,7 @@ export interface AgentLoopOptions {
   maxIterations?: number;
   maxToolCalls?: number;
   iterationTimeoutMs?: number;
+  temperature?: number;
   token: vscode.CancellationToken;
   onStatus?: (message: string) => void;
 }
@@ -112,7 +113,7 @@ export class SubAgentLoop {
         const run = () =>
           streamChat(model, lmMessages, iteration.token, (chunk) => {
             assistantText += chunk;
-          });
+          }, { temperature: options.temperature });
         const streamed = await this.platform.auth.withConsent(run, () => undefined);
         if (!streamed) {
           return { finalAnswer: '', toolCalls, iterations, failed: true, reason: 'cancelled' };

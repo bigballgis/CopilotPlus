@@ -1,16 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { VSCodeButton, VSCodeTextArea } from '@vscode/webview-ui-toolkit/react';
 import type {
   ConversationHostMessage,
   ConversationLabels,
   ConversationStateSync,
   MentionAttachmentWire,
 } from '@shared/conversationWebviewProtocol';
+import { ActionBar } from '@ui/components/ActionBar';
+import { Icon } from '@ui/components/Icon';
+import { MessageBubble } from '@ui/components/MessageBubble';
+import { StatusChip } from '@ui/components/StatusChip';
 import { postToHost } from '../shared/vscode';
 
 interface ChatLine {
   id: string;
   kind: 'user' | 'assistant' | 'meta';
   text: string;
+  attachments?: MentionAttachmentWire[];
 }
 
 let lineId = 0;
@@ -40,11 +46,8 @@ const DEFAULT_LABELS: ConversationLabels = {
   designStepLabel: 'Design step',
 };
 
-function formatAttachmentSuffix(attachments: MentionAttachmentWire[]): string {
-  if (attachments.length === 0) {
-    return '';
-  }
-  return ` [${attachments.map((a) => `@${a.kind}:${a.label}`).join(', ')}]`;
+function roleLabel(prefix: string): string {
+  return prefix.replace(/:\s*$/, '').trim();
 }
 
 export function App(): JSX.Element {
@@ -110,13 +113,13 @@ export function App(): JSX.Element {
       }
 
       if (msg.type === 'userMessage') {
-        const L = labelsRef.current;
         setLines((prev) => [
           ...prev,
           {
             id: nextLineId(),
             kind: 'user',
-            text: L.userPrefix + msg.text + formatAttachmentSuffix(msg.attachments ?? []),
+            text: msg.text,
+            attachments: msg.attachments,
           },
         ]);
         return;
@@ -169,7 +172,7 @@ export function App(): JSX.Element {
         setStreamText('');
         setLines((prev) => [
           ...prev,
-          { id: nextLineId(), kind: 'assistant', text: L.assistantPrefix + msg.text },
+          { id: nextLineId(), kind: 'assistant', text: msg.text },
         ]);
         announce(L.streamComplete);
         return;
@@ -183,10 +186,9 @@ export function App(): JSX.Element {
       }
 
       if (msg.type === 'error') {
-        const L = labelsRef.current;
         setStreaming(false);
         setStreamText('');
-        announce(L.streamError.replace('{msg}', msg.message || ''));
+        announce(labelsRef.current.streamError.replace('{msg}', msg.message || ''));
       }
     };
 
@@ -228,20 +230,27 @@ export function App(): JSX.Element {
     postToHost({ type: 'newSession' });
   };
 
+  const userLabel = roleLabel(labels.userPrefix);
+  const assistantLabel = roleLabel(labels.assistantPrefix);
+
   return (
-    <div className="conversation-root">
+    <div className="cp-root conversation-root">
       {readOnly && readOnlyBanner ? (
-        <div className="banner" role="status">
+        <div className="cp-banner" role="status">
+          <Icon name="info" />
           {readOnlyBanner}
         </div>
       ) : null}
 
-      <header className="conversation-header">
-        Model: {model} · Stage: {stage} · {labels.designStepLabel}: {designStep} · Tokens:{' '}
-        {tokens}
-        {designStatus ? (
-          <span className="conversation-design-status">{designStatus}</span>
-        ) : null}
+      <header className="cp-header">
+        <span className="cp-header-title">Copilot Plus</span>
+        <div className="cp-status-row">
+          <StatusChip label="Model" value={model} />
+          <StatusChip label="Stage" value={stage} />
+          <StatusChip label={labels.designStepLabel} value={designStep || '—'} />
+          <StatusChip label="Tokens" value={String(tokens)} />
+        </div>
+        {designStatus ? <span className="cp-status-note">{designStatus}</span> : null}
       </header>
 
       <div
@@ -252,79 +261,83 @@ export function App(): JSX.Element {
         aria-atomic="true"
       />
 
-      <div className="conversation-messages" role="log" aria-live="polite" aria-relevant="additions">
-        {lines.map((line) => (
-          <div
-            key={line.id}
-            className={
-              line.kind === 'meta'
-                ? 'conversation-message conversation-message--meta'
-                : 'conversation-message'
-            }
-          >
-            {line.text}
-          </div>
-        ))}
+      <div className="cp-scroll cp-message-list" role="log" aria-live="polite" aria-relevant="additions">
+        {lines.map((line) => {
+          if (line.kind === 'meta') {
+            return <MessageBubble key={line.id} kind="meta" text={line.text} />;
+          }
+          const attachmentNote =
+            line.attachments?.length ?
+              `\n\n@${line.attachments.map((a) => `${a.kind}:${a.label}`).join(', @')}`
+            : '';
+          return (
+            <MessageBubble
+              key={line.id}
+              kind={line.kind}
+              label={line.kind === 'user' ? userLabel : assistantLabel}
+              text={line.text + attachmentNote}
+              markdown={line.kind === 'assistant'}
+            />
+          );
+        })}
         {streaming ? (
-          <div className="conversation-message">{labels.assistantPrefix + streamText}</div>
+          <MessageBubble kind="streaming" label={assistantLabel} text={streamText} markdown />
         ) : null}
       </div>
 
-      <div className="conversation-attachments">
-        {attachments.map((attachment, index) => (
-          <span key={`${attachment.kind}-${attachment.target}-${index}`} className="conversation-attachment">
-            @{attachment.kind}:{attachment.label}
-            <button
-              type="button"
-              aria-label={labels.removeAttachment}
-              onClick={() => removeAttachment(index)}
-            >
-              ×
-            </button>
-          </span>
-        ))}
-      </div>
+      <div className="conversation-composer">
+        {attachments.length > 0 ? (
+          <div className="cp-chip-row">
+            {attachments.map((attachment, index) => (
+              <span key={`${attachment.kind}-${attachment.target}-${index}`} className="cp-chip">
+                <Icon name="tag" />@{attachment.kind}:{attachment.label}
+                <button
+                  type="button"
+                  aria-label={labels.removeAttachment}
+                  onClick={() => removeAttachment(index)}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
 
-      <textarea
-        className="conversation-input"
-        rows={3}
-        value={input}
-        disabled={readOnly}
-        aria-disabled={readOnly}
-        aria-label={labels.inputLabel}
-        placeholder={labels.inputPlaceholder}
-        onChange={(event) => handleInputChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === '@' && !readOnly) {
-            event.preventDefault();
-            postToHost({ type: 'pickMention' });
-          }
-        }}
-      />
-
-      <div className="conversation-actions">
-        <button type="button" disabled={readOnly || streaming} aria-label={labels.sendAria} onClick={handleSend}>
-          {labels.send}
-        </button>
-        <button
-          type="button"
+        <VSCodeTextArea
+          rows={3}
+          value={input}
           disabled={readOnly}
-          aria-label={labels.attachAria}
-          onClick={() => postToHost({ type: 'pickMention' })}
-        >
-          {labels.attach}
-        </button>
-        <button
-          type="button"
-          disabled={readOnly || !streaming}
-          aria-label={labels.cancelAria}
-          onClick={() => postToHost({ type: 'cancel' })}
-        >
-          {labels.cancel}
-        </button>
-        <button type="button" aria-label={labels.newSessionAria} onClick={handleNewSession}>
-          {labels.newSession}
-        </button>
+          aria-label={labels.inputLabel}
+          placeholder={labels.inputPlaceholder}
+          onInput={(event) => handleInputChange((event.target as HTMLTextAreaElement).value)}
+          onKeyDown={(event) => {
+            if (event.key === '@' && !readOnly) {
+              event.preventDefault();
+              postToHost({ type: 'pickMention' });
+            }
+            if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !readOnly && !streaming) {
+              event.preventDefault();
+              handleSend();
+            }
+          }}
+        />
+
+        <ActionBar>
+          <VSCodeButton disabled={readOnly || streaming} aria-label={labels.sendAria} onClick={handleSend}>
+            <Icon name="send" />
+            {labels.send}
+          </VSCodeButton>
+          <VSCodeButton disabled={readOnly} appearance="secondary" aria-label={labels.attachAria} onClick={() => postToHost({ type: 'pickMention' })}>
+            {labels.attach}
+          </VSCodeButton>
+          <VSCodeButton disabled={readOnly || !streaming} appearance="secondary" aria-label={labels.cancelAria} onClick={() => postToHost({ type: 'cancel' })}>
+            {labels.cancel}
+          </VSCodeButton>
+          <VSCodeButton appearance="secondary" aria-label={labels.newSessionAria} onClick={handleNewSession}>
+            <Icon name="add" />
+            {labels.newSession}
+          </VSCodeButton>
+        </ActionBar>
       </div>
     </div>
   );

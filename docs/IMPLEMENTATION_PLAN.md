@@ -75,6 +75,22 @@
 
 ---
 
+## Phase 2.8 — UI Experience（可与 2.3–2.7 并行）
+
+**目标**：统一 Webview 视觉与组件，对齐 VS Code 原生主题；不依赖 Copilot Chat 闭源 UI。  
+**依赖**：Phase 2 的 Conversation / Tab Workspace React 骨架
+
+| 序号 | 交付物 | 需求 | 状态 |
+|------|--------|------|------|
+| 2.8.1 | `webview-ui/shared/` 设计系统（theme、PanelShell、TabStrip、ActionBar） | R-PLAT-9 | ✅ |
+| 2.8.2 | `@vscode/webview-ui-toolkit` + `@vscode/codicons` 接入 | R-PLAT-9 | ✅ |
+| 2.8.3 | Conversation：消息气泡 + Markdown 渲染 + toolkit 控件 | R-INT-2 | ✅ |
+| 2.8.4 | Tab Workspace：shared 组件 + 统一 Tab/Panel 样式 | R-INT-3 | ✅ |
+| 2.8.5 | Control Console React 化 + 分组折叠 | R-INT-9 | ⬜ |
+| 2.8.6 | Task DAG / Doc 树可视化（对齐 R-INT-4/5/6） | R-INT-4–6 | ⬜ |
+
+---
+
 ## Phase 3 — M2 Document Tree
 
 **依赖**：Phase 2 的 Requirement/Architecture Panel
@@ -97,7 +113,7 @@
 | 4.1 | R-TOOL-1–5 | Tool registry + 读/写/LSP | ⬜ |
 | 4.2 | R-TOOL-6–8 | code_search, doc_*, git | ⬜ |
 | 4.3 | R-AG-1–4 | Primary + 委派循环 | ✅ Design 委派 |
-| 4.4 | R-AG-5–9 | Explorer, 背景 agent, replay | ⬜ |
+| 4.4 | R-AG-5–9 | Explorer, 背景 agent, replay | ✅ R-AG-8 验证 |
 
 ---
 

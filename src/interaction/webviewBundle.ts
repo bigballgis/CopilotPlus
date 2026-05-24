@@ -3,6 +3,10 @@
 import * as vscode from 'vscode';
 import { getWebviewHtml, uriFor, type WebviewHtmlOptions } from './webviewHtml';
 
+function sharedStyleUris(webview: vscode.Webview, extensionUri: vscode.Uri): string[] {
+  return [uriFor(webview, extensionUri, 'dist', 'webview', 'codicons', 'codicon.css').toString()];
+}
+
 export function getConversationWebviewHtml(
   webview: vscode.Webview,
   extensionUri: vscode.Uri,
@@ -13,7 +17,7 @@ export function getConversationWebviewHtml(
   const body = '<div id="root"></div>';
   return getWebviewHtml(webview, body, undefined, {
     ...options,
-    styles: [styleUri.toString()],
+    styles: [...sharedStyleUris(webview, extensionUri), styleUri.toString()],
     scripts: [scriptUri.toString()],
   });
 }
@@ -28,7 +32,7 @@ export function getTabWorkspaceWebviewHtml(
   const body = '<div id="root"></div>';
   return getWebviewHtml(webview, body, undefined, {
     ...options,
-    styles: [styleUri.toString()],
+    styles: [...sharedStyleUris(webview, extensionUri), styleUri.toString()],
     scripts: [scriptUri.toString()],
   });
 }

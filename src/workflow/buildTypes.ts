@@ -7,6 +7,7 @@ export interface BuildManifest {
   status: BuildStatus;
   startedAt?: string;
   completedAt?: string;
+  verificationDisable?: boolean;
 }
 
 export function newBuildId(): string {

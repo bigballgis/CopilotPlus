@@ -12,11 +12,16 @@ export async function streamChat(
   model: vscode.LanguageModelChat,
   messages: vscode.LanguageModelChatMessage[],
   token: vscode.CancellationToken,
-  onChunk?: (chunk: string) => void
+  onChunk?: (chunk: string) => void,
+  options?: { temperature?: number }
 ): Promise<ChatStreamResult> {
   let text = '';
+  const requestOptions: vscode.LanguageModelChatRequestOptions = {};
+  if (options?.temperature !== undefined) {
+    requestOptions.modelOptions = { temperature: options.temperature };
+  }
   try {
-    const response = await model.sendRequest(messages, {}, token);
+    const response = await model.sendRequest(messages, requestOptions, token);
     for await (const chunk of response.text) {
       if (token.isCancellationRequested) {
         return { text, cancelled: true };

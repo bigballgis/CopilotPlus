@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { VSCodeButton, VSCodeTextArea } from '@vscode/webview-ui-toolkit/react';
 import type {
   DocTreeNodeWire,
   TabId,
@@ -7,8 +8,12 @@ import type {
   TabWorkspaceStateSync,
 } from '@shared/tabWorkspaceWebviewProtocol';
 import { TAB_IDS } from '@shared/tabWorkspaceWebviewProtocol';
+import { ActionBar } from '@ui/components/ActionBar';
+import { Icon } from '@ui/components/Icon';
+import { PanelShell } from '@ui/components/PanelShell';
+import { StatusChip } from '@ui/components/StatusChip';
+import { TabStrip } from '@ui/components/TabStrip';
 import { postToHost } from '../shared/vscode';
-import './tabWorkspace.css';
 
 const DEFAULT_LABELS: TabWorkspaceLabels = {
   tablistAria: 'Copilot Plus workspace tabs',
@@ -96,11 +101,12 @@ function DocTree({ nodes, depth = 0 }: { nodes: DocTreeNodeWire[]; depth?: numbe
     <>
       {nodes.map((node) => (
         <div key={node.path} className="doc-tree-node" style={{ marginLeft: depth * 12 }}>
-          <button type="button" aria-label={node.title} onClick={() => postToHost({ type: 'openDoc', path: node.path })}>
+          <VSCodeButton appearance="secondary" aria-label={node.title} onClick={() => postToHost({ type: 'openDoc', path: node.path })}>
+            <Icon name="file" />
             {node.title}
-          </button>
+          </VSCodeButton>
           <ReviewBadge badge={node.reviewBadge} />
-          <span className="doc-tree-level"> ({node.level})</span>
+          <span className="cp-meta"> ({node.level})</span>
           <DocTree nodes={node.children} depth={depth + 1} />
         </div>
       ))}
@@ -110,11 +116,11 @@ function DocTree({ nodes, depth = 0 }: { nodes: DocTreeNodeWire[]; depth?: numbe
 
 function DocPanel({ panel }: { panel: TabWorkspaceStateSync['architecture'] }): JSX.Element {
   if (panel.docCount === 0) {
-    return <p>{panel.emptyText}</p>;
+    return <p className="cp-meta">{panel.emptyText}</p>;
   }
   return (
     <>
-      <p>
+      <p className="cp-meta">
         {panel.heading} ({panel.docCount} docs)
       </p>
       <DocTree nodes={panel.tree} />
@@ -132,63 +138,70 @@ function TaskPanel({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
 
   return (
     <>
-      <p>
-        <strong>Build</strong> {task.buildId} · <strong>Status</strong> {task.status}
-      </p>
-      {task.lastMessage ? <p className="tab-meta">{task.lastMessage}</p> : null}
-      {task.runningTaskIds.length > 0 ? <p>Running: {task.runningTaskIds.join(', ')}</p> : null}
-      <div className="tab-actions">
-        <button type="button" aria-label={labels.newBuild} onClick={() => postToHost({ type: 'buildAction', action: 'create' })}>
-          {labels.newBuild}
-        </button>
-        <button type="button" aria-label={labels.startBuild} onClick={() => postToHost({ type: 'buildAction', action: 'start' })}>
-          {labels.startBuild}
-        </button>
-        <button type="button" aria-label={labels.stop} onClick={() => postToHost({ type: 'buildAction', action: 'stop' })}>
-          {labels.stop}
-        </button>
+      <div className="cp-status-row">
+        <StatusChip label="Build" value={task.buildId} />
+        <StatusChip label="Status" value={task.status} />
       </div>
+      {task.lastMessage ? <p className="cp-meta">{task.lastMessage}</p> : null}
+      {task.runningTaskIds.length > 0 ? (
+        <p className="cp-meta">Running: {task.runningTaskIds.join(', ')}</p>
+      ) : null}
 
-      <div className="composer-box">
+      <ActionBar>
+        <VSCodeButton aria-label={labels.newBuild} onClick={() => postToHost({ type: 'buildAction', action: 'create' })}>
+          <Icon name="add" />
+          {labels.newBuild}
+        </VSCodeButton>
+        <VSCodeButton aria-label={labels.startBuild} onClick={() => postToHost({ type: 'buildAction', action: 'start' })}>
+          <Icon name="play" />
+          {labels.startBuild}
+        </VSCodeButton>
+        <VSCodeButton appearance="secondary" aria-label={labels.stop} onClick={() => postToHost({ type: 'buildAction', action: 'stop' })}>
+          {labels.stop}
+        </VSCodeButton>
+      </ActionBar>
+
+      <div className="cp-composer-box">
         <h4>{labels.composerTitle}</h4>
-        <p className="tab-meta">Status: {task.composer.status}</p>
+        <p className="cp-meta">Status: {task.composer.status}</p>
         {task.composer.lastError ? <p className="composer-error">{task.composer.lastError}</p> : null}
-        <textarea
+        <VSCodeTextArea
           className="composer-goal"
           rows={3}
           aria-label={labels.composerTitle}
           placeholder={labels.composerGoalPlaceholder}
           value={goal}
-          onChange={(event) => {
-            setGoal(event.target.value);
-            postToHost({ type: 'composerAction', action: 'setGoal', goal: event.target.value });
+          onInput={(event) => {
+            const value = (event.target as HTMLTextAreaElement).value;
+            setGoal(value);
+            postToHost({ type: 'composerAction', action: 'setGoal', goal: value });
           }}
         />
-        <div className="tab-actions">
-          <button type="button" aria-label={labels.attachFiles} onClick={() => postToHost({ type: 'composerAction', action: 'pickFiles' })}>
+        <ActionBar>
+          <VSCodeButton appearance="secondary" aria-label={labels.attachFiles} onClick={() => postToHost({ type: 'composerAction', action: 'pickFiles' })}>
             {labels.attachFiles}
-          </button>
-          <button type="button" aria-label={labels.attachOpen} onClick={() => postToHost({ type: 'composerAction', action: 'attachOpen' })}>
+          </VSCodeButton>
+          <VSCodeButton appearance="secondary" aria-label={labels.attachOpen} onClick={() => postToHost({ type: 'composerAction', action: 'attachOpen' })}>
             {labels.attachOpen}
-          </button>
-          <button type="button" aria-label={labels.runComposer} onClick={() => postToHost({ type: 'composerAction', action: 'submit' })}>
+          </VSCodeButton>
+          <VSCodeButton aria-label={labels.runComposer} onClick={() => postToHost({ type: 'composerAction', action: 'submit' })}>
             {labels.runComposer}
-          </button>
+          </VSCodeButton>
           {task.composer.status === 'generating' ? (
-            <button type="button" aria-label={labels.cancelComposer} onClick={() => postToHost({ type: 'composerAction', action: 'cancel' })}>
+            <VSCodeButton appearance="secondary" aria-label={labels.cancelComposer} onClick={() => postToHost({ type: 'composerAction', action: 'cancel' })}>
               {labels.cancelComposer}
-            </button>
+            </VSCodeButton>
           ) : null}
-        </div>
-        <ul style={{ fontSize: 12, paddingLeft: 18 }}>
+        </ActionBar>
+        <ul style={{ fontSize: 12, paddingLeft: 18, margin: '8px 0' }}>
           {task.composer.attachedFiles.length === 0 ? (
-            <li style={{ opacity: 0.7 }}>{labels.noFilesAttached}</li>
+            <li className="cp-meta">{labels.noFilesAttached}</li>
           ) : (
             task.composer.attachedFiles.map((file) => (
               <li key={file}>
                 {file}{' '}
-                <button
-                  type="button"
+                <VSCodeButton
+                  appearance="icon"
                   aria-label={labels.removeAttachment}
                   onClick={() =>
                     postToHost({
@@ -198,26 +211,24 @@ function TaskPanel({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
                     })
                   }
                 >
-                  ×
-                </button>
+                  <Icon name="close" />
+                </VSCodeButton>
               </li>
             ))
           )}
         </ul>
-        <pre className="tab-log" style={{ maxHeight: 100 }}>
-          {task.composer.messages.join('\n') || labels.composerTranscript}
-        </pre>
+        <pre className="cp-log">{task.composer.messages.join('\n') || labels.composerTranscript}</pre>
       </div>
 
       {task.tasks.length > 0 ? (
-        <table className="tab-table">
+        <table className="cp-table">
           <thead>
             <tr>
-              <th align="left">Id</th>
-              <th align="left">Title</th>
-              <th align="left">Agent</th>
-              <th align="left">Status</th>
-              <th align="left">Actions</th>
+              <th>Id</th>
+              <th>Title</th>
+              <th>Agent</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -229,13 +240,13 @@ function TaskPanel({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
                 <td>{row.status}</td>
                 <td>
                   {row.canRollback ? (
-                    <button
-                      type="button"
+                    <VSCodeButton
+                      appearance="secondary"
                       aria-label={`${labels.rollback} ${row.id}`}
                       onClick={() => postToHost({ type: 'buildAction', action: 'rollback', taskId: row.id })}
                     >
                       {labels.rollback}
-                    </button>
+                    </VSCodeButton>
                   ) : null}
                 </td>
               </tr>
@@ -243,7 +254,7 @@ function TaskPanel({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
           </tbody>
         </table>
       ) : (
-        <p>{labels.noTasks}</p>
+        <p className="cp-meta">{labels.noTasks}</p>
       )}
     </>
   );
@@ -253,21 +264,22 @@ function DeployPanel({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
   const { labels, deploy } = state;
   return (
     <>
-      <p>
-        <strong>Target</strong> {deploy.target} · <strong>Mode</strong> {deploy.mode}
-      </p>
-      <p className="tab-meta">{deploy.status}</p>
-      <div className="tab-actions">
-        <button type="button" aria-label={labels.generateManifest} onClick={() => postToHost({ type: 'buildAction', action: 'deployGenerate' })}>
-          {labels.generateManifest}
-        </button>
-        {deploy.showApply ? (
-          <button type="button" aria-label={labels.applyManifest} onClick={() => postToHost({ type: 'buildAction', action: 'deployApply' })}>
-            {labels.applyManifest}
-          </button>
-        ) : null}
+      <div className="cp-status-row">
+        <StatusChip label="Target" value={deploy.target} />
+        <StatusChip label="Mode" value={deploy.mode} />
       </div>
-      <p className="tab-meta">{labels.manualCommands}</p>
+      <p className="cp-meta">{deploy.status}</p>
+      <ActionBar>
+        <VSCodeButton aria-label={labels.generateManifest} onClick={() => postToHost({ type: 'buildAction', action: 'deployGenerate' })}>
+          {labels.generateManifest}
+        </VSCodeButton>
+        {deploy.showApply ? (
+          <VSCodeButton aria-label={labels.applyManifest} onClick={() => postToHost({ type: 'buildAction', action: 'deployApply' })}>
+            {labels.applyManifest}
+          </VSCodeButton>
+        ) : null}
+      </ActionBar>
+      <p className="cp-meta">{labels.manualCommands}</p>
       <ul>
         {deploy.commands.map((command) => (
           <li key={command}>
@@ -275,9 +287,9 @@ function DeployPanel({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
           </li>
         ))}
       </ul>
-      {deploy.logTail ? <pre className="tab-log">{deploy.logTail}</pre> : null}
+      {deploy.logTail ? <pre className="cp-log">{deploy.logTail}</pre> : null}
       {deploy.runs.length > 0 ? (
-        <table className="tab-table">
+        <table className="cp-table">
           <thead>
             <tr>
               <th>Run</th>
@@ -294,13 +306,13 @@ function DeployPanel({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
                 <td>{run.status}</td>
                 <td>
                   {run.canRollback ? (
-                    <button
-                      type="button"
+                    <VSCodeButton
+                      appearance="secondary"
                       aria-label={`${labels.rollback} ${run.id}`}
                       onClick={() => postToHost({ type: 'buildAction', action: 'deployRollback', taskId: run.id })}
                     >
                       {labels.rollback}
-                    </button>
+                    </VSCodeButton>
                   ) : null}
                 </td>
               </tr>
@@ -308,7 +320,7 @@ function DeployPanel({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
           </tbody>
         </table>
       ) : (
-        <p>{labels.noDeployRuns}</p>
+        <p className="cp-meta">{labels.noDeployRuns}</p>
       )}
     </>
   );
@@ -323,7 +335,7 @@ function PanelBody({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
     case 'requirement':
       return <DocPanel panel={state.requirement} />;
     case 'commit':
-      return <p>{state.commitPlaceholder}</p>;
+      return <p className="cp-meta">{state.commitPlaceholder}</p>;
     case 'deploy':
       return <DeployPanel state={state} />;
   }
@@ -344,32 +356,21 @@ export function App(): JSX.Element {
   }, []);
 
   const labels = state.labels;
+  const tabItems = TAB_IDS.map((id) => ({ id, label: tabLabel(labels, id) }));
 
   return (
-    <div className="tab-root">
-      <div role="tablist" aria-label={labels.tablistAria} className="tab-list">
-        {TAB_IDS.map((id, index) => {
-          const label = tabLabel(labels, id);
-          return (
-            <button
-              key={id}
-              role="tab"
-              type="button"
-              id={`tab-${id}`}
-              className="tab-button"
-              aria-selected={id === state.activeTab}
-              aria-label={labels.tabAria.replace('{0}', label)}
-              onClick={() => postToHost({ type: 'selectTab', tab: id })}
-            >
-              {index + 1}. {label}
-            </button>
-          );
-        })}
-      </div>
-      <div role="tabpanel" aria-labelledby={`tab-${state.activeTab}`} className="tab-panel">
-        <h3>{tabLabel(labels, state.activeTab)} Panel</h3>
+    <div className="cp-root">
+      <TabStrip
+        items={tabItems}
+        activeId={state.activeTab}
+        ariaLabel={labels.tablistAria}
+        tabAriaTemplate={labels.tabAria}
+        numbered
+        onSelect={(tab) => postToHost({ type: 'selectTab', tab })}
+      />
+      <PanelShell title={`${tabLabel(labels, state.activeTab)} Panel`} className="tab-panel-body">
         <PanelBody state={state} />
-      </div>
+      </PanelShell>
     </div>
   );
 }

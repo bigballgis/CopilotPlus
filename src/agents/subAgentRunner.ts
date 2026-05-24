@@ -8,6 +8,7 @@ import { SubAgentLoop, type AgentLoopResult } from './subAgentLoop';
 import type { TaskNode } from '../workflow/taskDag';
 import { buildLayerWalkForDoc } from '../docs/scopeResolution';
 import { resolveScope } from '../docs/scopeResolution';
+import { MultiAgentVerificationService } from './verificationService';
 
 export interface SubAgentRunResult {
   ok: boolean;
@@ -18,12 +19,14 @@ export interface SubAgentRunResult {
 
 export class SubAgentRunner {
   private readonly loop: SubAgentLoop;
+  private readonly verification: MultiAgentVerificationService;
 
   constructor(
     private readonly app: AppServices,
     private readonly extensionUri: vscode.Uri
   ) {
     this.loop = new SubAgentLoop(app.platform, app.tools);
+    this.verification = new MultiAgentVerificationService(app, extensionUri);
   }
 
   async runRole(
@@ -33,21 +36,37 @@ export class SubAgentRunner {
     token: vscode.CancellationToken,
     onStatus?: (message: string) => void
   ): Promise<SubAgentRunResult> {
+    return this.verification.runIfEnabled(role, buildId, task.id, token, onStatus, (temperature, candidateIndex) =>
+      this.runRoleOnce(role, task, buildId, token, onStatus, temperature, candidateIndex)
+    );
+  }
+
+  private async runRoleOnce(
+    role: string,
+    task: TaskNode,
+    buildId: string,
+    token: vscode.CancellationToken,
+    onStatus?: (message: string) => void,
+    temperature = 0,
+    candidateIndex = 0
+  ): Promise<SubAgentRunResult> {
     const promptFile = roleToPromptFile(role);
     const systemPrompt = await loadAgentPrompt(this.extensionUri, promptFile);
     const userPrompt = await this.buildTaskPrompt(role, task, buildId);
     const toolIds = this.app.tools.getEffectiveTools(role);
+    const taskId = candidateIndex === 0 ? task.id : `${task.id}-c${candidateIndex}`;
 
     const ci = this.app.getCiSession();
     const result = await this.loop.run({
       role,
       buildId,
-      taskId: task.id,
+      taskId,
       systemPrompt,
       userPrompt,
       toolIds,
       token,
       onStatus,
+      temperature,
       maxToolCalls: ci?.maxToolCalls,
     });
 
@@ -78,6 +97,44 @@ export class SubAgentRunner {
 
     const promptFile = roleToPromptFile(role);
     const systemPrompt = await loadAgentPrompt(this.extensionUri, promptFile);
+    const toolIds = this.app.tools.getEffectiveTools(role);
+
+    return this.verification.runIfEnabled(
+      role,
+      'design-session',
+      task.id,
+      token,
+      onStatus,
+      (temperature, candidateIndex) =>
+        this.runDesignRoleOnce(
+          role,
+          designStep,
+          task,
+          contextPrefix,
+          historySummary,
+          token,
+          onStatus,
+          toolIds,
+          systemPrompt,
+          temperature,
+          candidateIndex
+        )
+    );
+  }
+
+  private async runDesignRoleOnce(
+    role: string,
+    designStep: string,
+    task: TaskNode,
+    contextPrefix: string | undefined,
+    historySummary: string | undefined,
+    token: vscode.CancellationToken,
+    onStatus: ((message: string) => void) | undefined,
+    toolIds: string[],
+    systemPrompt: string,
+    temperature: number,
+    candidateIndex: number
+  ): Promise<SubAgentRunResult> {
     const userPrompt = await this.buildDesignPrompt(
       role,
       designStep,
@@ -85,18 +142,18 @@ export class SubAgentRunner {
       contextPrefix,
       historySummary
     );
-    const toolIds = this.app.tools.getEffectiveTools(role);
-
+    const taskId = candidateIndex === 0 ? task.id : `${task.id}-c${candidateIndex}`;
     const ci = this.app.getCiSession();
     const result = await this.loop.run({
       role,
       buildId: 'design-session',
-      taskId: task.id,
+      taskId,
       systemPrompt,
       userPrompt,
       toolIds,
       token,
       onStatus,
+      temperature,
       maxToolCalls: ci?.maxToolCalls,
     });
 
@@ -131,17 +188,52 @@ export class SubAgentRunner {
     const systemPrompt = await loadAgentPrompt(this.extensionUri, promptFile);
     const userPrompt = await this.buildDeployPrompt(intent, task);
     const toolIds = this.app.tools.getEffectiveTools('Deployer');
+    const buildId = `deploy-${intent}`;
 
+    return this.verification.runIfEnabled(
+      'Deployer',
+      buildId,
+      task.id,
+      token,
+      onStatus,
+      (temperature, candidateIndex) =>
+        this.runDeployerOnce(
+          task,
+          buildId,
+          systemPrompt,
+          userPrompt,
+          toolIds,
+          token,
+          onStatus,
+          temperature,
+          candidateIndex
+        )
+    );
+  }
+
+  private async runDeployerOnce(
+    task: TaskNode,
+    buildId: string,
+    systemPrompt: string,
+    userPrompt: string,
+    toolIds: string[],
+    token: vscode.CancellationToken,
+    onStatus?: (message: string) => void,
+    temperature = 0,
+    candidateIndex = 0
+  ): Promise<SubAgentRunResult> {
+    const taskId = candidateIndex === 0 ? task.id : `${task.id}-c${candidateIndex}`;
     const ci = this.app.getCiSession();
     const result = await this.loop.run({
       role: 'Deployer',
-      buildId: `deploy-${intent}`,
-      taskId: task.id,
+      buildId,
+      taskId,
       systemPrompt,
       userPrompt,
       toolIds,
       token,
       onStatus,
+      temperature,
       maxToolCalls: ci?.maxToolCalls,
     });
 

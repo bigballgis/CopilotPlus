@@ -1,0 +1,129 @@
+/** Host ↔ Control Console webview message protocol — R-INT-9 */
+
+export type ControlConsoleSectionId =
+  | 'status'
+  | 'workflow'
+  | 'indexing'
+  | 'skills'
+  | 'mcp'
+  | 'memory'
+  | 'models'
+  | 'settings';
+
+export interface ControlConsoleLabels {
+  expandSection: string;
+  collapseSection: string;
+  labelModel: string;
+  labelContextTier: string;
+  labelOffline: string;
+  labelPerfBudget: string;
+  labelAutonomy: string;
+  labelMode: string;
+  labelAddon: string;
+  labelEmbeddedChunks: string;
+  labelCode: string;
+  labelDocs: string;
+  toolsCount: string;
+  invalidSkill: string;
+  ariaStatus: string;
+  ariaWorkflow: string;
+  ariaIndexing: string;
+  ariaSkills: string;
+  ariaMcp: string;
+  ariaMemory: string;
+  ariaModels: string;
+  ariaSettings: string;
+  initAgents: string;
+  rebuildIndex: string;
+  downloadAddon: string;
+  mirrorUrlHint: string;
+  noSkills: string;
+  createSkill: string;
+  disableSkill: string;
+  enableSkill: string;
+  configureMcp: string;
+  reconnectMcp: string;
+  noMemory: string;
+  pinMemory: string;
+  unpinMemory: string;
+  removeMemory: string;
+  reflectionSummary: string;
+  noReflection: string;
+  selectModel: string;
+  selectModelAria: string;
+  openSettings: string;
+  openSettingsAria: string;
+  yes: string;
+  no: string;
+}
+
+export interface SkillWire {
+  id: string;
+  title: string;
+  scope: string;
+  enabled: boolean;
+  valid: boolean;
+}
+
+export interface McpServerWire {
+  id: string;
+  state: string;
+  toolCount: number;
+  lastError?: string;
+  canReconnect: boolean;
+}
+
+export interface MemoryEntryWire {
+  id: string;
+  text: string;
+  scope: string;
+  pinned: boolean;
+}
+
+export interface ControlConsoleStateSync {
+  type: 'stateSync';
+  labels: ControlConsoleLabels;
+  status: {
+    model: string;
+    contextTier: string;
+    offline: boolean;
+    nesStatus: string;
+    perfBudgetMs: number;
+  };
+  workflow: {
+    stage: string;
+    autonomy: string;
+  };
+  indexing: {
+    embeddingMode: string;
+    embeddingModelId?: string;
+    embeddingAddonVersion?: string;
+    embeddedChunks?: number;
+    embeddingNotice?: string;
+    codeStatus: string;
+    codeChunks: number;
+    docsStatus: string;
+    docChunks: number;
+    lastError?: string;
+    showDownloadAddon: boolean;
+  };
+  skills: SkillWire[];
+  mcp: McpServerWire[];
+  memory: MemoryEntryWire[];
+  reflections: string[];
+}
+
+export type ControlConsoleHostMessage = ControlConsoleStateSync;
+
+export type ControlConsoleWebviewMessage =
+  | { type: 'ready' }
+  | { type: 'openSettings' }
+  | { type: 'selectModel' }
+  | { type: 'rebuildIndex' }
+  | { type: 'downloadEmbeddingAddon' }
+  | { type: 'createSkill' }
+  | { type: 'toggleSkill'; id: string }
+  | { type: 'reconnectMcp'; id: string }
+  | { type: 'initAgents' }
+  | { type: 'removeMemory'; id: string }
+  | { type: 'pinMemory'; id: string };

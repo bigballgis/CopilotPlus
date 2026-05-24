@@ -225,7 +225,11 @@
         },
         "copilotPlus.context.summarization.mode": {
           "type": "string",
-          "enum": ["auto", "manual", "disabled"],
+          "enum": [
+            "auto",
+            "manual",
+            "disabled"
+          ],
           "default": "auto"
         },
         "copilotPlus.context.summarization.keepLastTurns": {
@@ -236,7 +240,12 @@
         },
         "copilotPlus.context.tierOverride": {
           "type": "string",
-          "enum": ["auto", "s", "m", "l"],
+          "enum": [
+            "auto",
+            "s",
+            "m",
+            "l"
+          ],
           "default": "auto"
         },
         "copilotPlus.docs.staleThresholdDays": {
@@ -270,7 +279,9 @@
         "copilotPlus.tabCompletion.enabledLanguages": {
           "type": "array",
           "default": [],
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "copilotPlus.tabCompletion.triggerDelayMs": {
           "type": "number",
@@ -292,13 +303,20 @@
         },
         "copilotPlus.workflow.autonomyLevel": {
           "type": "string",
-          "enum": ["Manual", "Approve_Edits", "Approve_Commands", "Full_Auto"],
+          "enum": [
+            "Manual",
+            "Approve_Edits",
+            "Approve_Commands",
+            "Full_Auto"
+          ],
           "default": "Manual"
         },
         "copilotPlus.workflow.commandDenyList": {
           "type": "array",
           "default": [],
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "copilotPlus.workflow.maxConcurrentTasks": {
           "type": "number",
@@ -309,7 +327,9 @@
         "copilotPlus.sensitiveFilePatterns": {
           "type": "array",
           "default": [],
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "copilotPlus.checkpoints.retentionCount": {
           "type": "number",
@@ -340,6 +360,51 @@
         "copilotPlus.models.defaults": {
           "type": "object",
           "default": {}
+        },
+        "copilotPlus.verification.Architect": {
+          "type": "object",
+          "default": {
+            "enabled": false,
+            "candidates": 3,
+            "strategy": "majority_vote",
+            "disagreementMax": 0
+          },
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "candidates": { "type": "number", "minimum": 1, "maximum": 5 },
+            "strategy": {
+              "type": "string",
+              "enum": ["majority_vote", "arbiter", "union"]
+            },
+            "disagreementMax": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        },
+        "copilotPlus.verification.Designer": {
+          "type": "object",
+          "default": {
+            "enabled": false,
+            "candidates": 3,
+            "strategy": "majority_vote",
+            "disagreementMax": 0
+          }
+        },
+        "copilotPlus.verification.Reviewer": {
+          "type": "object",
+          "default": {
+            "enabled": false,
+            "candidates": 3,
+            "strategy": "majority_vote",
+            "disagreementMax": 0
+          }
+        },
+        "copilotPlus.verification.Deployer": {
+          "type": "object",
+          "default": {
+            "enabled": false,
+            "candidates": 3,
+            "strategy": "majority_vote",
+            "disagreementMax": 0.6
+          }
         }
       }
     }
@@ -347,7 +412,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "node esbuild.js && npm run compile:webview",
-    "compile:webview": "vite build --config webview-ui/vite.config.ts && vite build --config webview-ui/vite.tab.config.ts",
+    "compile:webview": "vite build --config webview-ui/vite.config.ts && vite build --config webview-ui/vite.tab.config.ts && node scripts/copy-webview-assets.mjs",
     "watch": "node esbuild.js --watch",
     "test:unit": "tsc -p tsconfig.test.json && node --test dist-test/test/unit/**/*.test.js",
     "verify:ci-headless": "tsc -p tsconfig.test.json && node scripts/verify-ci-headless.mjs",
@@ -366,12 +431,16 @@
     "@types/react-dom": "^18.3.0",
     "@types/vscode": "^1.109.0",
     "@vitejs/plugin-react": "^4.3.0",
+    "@vscode/codicons": "^0.0.45",
     "@vscode/test-cli": "^0.0.9",
     "@vscode/test-electron": "^2.4.0",
     "@vscode/vsce": "^2.24.0",
+    "@vscode/webview-ui-toolkit": "^1.4.0",
     "esbuild": "^0.20.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "typescript": "^5.4.0",
     "vite": "^5.4.0"
   }

@@ -1,0 +1,292 @@
+/* Copilot Plus shared webview theme — R-PLAT-9, Phase 2.8 */
+
+.cp-root {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 16px);
+  gap: 8px;
+}
+
+.cp-banner {
+  background: var(--vscode-inputValidation-warningBackground);
+  border: 1px solid var(--vscode-inputValidation-warningBorder);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.cp-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.cp-header-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+  margin-right: 4px;
+}
+
+.cp-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.cp-status-note {
+  font-size: 11px;
+  opacity: 0.85;
+  width: 100%;
+}
+
+.cp-panel {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 10px;
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+}
+
+.cp-panel-title {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+
+.cp-scroll {
+  flex: 1;
+  min-height: 160px;
+  overflow-y: auto;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--vscode-editor-background);
+}
+
+.cp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.cp-meta {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.cp-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.cp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-badge-background, var(--vscode-textBlockQuote-background));
+  color: var(--vscode-badge-foreground, inherit);
+}
+
+.cp-chip button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.cp-message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cp-message {
+  max-width: 92%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.cp-message--user {
+  align-self: flex-end;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-bottom-right-radius: 2px;
+}
+
+.cp-message--assistant {
+  align-self: flex-start;
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-bottom-left-radius: 2px;
+}
+
+.cp-message--meta {
+  align-self: center;
+  font-size: 11px;
+  opacity: 0.75;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+}
+
+.cp-message--streaming {
+  align-self: flex-start;
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-focusBorder);
+  border-bottom-left-radius: 2px;
+}
+
+.cp-message-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  opacity: 0.65;
+  margin-bottom: 4px;
+}
+
+.cp-markdown {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cp-markdown p {
+  margin: 0 0 8px;
+}
+
+.cp-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.cp-markdown pre {
+  margin: 8px 0;
+  padding: 8px;
+  overflow-x: auto;
+  border-radius: 4px;
+  background: var(--vscode-textCodeBlock-background);
+  font-size: 12px;
+}
+
+.cp-markdown code {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12px;
+}
+
+.cp-markdown :not(pre) > code {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--vscode-textCodeBlock-background);
+}
+
+.cp-markdown ul,
+.cp-markdown ol {
+  margin: 0 0 8px;
+  padding-left: 1.25rem;
+}
+
+.cp-tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cp-tab-button {
+  padding: 5px 10px;
+  cursor: pointer;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+}
+
+.cp-tab-button[aria-selected='true'] {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-color: transparent;
+}
+
+.cp-tab-button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+.cp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.cp-table th,
+.cp-table td {
+  border-bottom: 1px solid var(--vscode-panel-border);
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.cp-table th {
+  font-size: 11px;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.cp-log {
+  font-size: 11px;
+  max-height: 140px;
+  overflow: auto;
+  background: var(--vscode-textBlockQuote-background);
+  padding: 8px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.cp-composer-box {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 10px;
+  margin: 10px 0;
+}
+
+.cp-composer-box h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.cp-icon {
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

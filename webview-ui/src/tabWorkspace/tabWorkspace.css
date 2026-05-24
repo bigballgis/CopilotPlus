@@ -1,91 +1,16 @@
-.tab-root {
-  display: flex;
-  flex-direction: column;
-  min-height: calc(100vh - 16px);
-}
+/* Tab Workspace-specific overrides */
 
-.tab-list {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.tab-button {
-  padding: 4px 8px;
-  cursor: pointer;
-  border: 1px solid var(--vscode-panel-border);
-  background: transparent;
-  color: inherit;
-}
-
-.tab-button[aria-selected='true'] {
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-}
-
-.tab-panel {
+.tab-panel-body {
   margin-top: 8px;
-  border: 1px solid var(--vscode-panel-border);
-  padding: 8px;
-}
-
-.tab-panel h3 {
-  margin: 0 0 8px;
-  font-size: 11px;
-  text-transform: uppercase;
-  opacity: 0.8;
-}
-
-.tab-meta {
-  opacity: 0.85;
-  font-size: 12px;
-}
-
-.tab-actions {
-  display: flex;
-  gap: 8px;
-  margin: 8px 0;
-  flex-wrap: wrap;
-}
-
-.tab-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.tab-log {
-  font-size: 11px;
-  max-height: 120px;
-  overflow: auto;
-  background: var(--vscode-textBlockQuote-background);
-  padding: 6px;
-  white-space: pre-wrap;
-}
-
-.composer-box {
-  border: 1px solid var(--vscode-panel-border);
-  padding: 8px;
-  margin: 8px 0;
-  border-radius: 4px;
-}
-
-.composer-box h4 {
-  margin: 0 0 8px;
 }
 
 .composer-goal {
   width: 100%;
-  box-sizing: border-box;
+  margin: 8px 0;
 }
 
 .doc-tree-node {
-  margin-bottom: 4px;
-}
-
-.doc-tree-level {
-  opacity: 0.7;
-  font-size: 11px;
+  margin-bottom: 6px;
 }
 
 .review-green {
