@@ -480,7 +480,7 @@
     "compile": "node esbuild.js && npm run compile:webview",
     "compile:webview": "vite build --config webview-ui/vite.config.ts && vite build --config webview-ui/vite.tab.config.ts && node scripts/copy-webview-assets.mjs",
     "watch": "node esbuild.js --watch",
-    "test:unit": "tsc -p tsconfig.test.json && node --test dist-test/test/unit/**/*.test.js",
+    "test:unit": "tsc -p tsconfig.test.json && node --test \"dist-test/test/unit/*.test.js\"",
     "verify:ci-headless": "tsc -p tsconfig.test.json && node scripts/verify-ci-headless.mjs",
     "verify:onnx-addon": "tsc -p tsconfig.test.json && node scripts/verify-onnx-addon.mjs",
     "verify:i18n-a11y": "node scripts/audit-i18n-a11y.mjs",

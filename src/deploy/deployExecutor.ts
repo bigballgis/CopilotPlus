@@ -132,7 +132,7 @@ export class DeployExecutor {
         defaultOption: 'Reject',
         timeoutSec: 300,
       });
-      if (approved.selected !== 'Approve') {
+      if (approved.timedOut || approved.selected !== 'Approve') {
         return { ok: false, reason: 'command_denied' };
       }
     }
@@ -146,7 +146,7 @@ export class DeployExecutor {
         defaultOption: 'Reject',
         timeoutSec: 300,
       });
-      if (approved.selected !== 'Approve') {
+      if (approved.timedOut || approved.selected !== 'Approve') {
         return { ok: false, reason: 'user_rejected' };
       }
     }

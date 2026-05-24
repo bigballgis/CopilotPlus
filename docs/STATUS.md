@@ -70,6 +70,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | 查漏补缺：buildPipelineDecisions 模块补提交 + Deploy Decision 超时拒绝 + Task 控件/日志单测 |
 | 2026-05-23 | R-PLAT-2/3 Platform 补全（授权失效取消请求 + 头部模型 picker + Phase 1 PLAN 同步） |
 | 2026-05-23 | R-CTX-4/7/8 Context Budget + 摘要 + Tier 策略（优先级裁剪 + Session cap + Tier 显示） |
 | 2026-05-23 | R-CTX-3/6 RAG 混合检索（RRF+rerank+doc 元数据+rag.enabled 代码索引保留） |
