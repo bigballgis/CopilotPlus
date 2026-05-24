@@ -40,6 +40,13 @@ const COMMIT_PANEL_MARKERS = [
   { file: 'webview-ui/src/tabWorkspace/App.tsx', tokens: ['function CommitPanel'] },
 ];
 
+const DECISION_CENTER_MARKERS = [
+  { file: 'src/interaction/decisionPersistence.ts', tokens: ['decisions.json', 'remainingSecAtSave'] },
+  { file: 'src/interaction/decisionCenter.ts', tokens: ['bulkApproveDefault', 'getPendingViews'] },
+  { file: 'src/shared/controlConsoleWebviewProtocol.ts', tokens: ['DecisionItemWire', "type: 'bulkApproveDecisions'"] },
+  { file: 'webview-ui/src/controlConsole/App.tsx', tokens: ['cp-decision-list', 'bulkApproveDecisions'] },
+];
+
 async function main() {
   const errors = [];
 
@@ -62,7 +69,7 @@ async function main() {
     }
   }
 
-  for (const { file, tokens } of [...DOCS_LIFECYCLE_MARKERS, ...COMMIT_PANEL_MARKERS]) {
+  for (const { file, tokens } of [...DOCS_LIFECYCLE_MARKERS, ...COMMIT_PANEL_MARKERS, ...DECISION_CENTER_MARKERS]) {
     const source = await fs.readFile(path.join(root, file), 'utf8');
     for (const token of tokens) {
       if (!source.includes(token)) {

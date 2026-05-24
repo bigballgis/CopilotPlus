@@ -72,6 +72,12 @@ export function buildControlConsoleLabels(): ControlConsoleLabels {
     noDriftItems: t('drift.noneOpen'),
     yes: t('common.yes'),
     no: t('common.no'),
+    labelDecisions: t('decision.labelPending'),
+    noDecisions: t('decision.noPending'),
+    decisionRemaining: t('decision.remainingSec', '{0}'),
+    bulkApproveDefault: t('decision.bulkApproveDefault'),
+    bulkApproveDefaultAria: t('decision.bulkApproveDefaultAria'),
+    resolveDecision: t('decision.resolve'),
   };
 }
 
@@ -94,6 +100,7 @@ export function buildControlConsoleStateSync(app: AppServices): ControlConsoleSt
   const backgroundLastFinding = bg.lastFinding;
   const driftSummary = app.drift.getSummary();
   const driftItems = app.drift.getItems();
+  const decisions = app.decisions.getPendingViews();
 
   return {
     type: 'stateSync',
@@ -110,7 +117,16 @@ export function buildControlConsoleStateSync(app: AppServices): ControlConsoleSt
       backgroundElapsedSec: bg.elapsedSec,
       backgroundIdleForSec: bg.idleForSec,
       backgroundLastFinding,
+      pendingDecisions: decisions.length,
     },
+    decisions: decisions.map((entry) => ({
+      id: entry.id,
+      taskId: entry.taskId,
+      question: entry.question,
+      options: entry.options,
+      defaultOption: entry.defaultOption,
+      remainingSec: entry.remainingSec,
+    })),
     workflow: {
       stage: app.stages.getStage(),
       autonomy: s.autonomyLevel,

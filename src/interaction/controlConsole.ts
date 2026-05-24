@@ -12,6 +12,7 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
   static readonly viewId = 'copilotPlus.controlConsole';
 
   private webviewView: vscode.WebviewView | undefined;
+  private decisionTick: ReturnType<typeof setInterval> | undefined;
   readonly disposables: vscode.Disposable[] = [];
 
   constructor(
@@ -22,8 +23,15 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
       app.backgroundAgent.onChange(() => this.syncWebviewState()),
       app.platform.config.onDidChange(() => this.syncWebviewState()),
       app.stages.onTransition(() => this.syncWebviewState()),
-      app.drift.onChange(() => this.syncWebviewState())
+      app.drift.onChange(() => this.syncWebviewState()),
+      app.decisions.onPendingCountChange(() => this.syncWebviewState())
     );
+    this.decisionTick = setInterval(() => {
+      if (this.webviewView && this.app.decisions.getPending().length > 0) {
+        this.syncWebviewState();
+      }
+    }, 1000);
+    this.disposables.push({ dispose: () => clearInterval(this.decisionTick) });
   }
 
   resolveWebviewView(
@@ -145,6 +153,16 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
     }
     if (msg.type === 'resolveAllDrift') {
       await this.app.drift.resolveAll();
+      this.syncWebviewState();
+      return;
+    }
+    if (msg.type === 'resolveDecision') {
+      this.app.decisions.resolve(msg.id, msg.selected);
+      this.syncWebviewState();
+      return;
+    }
+    if (msg.type === 'bulkApproveDecisions') {
+      this.app.decisions.bulkApproveDefault();
       this.syncWebviewState();
     }
   }

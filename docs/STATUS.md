@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：查漏补缺 — F5 手动冒烟（Drift Agent 一致性 + Resolve）
-> **本 session 下一项（功能）**：F5 手动冒烟 #8–17（含 Commit 面板 + Architect Compact + @archive mention）
+> **本 session 下一项（功能）**：F5 手动冒烟 #8–18（含 Decision Center + Commit 面板）
 
 ---
 
@@ -28,6 +28,7 @@
 | 16 | Architect Compact | `copilotPlus.docs.compact` → Architect 计划 → 审批后 archive/merge/delete |
 | 17 | @archive mention | Conversation 中 `@archive:…` 可附加归档文档内容 |
 | 18 | Commit 面板 | Tab Commit 列表 + diff 预览 + Checkpoint 回滚 + Rolled back 徽章 |
+| 19 | Decision Center | Control Console 待决列表 + 倒计时 + Bulk approve + 重启恢复 |
 
 ---
 
@@ -39,7 +40,7 @@
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 | 1 | Platform 补全 | 1.1–1.9 | ✅ 完成 |
 
-**单元测试**：235/235 通过  
+**单元测试**：237/237 通过  
 **需求覆盖率（粗算）**：~97%
 
 ---
@@ -60,6 +61,7 @@
 | 代码归属索引 | CodeOwnershipIndex 缓存 + 索引/文档变更刷新 + resolveOwnership | R-DOCS-11.1 |
 | Scope + 预览增强 | secondary_parents 纳入 scope + Requirement breadcrumb + doc_write 尺寸结构化错误 | R-DOCS-3.2 / R-DOCS-5.1 / R-DOCS-8.2 |
 | Commit 面板 | CommitHistoryService + git_commit 记录 + diff 预览 + Checkpoint 回滚 | R-INT-7 |
+| Decision Center | 持久化 decisions.json + Console 列表/倒计时 + Bulk approve + transcript 记录 | R-INT-10 / R-INT-11 |
 | Build 限额 | 工具调用/时长上限 + Decision + Stop All + 限额显示 | R-WF-8 |
 | Autonomy Levels | Manual Build/Deploy 全工具 Decision + deny list + Full_Auto Diff 绕过 + Control Console 选择器 | R-WF-7 |
 | Build 六步流水线 | Coder/Tester/Reviewer/Committer + 3 轮测试 + Decision | R-WF-4 |
@@ -102,7 +104,7 @@
 
 | 日期 | 内容 |
 |------|------|
-| 2026-05-23 | R-DOCS-5.1/3.2/8.2 secondary_parents scope + Requirement breadcrumb + document_too_large 结构化 + verify:docs-smoke |
+| 2026-05-23 | R-INT-10/11 Decision Center（decisions.json 持久化 + Console 列表/倒计时/Bulk approve + transcript） |
 | 2026-05-23 | R-INT-7 Commit 面板（CommitHistoryService + Tab UI diff/过滤/Checkpoint 回滚）+ R-DOCS-11.1 代码归属索引提交 |
 | 2026-05-23 | R-DOCS-14.3 / R-DOCS-11.4 代码 Layer Walk（兄弟文件 + shared co-owner）+ drift merge 提取 + Console Resolve 刷新 |
 | 2026-05-23 | R-DOCS-10.2/11.3/11.6 doc_write 自动审阅标记 + Problem 面板静态诊断 + Architecture 层级路径 + Agent drift 合并修复 |

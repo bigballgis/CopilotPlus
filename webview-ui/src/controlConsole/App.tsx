@@ -70,6 +70,12 @@ const EMPTY_LABELS: ControlConsoleLabels = {
   noDriftItems: 'No open drift items.',
   yes: 'yes',
   no: 'no',
+  labelDecisions: 'Pending decisions',
+  noDecisions: 'No pending decisions.',
+  decisionRemaining: '{0}s remaining',
+  bulkApproveDefault: 'Approve all (default)',
+  bulkApproveDefaultAria: 'Apply default option to all pending decisions',
+  resolveDecision: 'Respond',
 };
 
 const EMPTY_SYNC: ControlConsoleStateSync = {
@@ -81,7 +87,13 @@ const EMPTY_SYNC: ControlConsoleStateSync = {
     offline: false,
     nesStatus: '',
     perfBudgetMs: 5000,
+    backgroundEnabled: false,
+    backgroundPhase: 'idle',
+    backgroundElapsedSec: 0,
+    backgroundIdleForSec: 0,
+    pendingDecisions: 0,
   },
+  decisions: [],
   workflow: { stage: 'Design', autonomy: 'Approve_Edits', autonomyLevels: ['Manual', 'Approve_Edits', 'Approve_Commands', 'Full_Auto'] },
   hierarchy: {
     counts: { updatePending: 0, driftSuspected: 0, orphanCode: 0, ownershipConflict: 0, pendingQueue: 0 },
@@ -139,6 +151,48 @@ export function App(): JSX.Element {
         <p className="cp-meta">
           {L.labelPerfBudget}: activation ≤ {state.status.perfBudgetMs}ms
         </p>
+        <div className="cp-status-row">
+          <StatusChip label={L.labelDecisions} value={String(state.status.pendingDecisions)} />
+        </div>
+        {state.decisions.length > 0 ? (
+          <>
+            <ActionBar>
+              <VSCodeButton
+                aria-label={L.bulkApproveDefaultAria}
+                onClick={() => postToHost({ type: 'bulkApproveDecisions' })}
+              >
+                {L.bulkApproveDefault}
+              </VSCodeButton>
+            </ActionBar>
+            <ul className="cp-decision-list">
+              {state.decisions.map((entry) => (
+                <li key={entry.id} className="cp-decision-item">
+                  <p className="cp-meta">
+                    <strong>{entry.taskId ?? '(no task)'}</strong> ·{' '}
+                    {L.decisionRemaining.replace('{0}', String(entry.remainingSec))}
+                  </p>
+                  <p>{entry.question}</p>
+                  <ActionBar>
+                    {entry.options.map((option) => (
+                      <VSCodeButton
+                        key={option}
+                        appearance="secondary"
+                        aria-label={`${L.resolveDecision}: ${option}`}
+                        onClick={() =>
+                          postToHost({ type: 'resolveDecision', id: entry.id, selected: option })
+                        }
+                      >
+                        {option}
+                      </VSCodeButton>
+                    ))}
+                  </ActionBar>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="cp-meta">{L.noDecisions}</p>
+        )}
         <ActionBar>
           <VSCodeButton aria-label={L.initAgents} onClick={() => postToHost({ type: 'initAgents' })}>
             <Icon name="book" />

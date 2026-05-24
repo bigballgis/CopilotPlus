@@ -75,6 +75,21 @@ export interface ControlConsoleLabels {
   noDriftItems: string;
   yes: string;
   no: string;
+  labelDecisions: string;
+  noDecisions: string;
+  decisionRemaining: string;
+  bulkApproveDefault: string;
+  bulkApproveDefaultAria: string;
+  resolveDecision: string;
+}
+
+export interface DecisionItemWire {
+  id: string;
+  taskId?: string;
+  question: string;
+  options: string[];
+  defaultOption?: string;
+  remainingSec: number;
 }
 
 export interface DriftItemWire {
@@ -134,7 +149,9 @@ export interface ControlConsoleStateSync {
     backgroundElapsedSec: number;
     backgroundIdleForSec: number;
     backgroundLastFinding?: string;
+    pendingDecisions: number;
   };
+  decisions: DecisionItemWire[];
   workflow: {
     stage: string;
     autonomy: string;
@@ -179,4 +196,6 @@ export type ControlConsoleWebviewMessage =
   | { type: 'openDriftView' }
   | { type: 'resolveDrift'; id: string }
   | { type: 'dismissDrift'; id: string }
-  | { type: 'resolveAllDrift' };
+  | { type: 'resolveAllDrift' }
+  | { type: 'resolveDecision'; id: string; selected: string }
+  | { type: 'bulkApproveDecisions' };

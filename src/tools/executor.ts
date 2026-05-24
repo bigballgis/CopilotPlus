@@ -650,16 +650,22 @@ export class ToolExecutor {
   }
 
   private async question(args: Record<string, unknown>): Promise<ToolResult> {
-    const text = String(args.text ?? 'Proceed?');
+    const text = String(args.prompt ?? args.text ?? 'Proceed?');
     const options = (args.options as string[]) ?? ['Yes', 'No'];
+    if (options.length < 2 || options.length > 5) {
+      return { ok: false, reason: 'invalid_question_options' };
+    }
+    const settings = this.app.platform.getSettings();
+    const ctx = this.app.getToolExecutionContext();
     const answer = await this.app.decisions.ask({
       id: `q-${Date.now()}`,
+      taskId: ctx.taskId,
       question: text.slice(0, 500),
       options,
-      defaultOption: options[0],
-      timeoutSec: 300,
+      defaultOption: typeof args.default === 'string' ? args.default : options[0],
+      timeoutSec: settings.decisionTimeoutSec,
     });
-    return { ok: true, data: { answer: answer.selected } };
+    return { ok: true, data: { answer: answer.selected, timed_out: answer.timedOut } };
   }
 
   private static readonly PROPOSE_MEMORY_ROLES = new Set([

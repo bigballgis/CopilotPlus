@@ -46,6 +46,38 @@ export async function readTaskTranscriptAt(
   }
 }
 
+export interface DecisionTranscriptEntry {
+  question: string;
+  options: string[];
+  selected: string;
+  timedOut: boolean;
+}
+
+/** R-INT-10.3 — record decision Q/A in task transcript */
+export async function appendDecisionTranscript(
+  workspaceRoot: string,
+  buildId: string,
+  taskId: string,
+  entry: DecisionTranscriptEntry
+): Promise<void> {
+  const file = taskTranscriptPath(workspaceRoot, buildId, taskId);
+  const dir = path.dirname(file);
+  await fs.mkdir(dir, { recursive: true });
+  const timeoutNote = entry.timedOut ? ' (timed out)' : '';
+  const content = [
+    `Decision${timeoutNote}`,
+    `Q: ${entry.question}`,
+    `Options: ${entry.options.join(' | ')}`,
+    `A: ${entry.selected}`,
+  ].join('\n');
+  const line = JSON.stringify({
+    role: 'decision',
+    content,
+    ts: Date.now(),
+  });
+  await fs.appendFile(file, `${line}\n`, 'utf8');
+}
+
 export function formatTranscript(raw: string): string {
   const lines = raw.split('\n').filter((line) => line.trim().length > 0);
   const parts: string[] = [];

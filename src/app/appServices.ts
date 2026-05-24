@@ -165,6 +165,16 @@ export class AppServices {
     );
     void this.buildIsolation.pruneCompletedWorktrees();
     this.taskDagDiagnostics.register(this.context);
+    this.decisions.configure({
+      getWorkspaceRoot: () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+      getActiveBuildId: () => this.buildExecutor.getActiveBuildId(),
+    });
+    await this.decisions.load();
+    this.context.subscriptions.push({
+      dispose: () => {
+        void this.decisions.persist();
+      },
+    });
     const workspace = vscode.workspace.workspaceFolders?.[0];
     if (workspace) {
       const tasksWatcher = vscode.workspace.createFileSystemWatcher(
