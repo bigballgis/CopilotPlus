@@ -49,6 +49,10 @@ export class IndexManager {
     return { ...this.state };
   }
 
+  listIndexedCodePaths(): string[] {
+    return [...new Set(this.codeChunks.map((chunk) => chunk.path))];
+  }
+
   getResolution(): EmbeddingResolution {
     return { ...this.resolution };
   }

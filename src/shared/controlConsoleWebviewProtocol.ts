@@ -3,6 +3,7 @@
 export type ControlConsoleSectionId =
   | 'status'
   | 'workflow'
+  | 'hierarchy'
   | 'indexing'
   | 'skills'
   | 'mcp'
@@ -34,6 +35,7 @@ export interface ControlConsoleLabels {
   invalidSkill: string;
   ariaStatus: string;
   ariaWorkflow: string;
+  ariaHierarchy: string;
   ariaIndexing: string;
   ariaSkills: string;
   ariaMcp: string;
@@ -60,8 +62,38 @@ export interface ControlConsoleLabels {
   selectModelAria: string;
   openSettings: string;
   openSettingsAria: string;
+  runConsistencyCheck: string;
+  runConsistencyCheckAria: string;
+  openDriftView: string;
+  openDriftViewAria: string;
+  resolveAllDrift: string;
+  labelPendingQueue: string;
+  labelUpdatePending: string;
+  labelDriftSuspected: string;
+  labelOrphanCode: string;
+  labelOwnershipConflict: string;
+  noDriftItems: string;
   yes: string;
   no: string;
+}
+
+export interface DriftItemWire {
+  id: string;
+  type: string;
+  layer: string;
+  target: string;
+  detail?: string;
+}
+
+export interface HierarchyWire {
+  counts: {
+    updatePending: number;
+    driftSuspected: number;
+    orphanCode: number;
+    ownershipConflict: number;
+    pendingQueue: number;
+  };
+  items: DriftItemWire[];
 }
 
 export interface SkillWire {
@@ -108,6 +140,7 @@ export interface ControlConsoleStateSync {
     autonomy: string;
     autonomyLevels: string[];
   };
+  hierarchy: HierarchyWire;
   indexing: {
     embeddingMode: string;
     embeddingModelId?: string;
@@ -141,4 +174,9 @@ export type ControlConsoleWebviewMessage =
   | { type: 'initAgents' }
   | { type: 'removeMemory'; id: string }
   | { type: 'pinMemory'; id: string }
-  | { type: 'setAutonomy'; level: string };
+  | { type: 'setAutonomy'; level: string }
+  | { type: 'runConsistencyCheck' }
+  | { type: 'openDriftView' }
+  | { type: 'resolveDrift'; id: string }
+  | { type: 'dismissDrift'; id: string }
+  | { type: 'resolveAllDrift' };

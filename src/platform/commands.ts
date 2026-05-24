@@ -73,9 +73,23 @@ export function registerCommands(
     void vscode.window.showInformationMessage(t('docs.markedReviewed', rel));
     await getTabWorkspace()?.refresh();
   });
-  register('copilotPlus.docs.assignOrphan', () =>
-    vscode.window.showInformationMessage(t('docs.assignOrphan'))
-  );
+  register('copilotPlus.docs.assignOrphan', async () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      void vscode.window.showInformationMessage(t('docs.assignOrphanNoEditor'));
+      return;
+    }
+    const rel = vscode.workspace.asRelativePath(editor.document.uri).replace(/\\/g, '/');
+    await app.drift.runConsistencyCheck(false);
+    const orphan = app.drift.getItems().find((item) => item.type === 'Orphan_Code' && item.target === rel);
+    if (orphan) {
+      await app.drift.resolveItem(orphan.id);
+      return;
+    }
+    void vscode.window.showInformationMessage(t('docs.assignOrphanNotOrphan', rel));
+  });
+  register('copilotPlus.docs.runConsistencyCheck', () => app.drift.runConsistencyCheck());
+  register('copilotPlus.docs.openDriftView', () => app.drift.openDriftView());
 
   register('copilotPlus.skills.create', async () => {
     const id = await vscode.window.showInputBox({

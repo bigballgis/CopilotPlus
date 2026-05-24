@@ -34,6 +34,8 @@ export interface DocTreeNode {
 export class DocumentTreeService {
   private cache: DocEntry[] = [];
   private watcher: vscode.FileSystemWatcher | undefined;
+  private readonly onChangeEmitter = new vscode.EventEmitter<void>();
+  readonly onChange = this.onChangeEmitter.event;
 
   constructor(private readonly diffReview?: DiffReviewService) {}
 
@@ -78,6 +80,7 @@ export class DocumentTreeService {
       });
     });
     this.cache = entries;
+    this.onChangeEmitter.fire();
     return entries;
   }
 

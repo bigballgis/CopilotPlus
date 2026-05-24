@@ -98,12 +98,12 @@
 
 | 序号 | 需求 | 核心交付 | 状态 |
 |------|------|----------|------|
-| 3.1 | R-DOCS-1,2 | frontmatter schema + 校验 | ⬜ |
-| 3.2 | R-DOCS-3,4 | 层级/横向链接图 | ⬜ |
-| 3.3 | R-DOCS-5,14 | Scope_Resolution + Layer_Walk | ⬜ |
-| 3.4 | R-DOCS-11 | code_ownership_index | ⬜ |
-| 3.5 | R-DOCS-12,13 | 一致性检查 + Drift_View | ⬜ |
-| 3.6 | R-DOCS-6–10 | CRUD、命名、生命周期 | ⬜ |
+| 3.1 | R-DOCS-1,2 | frontmatter schema + 校验 | ✅ |
+| 3.2 | R-DOCS-3,4 | 层级/横向链接图 | ✅ |
+| 3.3 | R-DOCS-5,14 | Scope_Resolution + Layer_Walk | ✅ |
+| 3.4 | R-DOCS-11 | code_ownership_index | ✅ |
+| 3.5 | R-DOCS-12,13 | 一致性检查 + Drift_View | ✅ 静态诊断 + Sub-Agent Resolve + Diff Review |
+| 3.6 | R-DOCS-6–10 | CRUD、命名、生命周期 | ✅ |
 
 ---
 
@@ -111,8 +111,8 @@
 
 | 序号 | 需求 | 核心交付 | 状态 |
 |------|------|----------|------|
-| 4.1 | R-TOOL-1–5 | Tool registry + 读/写/LSP | ⬜ |
-| 4.2 | R-TOOL-6–8 | code_search, doc_*, git | ⬜ |
+| 4.1 | R-TOOL-1–5 | Tool registry + 读/写/LSP | ✅ |
+| 4.2 | R-TOOL-6–8 | code_search, doc_*, git | ✅ |
 | 4.3 | R-AG-1–4 | Primary + 委派循环 | ✅ Design 委派 |
 | 4.4 | R-AG-5–9 | Explorer, 背景 agent, replay | ✅ R-AG-8 验证 + R-AG-9 背景 Agent |
 

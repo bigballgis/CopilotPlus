@@ -9,6 +9,13 @@ import type { TaskNode } from '../workflow/taskDag';
 import { buildLayerWalkForDoc } from '../docs/scopeResolution';
 import { scopeMaxDocs } from '../context/tierPolicy';
 import { resolveScope } from '../docs/scopeResolution';
+import {
+  buildDriftResolutionPrompt,
+  extraToolsForDriftRole,
+  resolveDriftAgentRole,
+  resolveDriftScopeDoc,
+} from '../docs/driftResolution';
+import type { DriftDismissal, DriftItem } from '../docs/driftTypes';
 import { MultiAgentVerificationService } from './verificationService';
 import {
   parseCommitterVerdict,
@@ -187,6 +194,45 @@ export class SubAgentRunner {
       onStatus,
       temperature,
       maxToolCalls: this.resolveMaxToolCalls(),
+    });
+
+    return toRunResult(result);
+  }
+
+  /** R-DOCS-13.3 — resolve drift via Architect/Reviewer; writes go through Diff Review */
+  async runDriftResolution(
+    item: DriftItem,
+    dismissals: DriftDismissal[],
+    token: vscode.CancellationToken,
+    onStatus?: (message: string) => void
+  ): Promise<SubAgentRunResult> {
+    const role = resolveDriftAgentRole(item);
+    const scopeDoc = resolveDriftScopeDoc(item, this.app.docs.getEntries());
+    const task: TaskNode = {
+      id: `drift-${item.id}-${Date.now()}`,
+      title: `Resolve drift: ${item.type}`,
+      description: buildDriftResolutionPrompt(item, dismissals),
+      agent: role,
+      inputs: { driftType: item.type, target: item.target },
+      depends_on: [],
+      status: 'Running',
+      scope_doc: scopeDoc,
+    };
+
+    const systemPrompt = await loadAgentPrompt(this.extensionUri, roleToPromptFile(role));
+    const toolIds = [...new Set([...this.app.tools.getEffectiveTools(role), ...extraToolsForDriftRole(role, item)])];
+    const userPrompt = await this.buildDriftPrompt(role, task);
+
+    const result = await this.loop.run({
+      role,
+      buildId: 'drift-resolution',
+      taskId: task.id,
+      systemPrompt,
+      userPrompt,
+      toolIds,
+      token,
+      onStatus,
+      maxToolCalls: Math.min(30, this.resolveMaxToolCalls()),
     });
 
     return toRunResult(result);
@@ -419,6 +465,10 @@ export class SubAgentRunner {
 
     while (autoAttempts < 4) {
       autoAttempts += 1;
+      if (autoAttempts === 1) {
+        onStatus?.('Running layer consistency check before commit…');
+        await this.app.drift.runConsistencyCheck(false);
+      }
       onStatus?.(`Running Committer for ${task.id} (attempt ${autoAttempts})`);
       const committerResult = await this.runRole(
         'Committer',
@@ -869,6 +919,48 @@ ${layerBlock || '(empty)'}
 ${knowledgeBlock || '(none)'}
 
 Respond with a concise final answer for the Conversation Pane. Use tools when you need to read or update docs.
+`.trim();
+  }
+
+  private async buildDriftPrompt(role: string, task: TaskNode): Promise<string> {
+    const entries = this.app.docs.getEntries();
+    const model = await this.app.platform.models.resolveSelectionForSurface('subAgent');
+    const tierOverride = this.app.platform.getSettings().tierOverride;
+    const tier = model ? this.app.platform.models.getContextTier(model, tierOverride) : ('M' as const);
+    const scope = resolveScope(task.scope_doc, entries, scopeMaxDocs(tier));
+    const layerWalk = buildLayerWalkForDoc(task.scope_doc, entries, tier);
+    const scopeBlock = scope
+      .map((s) => `- [${s.link_type}] ${s.title} (${s.document_path})`)
+      .join('\n');
+    const scopeEntry = this.app.docs.getByPath(task.scope_doc);
+    const skillBlock = this.app.skills.formatInstructions(
+      this.app.skills.getAutoAttached(task.scope_doc, scopeEntry?.frontmatter.id)
+    );
+    const layerBlock = layerWalk.map((l) => `### ${l.documentPath}\n${l.content}`).join('\n\n');
+    const scopeFile = scopeEntry?.relativePath ?? task.scope_doc.replace(/^\.copilotPlus\/docs\//, 'src/');
+    const knowledgeBlock = await this.app.knowledge.buildContextBlock(scopeFile, task.id, tier);
+
+    return `
+Workflow stage: Drift resolution
+Sub-agent role: ${role}
+Scope doc: ${task.scope_doc}
+
+## Drift resolution task
+${task.description}
+
+## Scope resolution
+${scopeBlock || '(empty)'}
+
+## Skills
+${skillBlock || '(none)'}
+
+## Layer walk
+${layerBlock || '(empty)'}
+
+## Project memory
+${knowledgeBlock || '(none)'}
+
+Apply doc_write or write_file for proposed fixes. Summarize what you changed when done.
 `.trim();
   }
 

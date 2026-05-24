@@ -33,6 +33,7 @@ import { DesignWorkflowService } from '../workflow/designWorkflowService';
 import { BackgroundAgentService } from '../agents/backgroundAgentService';
 import { BuildIsolationService } from '../workflow/buildIsolationService';
 import type { CiSession } from '../cli/ciSession';
+import { DriftService } from '../docs/driftService';
 
 export class AppServices {
   readonly platform: PlatformServices;
@@ -67,6 +68,7 @@ export class AppServices {
   readonly backgroundAgent: BackgroundAgentService;
   readonly taskDagDiagnostics: TaskDagDiagnostics;
   readonly buildIsolation: BuildIsolationService;
+  readonly drift: DriftService;
   private ciSession: CiSession | undefined;
 
   private constructor(
@@ -116,6 +118,7 @@ export class AppServices {
     this.designWorkflow = new DesignWorkflowService(this);
     this.backgroundAgent = new BackgroundAgentService(this, context.extensionUri, context);
     this.taskDagDiagnostics = new TaskDagDiagnostics();
+    this.drift = new DriftService(this);
   }
 
   async initialize(): Promise<void> {
@@ -136,6 +139,7 @@ export class AppServices {
     this.docs.startWatching(this.context);
     void this.docs.ensureDefaultSystem();
     void this.indexManager.start(this.context);
+    this.drift.register(this.context);
     this.context.subscriptions.push(
       this.stages.onTransition((from, to) => {
         if (to === 'Deploy') {

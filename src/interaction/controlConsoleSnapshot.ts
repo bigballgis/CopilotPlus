@@ -32,6 +32,7 @@ export function buildControlConsoleLabels(): ControlConsoleLabels {
     invalidSkill: t('controlConsole.invalidSkill'),
     ariaStatus: t('controlConsole.aria.status'),
     ariaWorkflow: t('controlConsole.aria.workflow'),
+    ariaHierarchy: t('controlConsole.aria.hierarchy'),
     ariaIndexing: t('controlConsole.aria.indexing'),
     ariaSkills: t('controlConsole.aria.skills'),
     ariaMcp: t('controlConsole.aria.mcp'),
@@ -58,6 +59,17 @@ export function buildControlConsoleLabels(): ControlConsoleLabels {
     selectModelAria: t('controlConsole.selectModelAria'),
     openSettings: t('controlConsole.openSettings'),
     openSettingsAria: t('controlConsole.openSettingsAria'),
+    runConsistencyCheck: t('drift.runConsistencyCheck'),
+    runConsistencyCheckAria: t('drift.runConsistencyCheckAria'),
+    openDriftView: t('drift.openDriftView'),
+    openDriftViewAria: t('drift.openDriftViewAria'),
+    resolveAllDrift: t('drift.resolveAll'),
+    labelPendingQueue: t('drift.labelPendingQueue'),
+    labelUpdatePending: t('drift.labelUpdatePending'),
+    labelDriftSuspected: t('drift.labelDriftSuspected'),
+    labelOrphanCode: t('drift.labelOrphanCode'),
+    labelOwnershipConflict: t('drift.labelOwnershipConflict'),
+    noDriftItems: t('drift.noneOpen'),
     yes: t('common.yes'),
     no: t('common.no'),
   };
@@ -80,6 +92,8 @@ export function buildControlConsoleStateSync(app: AppServices): ControlConsoleSt
   const bg = app.backgroundAgent.getStatus();
   const backgroundTask = bg.currentTask ?? bg.pausedTask;
   const backgroundLastFinding = bg.lastFinding;
+  const driftSummary = app.drift.getSummary();
+  const driftItems = app.drift.getItems();
 
   return {
     type: 'stateSync',
@@ -101,6 +115,22 @@ export function buildControlConsoleStateSync(app: AppServices): ControlConsoleSt
       stage: app.stages.getStage(),
       autonomy: s.autonomyLevel,
       autonomyLevels: ['Manual', 'Approve_Edits', 'Approve_Commands', 'Full_Auto'],
+    },
+    hierarchy: {
+      counts: {
+        updatePending: driftSummary.updatePending,
+        driftSuspected: driftSummary.driftSuspected,
+        orphanCode: driftSummary.orphanCode,
+        ownershipConflict: driftSummary.ownershipConflict,
+        pendingQueue: driftSummary.pendingQueue,
+      },
+      items: driftItems.slice(0, 20).map((item) => ({
+        id: item.id,
+        type: item.type,
+        layer: item.layer,
+        target: item.target,
+        detail: item.detail,
+      })),
     },
     indexing: {
       embeddingMode: idx.embeddingMode,

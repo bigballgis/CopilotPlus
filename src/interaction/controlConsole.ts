@@ -21,7 +21,8 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
     this.disposables.push(
       app.backgroundAgent.onChange(() => this.syncWebviewState()),
       app.platform.config.onDidChange(() => this.syncWebviewState()),
-      app.stages.onTransition(() => this.syncWebviewState())
+      app.stages.onTransition(() => this.syncWebviewState()),
+      app.drift.onChange(() => this.syncWebviewState())
     );
   }
 
@@ -120,6 +121,29 @@ export class ControlConsoleProvider implements vscode.WebviewViewProvider {
       await vscode.workspace
         .getConfiguration('copilotPlus')
         .update('workflow.autonomyLevel', msg.level, vscode.ConfigurationTarget.Workspace);
+      this.syncWebviewState();
+      return;
+    }
+    if (msg.type === 'runConsistencyCheck') {
+      await this.app.drift.runConsistencyCheck();
+      this.syncWebviewState();
+      return;
+    }
+    if (msg.type === 'openDriftView') {
+      await this.app.drift.openDriftView();
+      return;
+    }
+    if (msg.type === 'resolveDrift') {
+      await this.app.drift.resolveItem(msg.id);
+      return;
+    }
+    if (msg.type === 'dismissDrift') {
+      await this.app.drift.dismissItem(msg.id);
+      this.syncWebviewState();
+      return;
+    }
+    if (msg.type === 'resolveAllDrift') {
+      await this.app.drift.resolveAll();
       this.syncWebviewState();
     }
   }

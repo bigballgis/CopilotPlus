@@ -45,7 +45,29 @@ export class BackgroundTaskRunner {
     if (taskId === 'index_rebuild') {
       return this.runIndexRebuild(token, onStatus);
     }
+    if (taskId === 'doc_drift_scan') {
+      return this.runDocDriftScan(token, onStatus);
+    }
     return this.runAgentTask(taskId, budget, token, onStatus);
+  }
+
+  private async runDocDriftScan(
+    token: vscode.CancellationToken,
+    onStatus?: (message: string) => void
+  ): Promise<BackgroundTaskResult> {
+    if (token.isCancellationRequested) {
+      return { taskId: 'doc_drift_scan', ok: false, summary: 'Paused', partial: true };
+    }
+    onStatus?.('Scanning document layer consistency…');
+    const count = await this.app.drift.runConsistencyCheck(false);
+    if (token.isCancellationRequested) {
+      return { taskId: 'doc_drift_scan', ok: false, summary: 'Scan paused', partial: true };
+    }
+    return {
+      taskId: 'doc_drift_scan',
+      ok: true,
+      summary: `Drift scan complete — ${count} open item(s).`,
+    };
   }
 
   private async runIndexRebuild(

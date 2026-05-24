@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：查漏补缺 — Drift / Layer Consistency  
-> **本 session 下一项（功能）**：F5 冒烟（含 Hierarchy / Drift 状态栏）
+> **本 session 下一项（功能）**：F5 手动冒烟（Drift Resolve + Diff Review）
 
 ---
 
@@ -19,6 +19,7 @@
 | 7 | 模拟 Copilot 登出/ entitlement 丢失 | in-flight 请求取消，重新登录提示 |
 | 8 | Control Console → Hierarchy | 一致性计数 + Drift 列表；Run consistency check |
 | 9 | 状态栏 Drift 计数 | 点击打开 Drift View |
+| 10 | Drift Resolve | Architect/Reviewer 委派 + Diff Review 接受后项清除 |
 
 ---
 
@@ -30,7 +31,7 @@
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 | 1 | Platform 补全 | 1.1–1.9 | ✅ 完成 |
 
-**单元测试**：199/199 通过  
+**单元测试**：205/205 通过  
 **需求覆盖率（粗算）**：~96%
 
 ---
@@ -44,7 +45,7 @@
 | RAG 混合检索 | BM25+RRF(k=60)+rerank + 6/4 配额 + heading/link 元数据 + rag.enabled | R-CTX-3 / R-CTX-6 |
 | Context Budget | 七级优先级裁剪 + Session cap + 摘要 80% 触发 + Tier M/L 策略 | R-CTX-4 / R-CTX-7 / R-CTX-8 |
 | Platform 补全 | 授权失效取消请求 + Conversation/Tab 模型 picker + PLAN 同步 | R-PLAT-2 / R-PLAT-3 |
-| Drift / Consistency | 静态诊断 + 持久化 + Console Hierarchy + 状态栏 + 背景扫描 | R-DOCS-12 / R-DOCS-13 |
+| Drift / Consistency | 静态诊断 + 队列 + 持久化 + Console Hierarchy + 状态栏 + Committer/Background 触发 | R-DOCS-12 / R-DOCS-13 |
 | Build 限额 | 工具调用/时长上限 + Decision + Stop All + 限额显示 | R-WF-8 |
 | Autonomy Levels | Manual Build/Deploy 全工具 Decision + deny list + Full_Auto Diff 绕过 + Control Console 选择器 | R-WF-7 |
 | Build 六步流水线 | Coder/Tester/Reviewer/Committer + 3 轮测试 + Decision | R-WF-4 |
@@ -87,6 +88,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | R-DOCS-12/13 Layer Consistency + Drift（静态诊断、队列、持久化、Console/状态栏、Committer/Background 触发） |
 | 2026-05-23 | F5 验收脚本 + Control Console 构建链 + 冒烟清单（verify:f5） |
 | 2026-05-23 | R-DOCS-12/13 Drift MVP（静态诊断 + drift_state 持久化 + Console Hierarchy + 状态栏） |
 | 2026-05-23 | 查漏补缺：buildPipelineDecisions 模块补提交 + Deploy Decision 超时拒绝 + Task 控件/日志单测 |

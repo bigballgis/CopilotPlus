@@ -71,6 +71,9 @@ export class DeployExecutor {
         defaultOption: 'Terminate',
         timeoutSec: 300,
       });
+      if (answer.timedOut || answer.selected === 'Terminate') {
+        return { ok: false, runId: run.id, reason };
+      }
       if (answer.selected === 'Retry') {
         return this.applyManifest();
       }
@@ -106,6 +109,9 @@ export class DeployExecutor {
         defaultOption: 'Terminate',
         timeoutSec: 300,
       });
+      if (answer.timedOut || answer.selected === 'Terminate') {
+        return { ok: false, reason: result.reason };
+      }
       if (answer.selected === 'Retry') {
         return this.rollbackRun(runId);
       }
