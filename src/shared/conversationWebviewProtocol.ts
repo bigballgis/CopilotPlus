@@ -1,11 +1,12 @@
 /** Host ↔ Conversation Pane webview message protocol — R-INT-2 */
 
-import type { WorkflowStage } from './types';
+import type { ModelOptionWire, WorkflowStage } from './types';
 
 export interface MentionAttachmentWire {
   kind: string;
   target: string;
   label: string;
+  range?: string;
 }
 
 export interface DesignStepOptionWire {
@@ -39,6 +40,12 @@ export interface ConversationLabels {
   continueAria: string;
   pickStepLabel: string;
   pickStepAria: string;
+  pickStepPlaceHolder: string;
+  stepComplete: string;
+  stepCurrent: string;
+  selectModel: string;
+  selectModelAria: string;
+  noModelsAvailable: string;
 }
 
 export interface ConversationStateSync {
@@ -47,12 +54,18 @@ export interface ConversationStateSync {
   readOnly: boolean;
   readOnlyBanner?: string;
   model: string;
+  models: ModelOptionWire[];
+  selectedModelId: string;
+  modelsAvailable: boolean;
+  modelUnavailableNotice?: string;
   designStep: string;
   designCanContinue: boolean;
   designContinueBlockedReason?: string;
   designIsFinalStep: boolean;
   designSteps: DesignStepOptionWire[];
   tokens: number;
+  tokenCap: number;
+  contextTier: string;
   labels: ConversationLabels;
   resetMessages?: boolean;
 }
@@ -68,6 +81,7 @@ export type ConversationHostMessage =
   | { type: 'streamCancelled' }
   | { type: 'tokenUpdate'; tokens: number }
   | { type: 'designStatus'; message: string }
+  | { type: 'contextDropped'; notice: string }
   | { type: 'error'; message: string };
 
 export type ConversationWebviewMessage =
@@ -78,4 +92,5 @@ export type ConversationWebviewMessage =
   | { type: 'newSession' }
   | { type: 'continueDesign' }
   | { type: 'pickDesignStep'; step: string }
+  | { type: 'selectModel'; modelId: string }
   | { type: 'inputDraft'; text: string; attachments: MentionAttachmentWire[] };

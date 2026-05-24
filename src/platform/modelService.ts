@@ -1,14 +1,18 @@
 /** Model selection and persistence — R-PLAT-3 */
 
 import * as vscode from 'vscode';
-import type { ContextTier, ModelSurface } from '../shared/types';
+import type { ContextTier, ModelOptionWire, ModelSurface } from '../shared/types';
+import { resolveContextTier } from './contextTier';
 import { CopilotAuthService } from './copilotAuth';
+import { t } from './l10n';
 
 const WORKSPACE_MODEL_KEY = 'copilotPlus.selectedModelId';
 
 export class ModelService {
   private models: vscode.LanguageModelChat[] = [];
   private selected: vscode.LanguageModelChat | undefined;
+  private readonly onDidChangeEmitter = new vscode.EventEmitter<void>();
+  readonly onDidChange = this.onDidChangeEmitter.event;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -22,6 +26,7 @@ export class ModelService {
       this.models = this.models.slice(0, 50);
     }
     await this.resolveSelection();
+    this.onDidChangeEmitter.fire();
     return this.models;
   }
 
@@ -29,8 +34,31 @@ export class ModelService {
     return this.models;
   }
 
+  getModelOptions(): ModelOptionWire[] {
+    return this.models.map((model) => ({ id: model.id, name: model.name }));
+  }
+
   getSelected(): vscode.LanguageModelChat | undefined {
     return this.selected;
+  }
+
+  hasModels(): boolean {
+    return this.models.length > 0;
+  }
+
+  getHeaderState(): {
+    models: ModelOptionWire[];
+    selectedModelId: string;
+    modelsAvailable: boolean;
+    modelUnavailableNotice?: string;
+  } {
+    const models = this.getModelOptions();
+    return {
+      models,
+      selectedModelId: this.selected?.id ?? '',
+      modelsAvailable: models.length > 0,
+      modelUnavailableNotice: models.length > 0 ? undefined : t('models.noModelsAvailable'),
+    };
   }
 
   async pickModel(modelId?: string): Promise<void> {
@@ -39,6 +67,7 @@ export class ModelService {
       if (found) {
         this.selected = found;
         await this.persistSelection(found);
+        this.onDidChangeEmitter.fire();
         return;
       }
     }
@@ -49,14 +78,14 @@ export class ModelService {
 
     const item = await vscode.window.showQuickPick(
       this.models.map((m) => ({ label: m.name, description: m.id, model: m })),
-      { placeHolder: 'Select Copilot model' }
+      { placeHolder: t('models.pickPlaceholder') }
     );
     if (item) {
       this.selected = item.model;
       await this.persistSelection(item.model);
+      this.onDidChangeEmitter.fire();
     }
   }
-
   async resolveSelectionForSurface(_surface: ModelSurface): Promise<vscode.LanguageModelChat | undefined> {
     if (this.models.length === 0) {
       await this.refresh();
@@ -64,15 +93,8 @@ export class ModelService {
     return this.selected ?? this.models[0];
   }
 
-  getContextTier(model: vscode.LanguageModelChat): ContextTier {
-    const max = model.maxInputTokens;
-    if (max < 100_000) {
-      return 'S';
-    }
-    if (max <= 500_000) {
-      return 'M';
-    }
-    return 'L';
+  getContextTier(model: vscode.LanguageModelChat, override: 'auto' | 's' | 'm' | 'l' = 'auto'): ContextTier {
+    return resolveContextTier(model.maxInputTokens, override);
   }
 
   private async resolveSelection(): Promise<void> {
@@ -98,11 +120,10 @@ export class ModelService {
     this.selected = this.models[0];
     if (previous && previous !== this.selected.id) {
       void vscode.window.showInformationMessage(
-        `Model "${previous}" unavailable; using "${this.selected.name}".`
+        t('models.substituteNotice', previous, this.selected.name)
       );
     }
   }
-
   private async persistSelection(model: vscode.LanguageModelChat): Promise<void> {
     await this.context.workspaceState.update(WORKSPACE_MODEL_KEY, model.id);
   }

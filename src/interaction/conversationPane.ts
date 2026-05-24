@@ -19,6 +19,16 @@ import {
   type MentionAttachment,
 } from '../context/mentions';
 import { estimateAttachmentsBudget } from '../context/mentionBudget';
+import {
+  contextItem,
+  fitContextToBudget,
+  formatContextDropSummary,
+  hasDroppedContext,
+  resolveTokenBudget,
+} from '../context/contextBudget';
+import { resolveContextTier } from '../context/contextTier';
+import { buildModuleFrontmatterContext, resolveEffectiveSessionCap } from '../context/tierPolicy';
+import { buildLayerWalkForDoc } from '../docs/scopeResolution';
 import { buildScopePreheatKey, runScopePreheat } from '../context/scopePreheat';
 import { estimateTokens } from '../platform/chatClient';
 import { t } from '../platform/l10n';
@@ -49,6 +59,9 @@ export class ConversationPaneProvider {
         void this.syncWebviewState();
       }),
       app.buildExecutor.onChange(() => {
+        void this.syncWebviewState();
+      }),
+      app.platform.models.onDidChange(() => {
         void this.syncWebviewState();
       })
     );
@@ -104,6 +117,10 @@ export class ConversationPaneProvider {
       }
       if (msg.type === 'pickDesignStep' && msg.step) {
         await this.handlePickDesignStep(msg.step);
+      }
+      if (msg.type === 'selectModel' && msg.modelId) {
+        await this.app.platform.models.pickModel(msg.modelId);
+        await this.syncWebviewState();
       }
       if (msg.type === 'inputDraft' && typeof msg.text === 'string') {
         this.scheduleScopePreheat(msg.text, msg.attachments ?? []);
@@ -165,6 +182,9 @@ export class ConversationPaneProvider {
       pickStepPlaceHolder: t('design.pickStepPlaceHolder'),
       stepComplete: t('design.stepComplete'),
       stepCurrent: t('design.currentStep'),
+      selectModel: t('models.selectModel'),
+      selectModelAria: t('models.selectModelAria'),
+      noModelsAvailable: t('models.noModelsAvailable'),
     };
   }
 
@@ -175,12 +195,14 @@ export class ConversationPaneProvider {
     const stage = this.app.stages.getStage();
     const readOnly = stage !== 'Design';
     const design = await this.app.designWorkflow.getState();
+    const modelHeader = this.app.platform.models.getHeaderState();
     const payload: ConversationStateSync = {
       type: 'stateSync',
       stage,
       readOnly,
       readOnlyBanner: readOnly ? t('conversation.readOnlyBanner', stage) : undefined,
       model: this.app.platform.models.getSelected()?.name ?? 'none',
+      ...modelHeader,
       designStep: design.currentStepLabel,
       designCanContinue: design.canContinue,
       designContinueBlockedReason: design.continueBlockedReason,
@@ -193,6 +215,18 @@ export class ConversationPaneProvider {
         current: step.current,
       })),
       tokens: this.sessionTokens,
+      tokenCap: resolveEffectiveSessionCap(
+        this.app.platform.models.getSelected()?.maxInputTokens,
+        this.app.platform.getSettings().sessionTokenCap,
+        resolveContextTier(
+          this.app.platform.models.getSelected()?.maxInputTokens,
+          this.app.platform.getSettings().tierOverride
+        )
+      ),
+      contextTier: resolveContextTier(
+        this.app.platform.models.getSelected()?.maxInputTokens,
+        this.app.platform.getSettings().tierOverride
+      ),
       labels: this.buildLabels(),
       resetMessages: options?.resetMessages,
     };
@@ -231,6 +265,11 @@ export class ConversationPaneProvider {
       void vscode.window.showWarningMessage(t('conversation.offline'));
       return;
     }
+    if (!this.app.platform.models.hasModels()) {
+      await this.app.platform.auth.promptSignIn();
+      this.postMessage({ type: 'error', message: t('models.noModelsAvailable') });
+      return;
+    }
 
     const slash = parseSlashSkill(text);
     let userText = slash.message || text;
@@ -251,8 +290,24 @@ export class ConversationPaneProvider {
     const autoSkills = this.app.skills.getAutoAttached(systemDoc?.relativePath, systemDoc?.frontmatter.id);
     const skillPrefix = this.app.skills.formatInstructions(autoSkills);
 
-    const tokenBudget = this.app.platform.getSettings().sessionTokenCap;
-    let contextPrefix: string | undefined;
+    const model = await this.app.platform.models.resolveSelectionForSurface('primaryAgent');
+    const settings = this.app.platform.getSettings();
+    const tier = resolveContextTier(model?.maxInputTokens, settings.tierOverride);
+    const tokenBudget = resolveTokenBudget(model?.maxInputTokens, settings.sessionTokenCap);
+    const sessionCap = resolveEffectiveSessionCap(model?.maxInputTokens, settings.sessionTokenCap, tier);
+
+    if (this.sessionTokens >= sessionCap) {
+      void vscode.window.showWarningMessage(t('conversation.sessionCapReached', String(sessionCap)));
+      this.postMessage({ type: 'error', message: t('conversation.sessionCapReached', String(sessionCap)) });
+      return;
+    }
+
+    const docEntries = this.app.docs.getEntries();
+    const scopeDocPath =
+      systemDoc?.relativePath ??
+      docEntries.find((e) => e.valid && e.frontmatter.level === 'system')?.relativePath;
+
+    let mentionPrefix: string | undefined;
     if (attachments.length > 0) {
       const blocks = await resolveMentionBlocks(attachments, this.app, tokenBudget);
       const activeBlocks = blocks.filter((b) => !b.blocked);
@@ -273,20 +328,69 @@ export class ConversationPaneProvider {
           return;
         }
       }
-      contextPrefix = activeBlocks.map((b) => b.text).join('\n\n');
+      mentionPrefix = activeBlocks.map((b) => b.text).join('\n\n');
     }
 
     const preheatRawKey = buildScopePreheatKey(userText, attachments);
     const preheatKey = this.app.speculative.makeKey('scopePreheat', { key: preheatRawKey });
     const preheated = this.app.speculative.tryConsume<string>(preheatKey);
-    if (preheated?.hit && preheated.value.trim()) {
-      contextPrefix = contextPrefix
-        ? `${preheated.value}\n\n${contextPrefix}`
-        : preheated.value;
+
+    const contextItems = [];
+    const mentionParts = [mentionPrefix, skillPrefix].filter(Boolean);
+    if (mentionParts.length) {
+      contextItems.push(contextItem('mentions', mentionParts.join('\n\n')));
     }
 
-    if (skillPrefix) {
-      contextPrefix = contextPrefix ? `${skillPrefix}\n\n${contextPrefix}` : skillPrefix;
+    if (scopeDocPath) {
+      const layerWalk = buildLayerWalkForDoc(scopeDocPath, docEntries, tier);
+      const layerText = layerWalk.map((entry) => `### ${entry.documentPath}\n${entry.content}`).join('\n\n');
+      if (layerText.trim()) {
+        contextItems.push(contextItem('layerWalk', layerText));
+      }
+    }
+
+    const frontmatterBlock = buildModuleFrontmatterContext(docEntries, tier);
+    if (frontmatterBlock.trim()) {
+      contextItems.push(contextItem('layerWalk', frontmatterBlock));
+    }
+
+    const knowledgeBlock = await this.app.knowledge.buildContextBlock(undefined, undefined, tier);
+    if (knowledgeBlock.trim()) {
+      contextItems.push(contextItem('layerWalk', knowledgeBlock));
+    }
+
+    if (preheated?.hit && preheated.value.trim()) {
+      contextItems.push(contextItem('ragRetrievals', preheated.value));
+    }
+
+    const editor = vscode.window.activeTextEditor;
+    if (editor && !editor.selection.isEmpty) {
+      contextItems.push(contextItem('selection', editor.document.getText(editor.selection)));
+    }
+    if (editor) {
+      contextItems.push(
+        contextItem(
+          'currentFile',
+          `# ${vscode.workspace.asRelativePath(editor.document.uri)}\n${editor.document.getText().slice(0, 50_000)}`
+        )
+      );
+    }
+
+    const systemPrompt = await this.app.primaryAgent.ensurePrompt();
+    const reservedTokens = estimateTokens(systemPrompt) + estimateTokens(userText);
+    const assembled = fitContextToBudget(contextItems, Math.max(tokenBudget - reservedTokens, 0));
+
+    if (assembled.blocked) {
+      const message = assembled.blockReason ?? t('conversation.contextItemTooLarge', 'context');
+      void vscode.window.showWarningMessage(message);
+      this.postMessage({ type: 'error', message });
+      return;
+    }
+
+    let contextPrefix = assembled.included.map((item) => item.text).join('\n\n') || undefined;
+    if (hasDroppedContext(assembled.dropped)) {
+      const notice = formatContextDropSummary(assembled.dropped);
+      this.postMessage({ type: 'contextDropped', notice });
     }
 
     await this.sessions.appendUserMessage(slash.skillId ? `/${slash.skillId} ${userText}`.trim() : text);
@@ -294,17 +398,18 @@ export class ConversationPaneProvider {
 
     this.cancelSource?.cancel();
     this.cancelSource = new vscode.CancellationTokenSource();
+    const requestRegistration = this.app.platform.modelRequests.register(this.cancelSource);
     this.postMessage({ type: 'streamStart' });
 
     try {
-      const systemPrompt = await this.app.primaryAgent.ensurePrompt();
       const prepared = await this.app.summarizer.prepareHistory(
         this.sessions.getMessages().slice(0, -1),
         userText,
         contextPrefix,
         systemPrompt,
         this.cancelSource.token,
-        this.sessions
+        this.sessions,
+        contextItems
       );
 
       if (prepared.blocked) {
@@ -345,6 +450,8 @@ export class ConversationPaneProvider {
       const message = err instanceof Error ? err.message : String(err);
       this.postMessage({ type: 'error', message });
       void vscode.window.showErrorMessage(message);
+    } finally {
+      requestRegistration.dispose();
     }
   }
 

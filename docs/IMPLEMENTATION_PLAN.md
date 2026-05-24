@@ -138,7 +138,7 @@
 | 6.1 | R-CTX-1 Mentions | ✅ 七类 + 25% 限额 + 预算确认 |
 | 6.2 | R-CTX-2 Codebase Index | ✅ gitignore + 800/200 分块 + 增量更新 + 持久化 |
 | 6.3 | R-CTX-3,6 RAG 混合检索 | ✅ BM25+RRF+rerank + doc 元数据 + rag.enabled 开关 |
-| 6.4 | R-CTX-4,7,8 Budget / 摘要 / Tier | ⬜ |
+| 6.4 | R-CTX-4,7,8 Budget / 摘要 / Tier | ✅ 优先级裁剪 + 摘要 + Tier 策略 |
 | 6.5 | R-CTX-5 Embedding 三模式 | ✅ enterprise manifest + token_ids ONNX |
 
 ---

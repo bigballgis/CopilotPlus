@@ -4,6 +4,8 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 import { COPILOT_PLUS_HOME } from '../shared/constants';
+import type { ContextTier } from '../shared/types';
+import { shouldCapAgentsLayers } from '../context/tierPolicy';
 
 export type AgentsLayerKind = 'user' | 'workspace' | 'subdirectory';
 
@@ -45,7 +47,8 @@ export async function readAgentsFile(absPath: string): Promise<string | undefine
 
 export async function loadAgentsLayers(
   workspaceRoot: string,
-  fileRelative?: string
+  fileRelative?: string,
+  tier: ContextTier = 'S'
 ): Promise<{ layers: AgentsLayer[]; dropped: string[]; text: string }> {
   const layers: AgentsLayer[] = [];
 
@@ -86,11 +89,17 @@ export async function loadAgentsLayers(
     }
   }
 
-  const { text, dropped } = capAgentsLayers(layers);
+  const { text, dropped } = capAgentsLayers(layers, tier);
   return { layers, dropped, text };
 }
 
-export function capAgentsLayers(layers: AgentsLayer[]): { text: string; dropped: string[] } {
+export function capAgentsLayers(
+  layers: AgentsLayer[],
+  tier: ContextTier = 'S'
+): { text: string; dropped: string[] } {
+  if (!shouldCapAgentsLayers(tier)) {
+    return { text: composeAgentsText(layers), dropped: [] };
+  }
   const working = [...layers];
   const dropped: string[] = [];
   let text = composeAgentsText(working);

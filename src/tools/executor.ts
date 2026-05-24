@@ -392,7 +392,8 @@ export class ToolExecutor {
         : undefined;
 
     const model = await this.app.platform.models.resolveSelectionForSurface('subAgent');
-    const tier = model ? this.app.platform.models.getContextTier(model) : 'M';
+    const tierOverride = this.app.platform.getSettings().tierOverride;
+    const tier = model ? this.app.platform.models.getContextTier(model, tierOverride) : 'M';
     const response = this.app.indexManager.retrieval.search({
       query,
       scope: args.scope ? String(args.scope) : undefined,

@@ -2,7 +2,8 @@
 
 import * as vscode from 'vscode';
 import type { AppServices } from '../app/appServices';
-import { estimateTokens } from '../platform/chatClient';
+import { resolveContextTier } from '../context/contextTier';
+import { resolveEffectiveSessionCap } from '../context/tierPolicy';
 import { loadAgentPrompt } from './promptLoader';
 import type { SessionMessage } from '../interaction/sessionStore';
 import {
@@ -91,9 +92,12 @@ export class PrimaryAgent {
       estimateTokens(contextPrefix ?? '') +
       estimateTokens(historySummary);
 
-    const cap = this.app.platform.getSettings().sessionTokenCap;
+    const model = await this.app.platform.models.resolveSelectionForSurface('primaryAgent');
+    const settings = this.app.platform.getSettings();
+    const tier = resolveContextTier(model?.maxInputTokens, settings.tierOverride);
+    const cap = resolveEffectiveSessionCap(model?.maxInputTokens, settings.sessionTokenCap, tier);
     if (inputTokens > cap) {
-      throw new Error(`Session token cap reached (${cap}). Start a new session.`);
+      throw new Error(t('conversation.sessionCapReached', String(cap)));
     }
 
     const result = await this.runDesignWithRetries(

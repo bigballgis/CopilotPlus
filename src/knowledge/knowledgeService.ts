@@ -30,6 +30,7 @@ import {
 } from './selfReflectionParse';
 import { streamChat } from '../platform/chatClient';
 import { COPILOT_PLUS_HOME } from '../shared/constants';
+import type { ContextTier } from '../shared/types';
 import { t } from '../platform/l10n';
 
 export type ProposeMemoryOutcome = 'rejected' | 'agents_md' | 'session_memory';
@@ -79,13 +80,16 @@ export class KnowledgeService {
     return [...this.reflectionSummaries];
   }
 
-  async buildContextBlock(fileRelative?: string, taskId?: string): Promise<string> {
-    const agents = await this.getAgentsInstruction(fileRelative);
+  async buildContextBlock(fileRelative?: string, taskId?: string, tier?: ContextTier): Promise<string> {
+    const agents = await this.getAgentsInstruction(fileRelative, tier);
     const memory = await this.getSessionMemoryInstruction(taskId);
     return [agents.text, memory.text].filter(Boolean).join('\n\n');
   }
 
-  async getAgentsInstruction(fileRelative?: string): Promise<{ text: string; dropped: string[] }> {
+  async getAgentsInstruction(
+    fileRelative?: string,
+    tier?: ContextTier
+  ): Promise<{ text: string; dropped: string[] }> {
     const root = this.workspaceRoot();
     if (!root) {
       return { text: '', dropped: [] };
@@ -94,7 +98,7 @@ export class KnowledgeService {
     if (this.agentsCache && this.agentsCache.key === key) {
       return { text: this.agentsCache.text, dropped: this.agentsCache.dropped };
     }
-    const loaded = await loadAgentsLayers(root, fileRelative);
+    const loaded = await loadAgentsLayers(root, fileRelative, tier);
     this.agentsCache = {
       key,
       text: loaded.text,

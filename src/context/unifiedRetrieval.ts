@@ -8,6 +8,7 @@ import type { DocEntry } from '../docs/documentTreeService';
 import { cosineSimilarity } from './vectorMath';
 import type { ResolvedEmbeddingMode } from './embeddingResolver';
 import { rerankCandidates } from './retrievalRerank';
+import { defaultRetrievalTopK } from './tierPolicy';
 
 export type SearchThoroughness = 'quick' | 'medium' | 'thorough';
 
@@ -31,7 +32,6 @@ export interface CodeSearchResponse {
 
 const RRF_K = 60;
 const RERANK_POOL = 30;
-const DEFAULT_TOP_K = 10;
 const CODE_QUOTA = 6;
 const DOC_QUOTA = 4;
 
@@ -66,8 +66,9 @@ export class UnifiedRetrieval {
   search(options: CodeSearchOptions): CodeSearchResponse {
     const thoroughness = options.thoroughness ?? 'medium';
     const tier = options.tier ?? 'S';
-    const requestedTop = options.topK ?? DEFAULT_TOP_K;
-    const effectiveTop = Math.min(Math.max(requestedTop, 1), tier === 'L' ? 50 : tier === 'M' ? 25 : DEFAULT_TOP_K);
+    const tierMaxTop = defaultRetrievalTopK(tier);
+    const requestedTop = options.topK ?? tierMaxTop;
+    const effectiveTop = Math.min(Math.max(requestedTop, 1), tierMaxTop);
 
     const scopePaths = resolveScopePaths(options.scope, options.docEntries ?? []);
     const codePool = filterChunks(this.codeIndex.chunks, scopePaths, 'code');

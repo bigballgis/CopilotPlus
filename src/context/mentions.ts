@@ -263,7 +263,8 @@ async function resolveOneMention(
             ? await computeQueryEmbedding(folderPrefix, resolution, app.localEmbeddingAddon)
             : undefined;
         const model = await app.platform.models.resolveSelectionForSurface('subAgent');
-        const tier = model ? app.platform.models.getContextTier(model) : 'M';
+        const tierOverride = app.platform.getSettings().tierOverride;
+        const tier = model ? app.platform.models.getContextTier(model, tierOverride) : 'M';
         const response = app.indexManager.retrieval.search({
           query: folderPrefix,
           thoroughness: 'quick',

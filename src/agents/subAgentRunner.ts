@@ -7,6 +7,7 @@ import { roleToPromptFile } from './roleMapping';
 import { SubAgentLoop, type AgentLoopResult } from './subAgentLoop';
 import type { TaskNode } from '../workflow/taskDag';
 import { buildLayerWalkForDoc } from '../docs/scopeResolution';
+import { scopeMaxDocs } from '../context/tierPolicy';
 import { resolveScope } from '../docs/scopeResolution';
 import { MultiAgentVerificationService } from './verificationService';
 import {
@@ -776,7 +777,10 @@ export class SubAgentRunner {
     const files = await this.app.deploy.listManifestFiles();
     const recommended = this.app.deploy.recommendedCommands();
     const entries = this.app.docs.getEntries();
-    const scope = resolveScope(task.scope_doc, entries);
+    const model = await this.app.platform.models.resolveSelectionForSurface('subAgent');
+    const tierOverride = this.app.platform.getSettings().tierOverride;
+    const tier = model ? this.app.platform.models.getContextTier(model, tierOverride) : ('M' as const);
+    const scope = resolveScope(task.scope_doc, entries, scopeMaxDocs(tier));
     const scopeBlock = scope
       .map((s) => `- [${s.link_type}] ${s.title} (${s.document_path})`)
       .join('\n');
@@ -821,11 +825,10 @@ ${intent === 'generate'
     historySummary?: string
   ): Promise<string> {
     const entries = this.app.docs.getEntries();
-    const scope = resolveScope(task.scope_doc, entries);
     const model = await this.app.platform.models.resolveSelectionForSurface('subAgent');
-    const tier = model
-      ? this.app.platform.models.getContextTier(model)
-      : ('M' as const);
+    const tierOverride = this.app.platform.getSettings().tierOverride;
+    const tier = model ? this.app.platform.models.getContextTier(model, tierOverride) : ('M' as const);
+    const scope = resolveScope(task.scope_doc, entries, scopeMaxDocs(tier));
     const layerWalk = buildLayerWalkForDoc(task.scope_doc, entries, tier);
 
     const scopeBlock = scope
@@ -839,7 +842,7 @@ ${intent === 'generate'
       .map((l) => `### ${l.documentPath}\n${l.content}`)
       .join('\n\n');
     const scopeFile = scopeEntry?.relativePath ?? task.scope_doc.replace(/^\.copilotPlus\/docs\//, 'src/');
-    const knowledgeBlock = await this.app.knowledge.buildContextBlock(scopeFile, task.id);
+    const knowledgeBlock = await this.app.knowledge.buildContextBlock(scopeFile, task.id, tier);
 
     return `
 Workflow stage: Design
@@ -871,11 +874,10 @@ Respond with a concise final answer for the Conversation Pane. Use tools when yo
 
   private async buildTaskPrompt(role: string, task: TaskNode, buildId: string): Promise<string> {
     const entries = this.app.docs.getEntries();
-    const scope = resolveScope(task.scope_doc, entries);
     const model = await this.app.platform.models.resolveSelectionForSurface('subAgent');
-    const tier = model
-      ? this.app.platform.models.getContextTier(model)
-      : ('M' as const);
+    const tierOverride = this.app.platform.getSettings().tierOverride;
+    const tier = model ? this.app.platform.models.getContextTier(model, tierOverride) : ('M' as const);
+    const scope = resolveScope(task.scope_doc, entries, scopeMaxDocs(tier));
     const layerWalk = buildLayerWalkForDoc(task.scope_doc, entries, tier);
 
     const scopeBlock = scope
@@ -889,7 +891,7 @@ Respond with a concise final answer for the Conversation Pane. Use tools when yo
       .map((l) => `### ${l.documentPath}\n${l.content}`)
       .join('\n\n');
     const scopeFile = scopeEntry?.relativePath ?? task.scope_doc.replace(/^\.copilotPlus\/docs\//, 'src/');
-    const knowledgeBlock = await this.app.knowledge.buildContextBlock(scopeFile, task.id);
+    const knowledgeBlock = await this.app.knowledge.buildContextBlock(scopeFile, task.id, tier);
 
     return `
 Workflow stage: ${role === 'Deployer' ? 'Deploy' : 'Build'}

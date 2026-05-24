@@ -4,6 +4,10 @@ import * as vscode from 'vscode';
 import type { AppServices } from '../app/appServices';
 import { streamChat, estimateTokens } from '../platform/chatClient';
 import type { SessionMessage } from '../interaction/sessionStore';
+import {
+  fitContextToBudget,
+  type ContextBudgetItem,
+} from './contextBudget';
 
 export interface SummarizeResult {
   history: SessionMessage[];
@@ -21,20 +25,23 @@ const SUMMARY_PROMPT = `Summarize the conversation for continuation. Output mark
 Keep total under 2000 tokens.`;
 
 export class ConversationSummarizer {
-  private requestTimestamps: number[] = [];
-  private summarizationTimestamps: number[] = [];
+  private readonly requestLog: Array<{ summarized: boolean }> = [];
 
   constructor(private readonly app: AppServices) {}
 
   resetSession(): void {
-    this.requestTimestamps = [];
-    this.summarizationTimestamps = [];
+    this.requestLog.length = 0;
   }
 
   recordRequest(): void {
-    const now = Date.now();
-    this.requestTimestamps.push(now);
-    this.requestTimestamps = this.requestTimestamps.filter((t) => now - t < 600_000);
+    this.requestLog.push({ summarized: false });
+    while (this.requestLog.length > 10) {
+      this.requestLog.shift();
+    }
+  }
+
+  private summarizationsInWindow(): number {
+    return this.requestLog.filter((entry) => entry.summarized).length;
   }
 
   estimateInputTokens(
@@ -56,7 +63,8 @@ export class ConversationSummarizer {
     sessions: {
       persistSummary: (text: string) => Promise<string>;
       appendSystemMessage: (text: string) => Promise<void>;
-    }
+    },
+    contextItems: ContextBudgetItem[] = []
   ): Promise<SummarizeResult> {
     this.recordRequest();
 
@@ -67,16 +75,24 @@ export class ConversationSummarizer {
 
     const model = await this.app.platform.models.resolveSelectionForSurface('primaryAgent');
     const tokenBudget = model?.maxInputTokens ?? settings.sessionTokenCap;
+    const fittedContext = fitContextToBudget(contextItems, tokenBudget);
+    if (fittedContext.blocked) {
+      return {
+        history,
+        blocked: true,
+        blockReason: fittedContext.blockReason,
+      };
+    }
+
+    const fittedPrefix = fittedContext.included.map((item) => item.text).join('\n\n') || contextPrefix;
     const threshold = Math.floor(tokenBudget * 0.8);
-    const estimated = this.estimateInputTokens(history, userText, contextPrefix, systemPrompt);
+    const estimated = this.estimateInputTokens(history, userText, fittedPrefix, systemPrompt);
 
     if (estimated <= threshold) {
       return { history };
     }
 
-    const now = Date.now();
-    const recentSummaries = this.summarizationTimestamps.filter((t) => now - t < 600_000);
-    if (recentSummaries.length >= 3 && this.requestTimestamps.length >= 10) {
+    if (this.summarizationsInWindow() >= 3) {
       return {
         history,
         blocked: true,
@@ -133,7 +149,9 @@ export class ConversationSummarizer {
     };
     await sessions.appendSystemMessage(summaryMessage.text);
 
-    this.summarizationTimestamps.push(now);
+    if (this.requestLog.length) {
+      this.requestLog[this.requestLog.length - 1]!.summarized = true;
+    }
     return {
       history: [summaryMessage, ...recent],
       summaryPath,
