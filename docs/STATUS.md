@@ -22,6 +22,7 @@
 | 10 | Drift Resolve | Architect/Reviewer 委派 + Diff Review 接受后项清除 |
 | 11 | Committer 前一致性 | Reviewer 带 git diff 返回 verdict；Doc_Update → Decision |
 | 12 | Code_Mismatch | Problem 面板诊断 + `doc.drift.suspected` hook |
+| 13 | 代码归属状态栏 | 聚焦代码文件时显示 System › Module › Feature › Component |
 
 ---
 
@@ -33,7 +34,7 @@
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 | 1 | Platform 补全 | 1.1–1.9 | ✅ 完成 |
 
-**单元测试**：210/210 通过  
+**单元测试**：215/215 通过  
 **需求覆盖率（粗算）**：~97%
 
 ---
@@ -49,6 +50,8 @@
 | Platform 补全 | 授权失效取消请求 + Conversation/Tab 模型 picker + PLAN 同步 | R-PLAT-2 / R-PLAT-3 |
 | Drift / Consistency | 静态诊断 + Sub-Agent Resolve + 队列 + 持久化 + Console/状态栏 | R-DOCS-12 / R-DOCS-13 |
 | Agent 一致性检查 | Reviewer/Architect 子代理 + verdict 解析 + Decision + Problem 面板 + Build 预算 | R-DOCS-12.3–12.8 |
+| 代码归属 + 审阅提示 | 状态栏 Layer Walk + orphan hook + Sub-Agent 未审阅文档通知 | R-DOCS-10.5 / R-DOCS-11.5–11.6 |
+| Review badge + 所有权状态栏 | 审查徽章计算 + Sub-Agent 未审阅提示 + 代码层级路径状态栏 | R-DOCS-10.4–10.5 / R-DOCS-11.6 |
 | Build 限额 | 工具调用/时长上限 + Decision + Stop All + 限额显示 | R-WF-8 |
 | Autonomy Levels | Manual Build/Deploy 全工具 Decision + deny list + Full_Auto Diff 绕过 + Control Console 选择器 | R-WF-7 |
 | Build 六步流水线 | Coder/Tester/Reviewer/Committer + 3 轮测试 + Decision | R-WF-4 |
@@ -91,6 +94,8 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | R-DOCS-10.4–10.5 / R-DOCS-11.6 Review badge + 代码所有权状态栏（层级路径 + openOwningComponent + orphan hook） |
+| 2026-05-23 | R-DOCS-10.5 / R-DOCS-11.5–11.6 代码归属状态栏 + orphan hook + Sub-Agent 未审阅文档提示 |
 | 2026-05-23 | R-DOCS-12.3–12.8 Agent 一致性检查（Reviewer/Architect 刷新队列、verdict、Decision、Problem 面板、Build 预算 50） |
 | 2026-05-23 | R-DOCS-12/13 Layer Consistency + Drift（静态诊断、队列、持久化、Console/状态栏、Committer/Background 触发） |
 | 2026-05-23 | F5 验收脚本 + Control Console 构建链 + 冒烟清单（verify:f5） |

@@ -50,6 +50,11 @@
         "category": "Copilot Plus"
       },
       {
+        "command": "copilotPlus.docs.openOwningComponent",
+        "title": "Copilot Plus: Open Owning Component Doc",
+        "category": "Copilot Plus"
+      },
+      {
         "command": "copilotPlus.docs.runConsistencyCheck",
         "title": "Copilot Plus: Run Consistency Check",
         "category": "Copilot Plus"

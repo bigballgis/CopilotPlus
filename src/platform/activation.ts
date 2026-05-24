@@ -13,6 +13,7 @@ import {
   registerDecisionCenterCommands,
 } from '../interaction/decisionStatusBar';
 import { DriftStatusBar } from '../interaction/driftStatusBar';
+import { CodeOwnershipStatusBar } from '../interaction/codeOwnershipStatusBar';
 import { getTabWorkspace, openWorkspace } from '../interaction/workspace';
 import { registerTabCompletion } from '../editing/tabCompletion';
 import { registerTabCompletionPrefetch } from '../editing/tabCompletionPrefetch';
@@ -55,6 +56,7 @@ export async function activatePlatform(context: vscode.ExtensionContext): Promis
     registrations.push(...registerDecisionCenterCommands(app.decisions));
     const statusBar = new DecisionStatusBar(app.decisions);
     const driftStatusBar = new DriftStatusBar(app.drift);
+    new CodeOwnershipStatusBar(app, context);
     context.subscriptions.push({ dispose: () => statusBar.dispose() });
     context.subscriptions.push({ dispose: () => driftStatusBar.dispose() });
     context.subscriptions.push(

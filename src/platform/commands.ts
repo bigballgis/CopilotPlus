@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import type { AppServices } from '../app/appServices';
 import { openWorkspace, getTabWorkspace } from '../interaction/workspace';
+import { resolveCodeLayerPath } from '../docs/codeLayerPath';
 import { runCli, getCliOutputChannel } from '../cli/cliRunner';
 import { t } from './l10n';
 
@@ -80,7 +81,7 @@ export function registerCommands(
       return;
     }
     const rel = vscode.workspace.asRelativePath(editor.document.uri).replace(/\\/g, '/');
-    await app.drift.runConsistencyCheck(false);
+    await app.drift.runConsistencyCheck(false, { skipAgent: true });
     const orphan = app.drift.getItems().find((item) => item.type === 'Orphan_Code' && item.target === rel);
     if (orphan) {
       await app.drift.resolveItem(orphan.id);
@@ -90,6 +91,17 @@ export function registerCommands(
   });
   register('copilotPlus.docs.runConsistencyCheck', () => app.drift.runConsistencyCheck());
   register('copilotPlus.docs.openDriftView', () => app.drift.openDriftView());
+  register('copilotPlus.docs.openOwningComponent', async () => {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      return;
+    }
+    const rel = vscode.workspace.asRelativePath(editor.document.uri).replace(/\\/g, '/');
+    const layerPath = resolveCodeLayerPath(rel, app.docs.getEntries());
+    if (layerPath.component?.path) {
+      await app.docs.openInEditor(layerPath.component.path);
+    }
+  });
 
   register('copilotPlus.skills.create', async () => {
     const id = await vscode.window.showInputBox({

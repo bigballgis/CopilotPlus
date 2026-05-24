@@ -11,6 +11,7 @@ import {
   type DocLevel,
 } from './frontmatter';
 import { composeDocument, defaultBody, normalizeFrontmatter, serializeFrontmatter } from './frontmatterSerialize';
+import { computeReviewBadge, type ReviewBadge } from './reviewBadge';
 import { docsRoot, parseDocRelativePath, pathForDoc, systemDocPath } from './paths';
 import type { DiffReviewService } from '../editing/diffReview';
 
@@ -281,19 +282,8 @@ export class DocumentTreeService {
     });
   }
 
-  reviewBadge(entry: DocEntry): 'green' | 'yellow' | 'red' {
-    const reviewed = entry.frontmatter.human_reviewed_at;
-    if (!reviewed) {
-      return entry.frontmatter.level === 'system' || entry.frontmatter.level === 'module' ? 'red' : 'yellow';
-    }
-    const ageDays = (Date.now() - new Date(reviewed).getTime()) / 86_400_000;
-    if (ageDays <= 30) {
-      return 'green';
-    }
-    if (ageDays <= 90) {
-      return 'yellow';
-    }
-    return 'red';
+  reviewBadge(entry: DocEntry): ReviewBadge {
+    return computeReviewBadge(entry);
   }
 
   async archiveDocument(relativePath: string): Promise<string> {

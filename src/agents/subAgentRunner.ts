@@ -15,6 +15,7 @@ import {
   resolveDriftAgentRole,
   resolveDriftScopeDoc,
 } from '../docs/driftResolution';
+import { formatUnreviewedDocNotice } from '../docs/reviewBadge';
 import {
   buildComponentConsistencyPrompt,
   buildUpwardConsistencyPrompt,
@@ -1051,6 +1052,8 @@ ${layerBlock || '(empty)'}
 ## Project memory
 ${knowledgeBlock || '(none)'}
 
+${formatUnreviewedDocNotice(entries)}
+
 Apply doc_write or write_file for proposed fixes. Summarize what you changed when done.
 `.trim();
   }
@@ -1080,6 +1083,8 @@ ${scopeBlock || '(empty)'}
 
 ## Layer walk
 ${layerBlock || '(empty)'}
+
+${formatUnreviewedDocNotice(entries)}
 
 Return the JSON verdict object described above. Do not modify files.
 `.trim();
@@ -1126,6 +1131,8 @@ ${layerBlock || '(empty)'}
 
 ## Project memory
 ${knowledgeBlock || '(none)'}
+
+${formatUnreviewedDocNotice(entries)}
 
 ## Task inputs
 ${JSON.stringify(task.inputs, null, 2)}

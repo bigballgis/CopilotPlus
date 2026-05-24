@@ -41,6 +41,7 @@ export class DriftService {
   private readonly buildAgentBudget = new Map<string, number>();
   private deferredComponentIds: string[] = [];
   private readonly snoozedDocUpdates = new Set<string>();
+  private lastOrphanFiles = new Set<string>();
 
   constructor(private readonly app: AppServices) {}
 
@@ -104,6 +105,7 @@ export class DriftService {
     this.items = dedupeDriftItems(
       scanned.filter((item) => !this.isDismissed(item, dismissedKeys))
     );
+    await this.emitNewOrphanHooks(this.items);
     await this.saveState();
     this.onChangeEmitter.fire();
     if (notify) {
@@ -542,6 +544,16 @@ export class DriftService {
 
   private isDismissed(item: DriftItem, dismissedKeys: Set<string>): boolean {
     return dismissedKeys.has(item.id) || dismissedKeys.has(item.target);
+  }
+
+  private async emitNewOrphanHooks(items: DriftItem[]): Promise<void> {
+    const orphans = items.filter((item) => item.type === 'Orphan_Code').map((item) => item.target);
+    for (const file of orphans) {
+      if (!this.lastOrphanFiles.has(file)) {
+        await this.app.hooks.fire('code.orphan.detected', { file });
+      }
+    }
+    this.lastOrphanFiles = new Set(orphans);
   }
 
   private async loadState(): Promise<void> {
