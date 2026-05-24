@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { VSCodeButton, VSCodeTextArea } from '@vscode/webview-ui-toolkit/react';
+import { VSCodeButton, VSCodeDropdown, VSCodeOption, VSCodeTextArea } from '@vscode/webview-ui-toolkit/react';
 import type {
-  DocTreeNodeWire,
   TabId,
   TabWorkspaceHostMessage,
   TabWorkspaceLabels,
@@ -9,10 +8,14 @@ import type {
 } from '@shared/tabWorkspaceWebviewProtocol';
 import { TAB_IDS } from '@shared/tabWorkspaceWebviewProtocol';
 import { ActionBar } from '@ui/components/ActionBar';
+import { ArchitectureDiagram } from '@ui/components/ArchitectureDiagram';
 import { Icon } from '@ui/components/Icon';
 import { PanelShell } from '@ui/components/PanelShell';
+import { RequirementPreviewPanel } from '@ui/components/RequirementPreviewPanel';
 import { StatusChip } from '@ui/components/StatusChip';
 import { TabStrip } from '@ui/components/TabStrip';
+import { TaskDagView } from '@ui/components/TaskDagView';
+import { formatElapsedMs } from '../shared/formatElapsed';
 import { postToHost } from '../shared/vscode';
 
 const DEFAULT_LABELS: TabWorkspaceLabels = {
@@ -26,6 +29,10 @@ const DEFAULT_LABELS: TabWorkspaceLabels = {
   newBuild: 'New Build',
   startBuild: 'Start Build',
   stop: 'Stop',
+  stopAll: 'Stop All',
+  buildLimits: 'Tool calls: {0}/{1} · Elapsed: {2}s / {3}s',
+  workPath: 'Work path',
+  fallbackNotice: 'Isolation fallback',
   rollback: 'Rollback',
   noTasks: 'No tasks yet.',
   composerTitle: 'Composer (multi-file)',
@@ -46,22 +53,57 @@ const DEFAULT_LABELS: TabWorkspaceLabels = {
   manualCommands: 'Manual commands:',
   ready: 'Ready.',
   noDeployRuns: 'No deploy runs yet.',
+  taskDagTitle: 'Task DAG',
+  taskListTitle: 'Tasks',
+  architectureDiagram: 'Architecture diagram',
+  zoomIn: 'Zoom in',
+  zoomOut: 'Zoom out',
+  fitView: 'Fit view',
+  requirementTree: 'Document tree',
+  requirementPreview: 'Preview',
+  editDoc: 'Edit',
+  selectDocHint: 'Select a document to preview.',
+  lateralEdge: 'Lateral link',
+  hierarchicalEdge: 'Hierarchy',
+  columnId: 'Id',
+  columnTitle: 'Title',
+  columnAgent: 'Agent',
+  columnStatus: 'Status',
+  columnActions: 'Actions',
+  columnElapsed: 'Elapsed',
+  pause: 'Pause',
+  resume: 'Resume',
+  skip: 'Skip',
+  retry: 'Retry',
+  viewLogs: 'View logs',
+  taskLogTitle: 'Task transcript',
+  closeLog: 'Close log',
+  noTaskLog: 'No transcript recorded for this task yet.',
+  openDoc: 'Open',
+  selectModel: 'Model',
+  selectModelAria: 'Select Copilot model',
+  noModelsAvailable: 'No Copilot models are available.',
 };
 
 const EMPTY_SYNC: TabWorkspaceStateSync = {
   type: 'stateSync',
   activeTab: 'requirement',
   labels: DEFAULT_LABELS,
+  models: [],
+  selectedModelId: '',
+  modelsAvailable: false,
+  modelUnavailableNotice: DEFAULT_LABELS.noModelsAvailable,
   task: {
     buildId: '(none)',
     status: 'Idle',
     lastMessage: '',
     runningTaskIds: [],
     tasks: [],
+    edges: [],
     composer: { goal: '', attachedFiles: [], status: 'idle', messages: [] },
   },
-  architecture: { heading: 'Architecture', docCount: 0, tree: [], emptyText: 'No docs' },
-  requirement: { heading: 'Requirement', docCount: 0, tree: [], emptyText: 'No docs' },
+  architecture: { heading: 'Architecture', docCount: 0, tree: [], diagramEdges: [], emptyText: 'No docs' },
+  requirement: { heading: 'Requirement', docCount: 0, tree: [], diagramEdges: [], emptyText: 'No docs' },
   commitPlaceholder: DEFAULT_LABELS.commitPlaceholder,
   deploy: {
     target: 'Local',
@@ -89,46 +131,15 @@ function tabLabel(labels: TabWorkspaceLabels, id: TabId): string {
   }
 }
 
-function ReviewBadge({ badge }: { badge?: 'green' | 'yellow' | 'red' }): JSX.Element | null {
-  if (!badge) {
-    return null;
-  }
-  return <span className={`review-${badge}`}> ●</span>;
-}
-
-function DocTree({ nodes, depth = 0 }: { nodes: DocTreeNodeWire[]; depth?: number }): JSX.Element {
-  return (
-    <>
-      {nodes.map((node) => (
-        <div key={node.path} className="doc-tree-node" style={{ marginLeft: depth * 12 }}>
-          <VSCodeButton appearance="secondary" aria-label={node.title} onClick={() => postToHost({ type: 'openDoc', path: node.path })}>
-            <Icon name="file" />
-            {node.title}
-          </VSCodeButton>
-          <ReviewBadge badge={node.reviewBadge} />
-          <span className="cp-meta"> ({node.level})</span>
-          <DocTree nodes={node.children} depth={depth + 1} />
-        </div>
-      ))}
-    </>
-  );
-}
-
-function DocPanel({ panel }: { panel: TabWorkspaceStateSync['architecture'] }): JSX.Element {
-  if (panel.docCount === 0) {
-    return <p className="cp-meta">{panel.emptyText}</p>;
-  }
-  return (
-    <>
-      <p className="cp-meta">
-        {panel.heading} ({panel.docCount} docs)
-      </p>
-      <DocTree nodes={panel.tree} />
-    </>
-  );
-}
-
-function TaskPanel({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
+function TaskPanel({
+  state,
+  taskLog,
+  onCloseLog,
+}: {
+  state: TabWorkspaceStateSync;
+  taskLog?: { taskId: string; content: string };
+  onCloseLog: () => void;
+}): JSX.Element {
   const { labels, task } = state;
   const [goal, setGoal] = useState(task.composer.goal);
 
@@ -141,10 +152,26 @@ function TaskPanel({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
       <div className="cp-status-row">
         <StatusChip label="Build" value={task.buildId} />
         <StatusChip label="Status" value={task.status} />
+        <StatusChip label={labels.workPath} value={task.workPath ?? 'inline'} />
       </div>
+      {task.fallbackNotice ? (
+        <p className="cp-meta">
+          {labels.fallbackNotice}: {task.fallbackNotice}
+        </p>
+      ) : null}
       {task.lastMessage ? <p className="cp-meta">{task.lastMessage}</p> : null}
       {task.runningTaskIds.length > 0 ? (
         <p className="cp-meta">Running: {task.runningTaskIds.join(', ')}</p>
+      ) : null}
+
+      {task.limits ? (
+        <p className="cp-meta">
+          {labels.buildLimits
+            .replace('{0}', String(task.limits.toolCallCount))
+            .replace('{1}', String(task.limits.maxToolCalls))
+            .replace('{2}', String(task.limits.elapsedSec))
+            .replace('{3}', String(task.limits.maxDurationSec))}
+        </p>
       ) : null}
 
       <ActionBar>
@@ -156,8 +183,12 @@ function TaskPanel({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
           <Icon name="play" />
           {labels.startBuild}
         </VSCodeButton>
-        <VSCodeButton appearance="secondary" aria-label={labels.stop} onClick={() => postToHost({ type: 'buildAction', action: 'stop' })}>
-          {labels.stop}
+        <VSCodeButton
+          appearance="secondary"
+          aria-label={labels.stopAll}
+          onClick={() => postToHost({ type: 'buildAction', action: 'stopAll' })}
+        >
+          {labels.stopAll}
         </VSCodeButton>
       </ActionBar>
 
@@ -220,39 +251,123 @@ function TaskPanel({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
         <pre className="cp-log">{task.composer.messages.join('\n') || labels.composerTranscript}</pre>
       </div>
 
+      {task.validationErrors.length > 0 ? (
+        <ul className="cp-validation-list">
+          {task.validationErrors.map((error, index) => (
+            <li key={`${error.taskId ?? 'dag'}-${index}`} className="cp-meta">
+              {error.taskId ? `${error.taskId}: ` : ''}
+              {error.message}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {taskLog ? (
+        <div className="cp-task-log">
+          <div className="cp-task-log-header">
+            <h4 className="cp-viz-title">
+              {labels.taskLogTitle} — {taskLog.taskId}
+            </h4>
+            <VSCodeButton appearance="secondary" aria-label={labels.closeLog} onClick={onCloseLog}>
+              {labels.closeLog}
+            </VSCodeButton>
+          </div>
+          <pre className="cp-log cp-task-log-body">
+            {taskLog.content.trim() || labels.noTaskLog}
+          </pre>
+        </div>
+      ) : null}
+
+      <TaskDagView
+        title={labels.taskDagTitle}
+        tasks={task.tasks}
+        edges={task.edges}
+        runningTaskIds={task.runningTaskIds}
+      />
+
       {task.tasks.length > 0 ? (
-        <table className="cp-table">
-          <thead>
-            <tr>
-              <th>Id</th>
-              <th>Title</th>
-              <th>Agent</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {task.tasks.map((row) => (
-              <tr key={row.id}>
-                <td>{row.id}</td>
-                <td>{row.title}</td>
-                <td>{row.agent}</td>
-                <td>{row.status}</td>
-                <td>
-                  {row.canRollback ? (
-                    <VSCodeButton
-                      appearance="secondary"
-                      aria-label={`${labels.rollback} ${row.id}`}
-                      onClick={() => postToHost({ type: 'buildAction', action: 'rollback', taskId: row.id })}
-                    >
-                      {labels.rollback}
-                    </VSCodeButton>
-                  ) : null}
-                </td>
+        <>
+          <h4 className="cp-viz-title">{labels.taskListTitle}</h4>
+          <table className="cp-table">
+            <thead>
+              <tr>
+                <th>{labels.columnId}</th>
+                <th>{labels.columnTitle}</th>
+                <th>{labels.columnAgent}</th>
+                <th>{labels.columnStatus}</th>
+                <th>{labels.columnElapsed}</th>
+                <th>{labels.columnActions}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {task.tasks.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.id}</td>
+                  <td>{row.title}</td>
+                  <td>{row.agent}</td>
+                  <td>{row.status}</td>
+                  <td>{formatElapsedMs(row.elapsedMs)}</td>
+                  <td>
+                    <ActionBar className="cp-task-actions">
+                      {row.canPause ? (
+                        <VSCodeButton
+                          appearance="secondary"
+                          aria-label={`${labels.pause} ${row.id}`}
+                          onClick={() => postToHost({ type: 'buildAction', action: 'pause', taskId: row.id })}
+                        >
+                          {labels.pause}
+                        </VSCodeButton>
+                      ) : null}
+                      {row.canResume ? (
+                        <VSCodeButton
+                          aria-label={`${labels.resume} ${row.id}`}
+                          onClick={() => postToHost({ type: 'buildAction', action: 'resume', taskId: row.id })}
+                        >
+                          {labels.resume}
+                        </VSCodeButton>
+                      ) : null}
+                      {row.canSkip ? (
+                        <VSCodeButton
+                          appearance="secondary"
+                          aria-label={`${labels.skip} ${row.id}`}
+                          onClick={() => postToHost({ type: 'buildAction', action: 'skip', taskId: row.id })}
+                        >
+                          {labels.skip}
+                        </VSCodeButton>
+                      ) : null}
+                      {row.canRetry ? (
+                        <VSCodeButton
+                          aria-label={`${labels.retry} ${row.id}`}
+                          onClick={() => postToHost({ type: 'buildAction', action: 'retry', taskId: row.id })}
+                        >
+                          {labels.retry}
+                        </VSCodeButton>
+                      ) : null}
+                      {row.hasLogs ? (
+                        <VSCodeButton
+                          appearance="secondary"
+                          aria-label={`${labels.viewLogs} ${row.id}`}
+                          onClick={() => postToHost({ type: 'buildAction', action: 'viewLogs', taskId: row.id })}
+                        >
+                          {labels.viewLogs}
+                        </VSCodeButton>
+                      ) : null}
+                      {row.canRollback ? (
+                        <VSCodeButton
+                          appearance="secondary"
+                          aria-label={`${labels.rollback} ${row.id}`}
+                          onClick={() => postToHost({ type: 'buildAction', action: 'rollback', taskId: row.id })}
+                        >
+                          {labels.rollback}
+                        </VSCodeButton>
+                      ) : null}
+                    </ActionBar>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
       ) : (
         <p className="cp-meta">{labels.noTasks}</p>
       )}
@@ -326,14 +441,50 @@ function DeployPanel({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
   );
 }
 
-function PanelBody({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
+function PanelBody({
+  state,
+  selectedDocPath,
+  docPreview,
+  onSelectDoc,
+  taskLog,
+  onCloseTaskLog,
+}: {
+  state: TabWorkspaceStateSync;
+  selectedDocPath?: string;
+  docPreview?: { path: string; title: string; markdown: string };
+  onSelectDoc: (path: string) => void;
+  taskLog?: { taskId: string; content: string };
+  onCloseTaskLog: () => void;
+}): JSX.Element {
   switch (state.activeTab) {
     case 'task':
-      return <TaskPanel state={state} />;
+      return <TaskPanel state={state} taskLog={taskLog} onCloseLog={onCloseTaskLog} />;
     case 'architecture':
-      return <DocPanel panel={state.architecture} />;
+      return state.architecture.docCount === 0 ? (
+        <p className="cp-meta">{state.architecture.emptyText}</p>
+      ) : (
+        <>
+          <p className="cp-meta">
+            {state.architecture.heading} ({state.architecture.docCount} docs)
+          </p>
+          <ArchitectureDiagram
+            labels={state.labels}
+            tree={state.architecture.tree}
+            edges={state.architecture.diagramEdges}
+          />
+        </>
+      );
     case 'requirement':
-      return <DocPanel panel={state.requirement} />;
+      return (
+        <RequirementPreviewPanel
+          labels={state.labels}
+          panel={state.requirement}
+          selectedPath={selectedDocPath}
+          previewTitle={docPreview?.title}
+          previewMarkdown={docPreview?.markdown}
+          onSelectDoc={onSelectDoc}
+        />
+      );
     case 'commit':
       return <p className="cp-meta">{state.commitPlaceholder}</p>;
     case 'deploy':
@@ -343,12 +494,33 @@ function PanelBody({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
 
 export function App(): JSX.Element {
   const [state, setState] = useState<TabWorkspaceStateSync>(EMPTY_SYNC);
+  const [selectedDocPath, setSelectedDocPath] = useState<string | undefined>();
+  const [docPreview, setDocPreview] = useState<{ path: string; title: string; markdown: string } | undefined>();
+  const [taskLog, setTaskLog] = useState<{ taskId: string; content: string } | undefined>();
+
+  const handleSelectDoc = (path: string) => {
+    setSelectedDocPath(path);
+    postToHost({ type: 'selectDoc', path });
+  };
 
   useEffect(() => {
     postToHost({ type: 'ready' });
     const onMessage = (event: MessageEvent<TabWorkspaceHostMessage>) => {
       if (event.data?.type === 'stateSync') {
         setState(event.data);
+        return;
+      }
+      if (event.data?.type === 'docPreview') {
+        setSelectedDocPath(event.data.path);
+        setDocPreview({
+          path: event.data.path,
+          title: event.data.title,
+          markdown: event.data.markdown,
+        });
+        return;
+      }
+      if (event.data?.type === 'taskLog') {
+        setTaskLog({ taskId: event.data.taskId, content: event.data.content });
       }
     };
     window.addEventListener('message', onMessage);
@@ -360,6 +532,34 @@ export function App(): JSX.Element {
 
   return (
     <div className="cp-root">
+      <div className="cp-header">
+        <span className="cp-header-title">Tab Workspace</span>
+        <div className="cp-status-row">
+          <label className="cp-console-row">
+            {labels.selectModel}
+            <VSCodeDropdown
+              aria-label={labels.selectModelAria}
+              value={state.selectedModelId}
+              disabled={!state.modelsAvailable}
+              onChange={(e) => {
+                const target = e.target as HTMLSelectElement;
+                if (target.value) {
+                  postToHost({ type: 'selectModel', modelId: target.value });
+                }
+              }}
+            >
+              {state.models.map((option) => (
+                <VSCodeOption key={option.id} value={option.id}>
+                  {option.name}
+                </VSCodeOption>
+              ))}
+            </VSCodeDropdown>
+          </label>
+        </div>
+        {state.modelUnavailableNotice ? (
+          <span className="cp-status-note">{state.modelUnavailableNotice}</span>
+        ) : null}
+      </div>
       <TabStrip
         items={tabItems}
         activeId={state.activeTab}
@@ -369,7 +569,14 @@ export function App(): JSX.Element {
         onSelect={(tab) => postToHost({ type: 'selectTab', tab })}
       />
       <PanelShell title={`${tabLabel(labels, state.activeTab)} Panel`} className="tab-panel-body">
-        <PanelBody state={state} />
+        <PanelBody
+          state={state}
+          selectedDocPath={selectedDocPath}
+          docPreview={docPreview}
+          onSelectDoc={handleSelectDoc}
+          taskLog={taskLog}
+          onCloseTaskLog={() => setTaskLog(undefined)}
+        />
       </PanelShell>
     </div>
   );

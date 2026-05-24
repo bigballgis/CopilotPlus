@@ -16,5 +16,5 @@
       "@ui/*": ["./src/shared/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "../src/shared/conversationWebviewProtocol.ts", "../src/shared/tabWorkspaceWebviewProtocol.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "../src/shared/conversationWebviewProtocol.ts", "../src/shared/tabWorkspaceWebviewProtocol.ts", "../src/shared/controlConsoleWebviewProtocol.ts"]
 }

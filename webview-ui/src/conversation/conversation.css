@@ -12,3 +12,34 @@
 .conversation-composer vscode-text-area {
   width: 100%;
 }
+
+.cp-design-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.cp-design-step-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.cp-design-step-picker-label {
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.cp-design-step-picker vscode-dropdown {
+  min-width: 220px;
+}
+
+.cp-design-bar-hint {
+  margin: 0;
+  font-size: 11px;
+  opacity: 0.8;
+  color: var(--vscode-inputValidation-warningForeground, var(--vscode-foreground));
+}

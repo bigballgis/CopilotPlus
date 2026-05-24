@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { VSCodeButton, VSCodeTextArea } from '@vscode/webview-ui-toolkit/react';
+import { VSCodeButton, VSCodeDropdown, VSCodeOption, VSCodeTextArea } from '@vscode/webview-ui-toolkit/react';
 import type {
   ConversationHostMessage,
   ConversationLabels,
   ConversationStateSync,
+  DesignStepOptionWire,
   MentionAttachmentWire,
 } from '@shared/conversationWebviewProtocol';
 import { ActionBar } from '@ui/components/ActionBar';
+import { DesignStepBar } from '@ui/components/DesignStepBar';
 import { Icon } from '@ui/components/Icon';
 import { MessageBubble } from '@ui/components/MessageBubble';
 import { StatusChip } from '@ui/components/StatusChip';
@@ -48,6 +50,12 @@ const DEFAULT_LABELS: ConversationLabels = {
   continueAria: 'Advance to the next design step',
   pickStepLabel: 'Steps',
   pickStepAria: 'Pick a design workflow step',
+  pickStepPlaceHolder: 'Select a design workflow step',
+  stepComplete: 'Complete',
+  stepCurrent: 'Current step',
+  selectModel: 'Model',
+  selectModelAria: 'Select Copilot model',
+  noModelsAvailable: 'No Copilot models are available.',
 };
 
 function roleLabel(prefix: string): string {
@@ -59,10 +67,20 @@ export function App(): JSX.Element {
   const [stage, setStage] = useState('Design');
   const [readOnly, setReadOnly] = useState(false);
   const [readOnlyBanner, setReadOnlyBanner] = useState<string | undefined>();
-  const [model, setModel] = useState('none');
+  const [models, setModels] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedModelId, setSelectedModelId] = useState('');
+  const [modelsAvailable, setModelsAvailable] = useState(true);
+  const [modelUnavailableNotice, setModelUnavailableNotice] = useState<string | undefined>();
   const [designStep, setDesignStep] = useState('');
+  const [designSteps, setDesignSteps] = useState<DesignStepOptionWire[]>([]);
+  const [designCanContinue, setDesignCanContinue] = useState(false);
+  const [designContinueBlockedReason, setDesignContinueBlockedReason] = useState<string | undefined>();
+  const [designIsFinalStep, setDesignIsFinalStep] = useState(false);
   const [designStatus, setDesignStatus] = useState('');
   const [tokens, setTokens] = useState(0);
+  const [tokenCap, setTokenCap] = useState(0);
+  const [contextTier, setContextTier] = useState('S');
+  const [contextDropNotice, setContextDropNotice] = useState<string | undefined>();
   const [lines, setLines] = useState<ChatLine[]>([]);
   const [attachments, setAttachments] = useState<MentionAttachmentWire[]>([]);
   const [input, setInput] = useState('');
@@ -88,9 +106,18 @@ export function App(): JSX.Element {
     setStage(msg.stage);
     setReadOnly(msg.readOnly);
     setReadOnlyBanner(msg.readOnlyBanner);
-    setModel(msg.model);
+    setModels(msg.models);
+    setSelectedModelId(msg.selectedModelId);
+    setModelsAvailable(msg.modelsAvailable);
+    setModelUnavailableNotice(msg.modelUnavailableNotice);
     setDesignStep(msg.designStep);
+    setDesignSteps(msg.designSteps);
+    setDesignCanContinue(msg.designCanContinue);
+    setDesignContinueBlockedReason(msg.designContinueBlockedReason);
+    setDesignIsFinalStep(msg.designIsFinalStep);
     setTokens(msg.tokens);
+    setTokenCap(msg.tokenCap);
+    setContextTier(msg.contextTier);
     setLabels(msg.labels);
     setDesignStatus('');
     if (msg.resetMessages) {
@@ -117,6 +144,8 @@ export function App(): JSX.Element {
       }
 
       if (msg.type === 'userMessage') {
+        setInput('');
+        setAttachments([]);
         setLines((prev) => [
           ...prev,
           {
@@ -150,6 +179,12 @@ export function App(): JSX.Element {
       if (msg.type === 'streamStart') {
         setStreaming(true);
         setStreamText('');
+        setContextDropNotice(undefined);
+        return;
+      }
+
+      if (msg.type === 'contextDropped') {
+        setContextDropNotice(msg.notice);
         return;
       }
 
@@ -193,6 +228,7 @@ export function App(): JSX.Element {
         setStreaming(false);
         setStreamText('');
         announce(labelsRef.current.streamError.replace('{msg}', msg.message || ''));
+        return;
       }
     };
 
@@ -220,8 +256,6 @@ export function App(): JSX.Element {
       return;
     }
     const sentAttachments = attachments.slice();
-    setInput('');
-    setAttachments([]);
     setStreaming(true);
     postToHost({ type: 'submit', text, attachments: sentAttachments });
   };
@@ -249,13 +283,48 @@ export function App(): JSX.Element {
       <header className="cp-header">
         <span className="cp-header-title">Copilot Plus</span>
         <div className="cp-status-row">
-          <StatusChip label="Model" value={model} />
+          <label className="cp-console-row">
+            {labels.selectModel}
+            <VSCodeDropdown
+              aria-label={labels.selectModelAria}
+              value={selectedModelId}
+              disabled={!modelsAvailable || streaming}
+              onChange={(e) => {
+                const target = e.target as HTMLSelectElement;
+                if (target.value) {
+                  postToHost({ type: 'selectModel', modelId: target.value });
+                }
+              }}
+            >
+              {models.map((option) => (
+                <VSCodeOption key={option.id} value={option.id}>
+                  {option.name}
+                </VSCodeOption>
+              ))}
+            </VSCodeDropdown>
+          </label>
           <StatusChip label="Stage" value={stage} />
           <StatusChip label={labels.designStepLabel} value={designStep || '—'} />
-          <StatusChip label="Tokens" value={String(tokens)} />
+          <StatusChip label="Tier" value={contextTier} />
+          <StatusChip label="Tokens" value={tokenCap ? `${tokens}/${tokenCap}` : String(tokens)} />
         </div>
+        {modelUnavailableNotice ? <span className="cp-status-note">{modelUnavailableNotice}</span> : null}
+        {contextDropNotice ? <span className="cp-status-note">{contextDropNotice}</span> : null}
         {designStatus ? <span className="cp-status-note">{designStatus}</span> : null}
       </header>
+
+      {stage === 'Design' && !readOnly ? (
+        <DesignStepBar
+          labels={labels}
+          steps={designSteps}
+          canContinue={designCanContinue}
+          continueBlockedReason={designContinueBlockedReason}
+          isFinalStep={designIsFinalStep}
+          disabled={streaming}
+          onContinue={() => postToHost({ type: 'continueDesign' })}
+          onPickStep={(step) => postToHost({ type: 'pickDesignStep', step })}
+        />
+      ) : null}
 
       <div
         ref={a11yRef}
@@ -327,7 +396,7 @@ export function App(): JSX.Element {
         />
 
         <ActionBar>
-          <VSCodeButton disabled={readOnly || streaming} aria-label={labels.sendAria} onClick={handleSend}>
+          <VSCodeButton disabled={readOnly || streaming || !modelsAvailable} aria-label={labels.sendAria} onClick={handleSend}>
             <Icon name="send" />
             {labels.send}
           </VSCodeButton>

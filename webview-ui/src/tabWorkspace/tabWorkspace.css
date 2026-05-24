@@ -9,6 +9,181 @@
   margin: 8px 0;
 }
 
+.cp-viz-panel {
+  margin: 12px 0;
+}
+
+.cp-viz-title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+.cp-viz-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cp-viz-scroll {
+  overflow: auto;
+  max-height: 320px;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  background: var(--vscode-editor-background);
+  padding: 4px;
+}
+
+.cp-viz-scale {
+  transform-origin: top left;
+}
+
+.cp-dag-svg,
+.cp-arch-svg {
+  display: block;
+}
+
+.cp-dag-edge {
+  stroke: var(--vscode-focusBorder);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.cp-dag-arrowhead {
+  fill: var(--vscode-focusBorder);
+}
+
+.cp-dag-node {
+  fill: var(--vscode-input-background);
+  stroke: var(--vscode-panel-border);
+  stroke-width: 1;
+}
+
+.cp-dag-node--running,
+.cp-dag-node--active {
+  stroke: var(--vscode-focusBorder);
+  stroke-width: 2;
+}
+
+.cp-dag-node--done {
+  stroke: #3fb950;
+}
+
+.cp-dag-node--failed {
+  stroke: var(--vscode-errorForeground);
+}
+
+.cp-dag-node--blocked {
+  stroke: #d29922;
+}
+
+.cp-dag-node-id,
+.cp-dag-node-title,
+.cp-dag-node-status {
+  font-size: 10px;
+  fill: var(--vscode-foreground);
+}
+
+.cp-dag-node-title {
+  font-size: 9px;
+  opacity: 0.85;
+}
+
+.cp-arch-edge {
+  stroke: var(--vscode-panel-border);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.cp-arch-edge--lateral {
+  stroke: #d29922;
+  stroke-dasharray: 4 3;
+}
+
+.cp-arch-node {
+  fill: var(--vscode-input-background);
+  stroke: var(--vscode-panel-border);
+  cursor: pointer;
+}
+
+.cp-arch-node-group:focus-visible .cp-arch-node {
+  stroke: var(--vscode-focusBorder);
+  stroke-width: 2;
+}
+
+.cp-arch-node-title,
+.cp-arch-node-level {
+  font-size: 10px;
+  fill: var(--vscode-foreground);
+  pointer-events: none;
+}
+
+.cp-arch-node-level {
+  opacity: 0.65;
+  text-transform: uppercase;
+}
+
+.cp-legend-line--hier::before,
+.cp-legend-line--lat::before {
+  content: '—';
+  margin-right: 4px;
+}
+
+.cp-legend-line--lat::before {
+  color: #d29922;
+}
+
+.cp-req-split {
+  display: grid;
+  grid-template-columns: minmax(160px, 34%) 1fr;
+  gap: 12px;
+  min-height: 280px;
+}
+
+.cp-req-tree,
+.cp-req-preview {
+  min-height: 0;
+}
+
+.cp-req-preview-body {
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 10px;
+  background: var(--vscode-editor-background);
+}
+
+.cp-doc-tree-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  padding: 4px 8px;
+  margin-bottom: 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.cp-doc-tree-item--selected {
+  background: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+}
+
+.cp-doc-tree-item:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+
 .doc-tree-node {
   margin-bottom: 6px;
 }
@@ -31,4 +206,39 @@
 .composer-error {
   color: var(--vscode-errorForeground);
   font-size: 12px;
+}
+
+.cp-validation-list {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--vscode-errorForeground);
+}
+
+.cp-task-actions {
+  flex-wrap: nowrap;
+}
+
+.cp-task-actions vscode-button {
+  font-size: 11px;
+}
+
+.cp-task-log {
+  margin: 8px 0;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.cp-task-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.cp-task-log-body {
+  max-height: 220px;
+  margin: 0;
 }

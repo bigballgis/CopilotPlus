@@ -1,0 +1,76 @@
+.cp-console-root {
+  gap: 6px;
+}
+
+.cp-console-section {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+}
+
+.cp-console-section__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.cp-console-section__toggle:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.cp-console-section__title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+.cp-console-section__body {
+  padding: 0 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cp-console-row {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.cp-console-error {
+  color: var(--vscode-errorForeground);
+  font-size: 12px;
+}
+
+.cp-console-list-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.cp-console-subheading {
+  margin: 6px 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.cp-console-reflection {
+  font-size: 11px;
+  opacity: 0.9;
+  margin-bottom: 4px;
+}
