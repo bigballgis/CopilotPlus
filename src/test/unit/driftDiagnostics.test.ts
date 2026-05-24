@@ -34,6 +34,28 @@ describe('R-DOCS-12/13 drift diagnostics', () => {
     assert.ok(items.some((item) => item.type === 'Missing_Summary'));
   });
 
+  it('flags summary shorter than 100 characters', () => {
+    const items = scanDriftDiagnostics(
+      [
+        entry({
+          relativePath: '.copilotPlus/docs/module/b.md',
+          frontmatter: {
+            id: 'mod-b',
+            level: 'module',
+            title: 'B',
+            parent: 'system',
+            children: [],
+          },
+          body: '## Summary\nToo short.',
+        }),
+      ],
+      [],
+      new Set()
+    );
+    const missing = items.find((item) => item.type === 'Missing_Summary');
+    assert.ok(missing?.detail?.includes('100'));
+  });
+
   it('detects dangling parent links', () => {
     const items = scanDriftDiagnostics(
       [
@@ -46,7 +68,7 @@ describe('R-DOCS-12/13 drift diagnostics', () => {
             parent: 'missing-parent',
             children: [],
           },
-          body: '## Summary\nShort summary for the feature document.',
+          body: `## Summary\n${'Scope summary for feature X. '.repeat(6)}`,
         }),
       ],
       [],

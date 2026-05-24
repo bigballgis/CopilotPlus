@@ -121,6 +121,29 @@
   user-select: none;
 }
 
+.cp-preview-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cp-review-badge {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.review-green {
+  color: var(--vscode-testing-iconPassed, #89d185);
+}
+
+.review-yellow {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.review-red {
+  color: var(--vscode-errorForeground, #f48771);
+}
+
 .cp-doc-nav {
   margin: 0 0 10px;
 }

@@ -5,6 +5,7 @@ import * as path from 'path';
 import type { DocLevel, DocFrontmatter, LateralLink } from './frontmatter';
 import { composeDocument } from './frontmatterSerialize';
 import { findLateralDepthViolations } from './lateralDepth';
+import { collectSubtreeDocPaths } from './docLifecycle';
 import type { DocEntry } from './documentTreeService';
 import { parseDocRelativePath, pathForDoc, systemDocPath } from './paths';
 
@@ -120,24 +121,38 @@ export function patchLinksForRemovedId(
   entries: DocEntry[],
   removedId: string
 ): Array<{ relativePath: string; frontmatter: DocFrontmatter; body: string }> {
+  return patchLinksForRemovedIds(entries, new Set([removedId]));
+}
+
+export function patchLinksForRemovedIds(
+  entries: DocEntry[],
+  removedIds: Set<string>,
+  excludePaths: Set<string> = new Set()
+): Array<{ relativePath: string; frontmatter: DocFrontmatter; body: string }> {
   const updates: Array<{ relativePath: string; frontmatter: DocFrontmatter; body: string }> = [];
   for (const entry of entries) {
-    if (!entry.valid || entry.relativePath.includes('/archive/')) {
+    if (
+      !entry.valid ||
+      entry.relativePath.includes('/archive/') ||
+      excludePaths.has(entry.relativePath) ||
+      removedIds.has(entry.frontmatter.id)
+    ) {
       continue;
     }
     let changed = false;
     const fm = { ...entry.frontmatter };
 
-    if (fm.children.includes(removedId)) {
-      fm.children = fm.children.filter((id) => id !== removedId);
+    const children = fm.children.filter((id) => !removedIds.has(id));
+    if (children.length !== fm.children.length) {
+      fm.children = children;
       changed = true;
     }
-    if (fm.secondary_parents?.includes(removedId)) {
-      fm.secondary_parents = fm.secondary_parents.filter((id) => id !== removedId);
+    if (fm.secondary_parents?.some((id) => removedIds.has(id))) {
+      fm.secondary_parents = fm.secondary_parents.filter((id) => !removedIds.has(id));
       changed = true;
     }
-    if (fm.lateral?.some((link) => link.target === removedId)) {
-      fm.lateral = fm.lateral!.filter((link) => link.target !== removedId);
+    if (fm.lateral?.some((link) => removedIds.has(link.target))) {
+      fm.lateral = fm.lateral!.filter((link) => !removedIds.has(link.target));
       changed = true;
     }
     if (changed) {
@@ -172,6 +187,72 @@ export function filterLateralByDepth(
   return kept;
 }
 
+/** Map descendant paths when a root document path changes — R-DOCS-6.2 */
+export function mapSubtreePaths(
+  oldRootPath: string,
+  newRootPath: string,
+  paths: Iterable<string>
+): Map<string, string> {
+  const normOld = oldRootPath.replace(/\\/g, '/');
+  const normNew = newRootPath.replace(/\\/g, '/');
+  const oldDir = normOld.replace(/\.md$/, '/');
+  const newDir = normNew.replace(/\.md$/, '/');
+  const map = new Map<string, string>();
+  for (const raw of paths) {
+    const p = raw.replace(/\\/g, '/');
+    if (p === normOld) {
+      map.set(p, normNew);
+    } else if (p.startsWith(oldDir)) {
+      map.set(p, newDir + p.slice(oldDir.length));
+    }
+  }
+  return map;
+}
+
+function subtreePathSet(rootPath: string, entries: DocEntry[]): Set<string> {
+  return new Set(collectSubtreeDocPaths(rootPath.replace(/\\/g, '/'), entries));
+}
+
+function hasPathCollision(
+  writer: TreeOpsWriter,
+  newPaths: Iterable<string>,
+  excluding: Set<string>
+): boolean {
+  for (const np of newPaths) {
+    if (
+      writer
+        .getEntries()
+        .some((e) => e.valid && e.relativePath === np && !excluding.has(e.relativePath))
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function renameSubtreeFiles(
+  writer: TreeOpsWriter,
+  oldRootPath: string,
+  newRootPath: string,
+  entries: DocEntry[]
+): Promise<void> {
+  const normOld = oldRootPath.replace(/\\/g, '/');
+  const normNew = newRootPath.replace(/\\/g, '/');
+  if (normOld === normNew) {
+    return;
+  }
+  const descendants = collectSubtreeDocPaths(normOld, entries).filter((p) => p !== normOld);
+  const pathMap = mapSubtreePaths(normOld, normNew, descendants);
+  const sorted = [...pathMap.entries()].sort((a, b) => b[0].length - a[0].length);
+  for (const [from, to] of sorted) {
+    await writer.renameRaw(from, to);
+  }
+}
+
+function translatePatchPath(pathMap: Map<string, string>, relativePath: string): string {
+  return pathMap.get(relativePath.replace(/\\/g, '/')) ?? relativePath.replace(/\\/g, '/');
+}
+
 export interface TreeOpsWriter {
   absFromRelative(relativePath: string): string;
   getEntries(): DocEntry[];
@@ -195,19 +276,20 @@ export async function renameDocumentTree(
   }
 
   const oldId = entry.frontmatter.id;
-  if (oldId !== newId && (entry.frontmatter.children?.length ?? 0) > 0) {
-    return { ok: false, reason: 'has_children' };
-  }
 
   const newPath = pathForRenamedId(relativePath, newId);
   if (!newPath) {
     return { ok: false, reason: 'invalid_path' };
   }
-  if (writer.getEntries().some((e) => e.valid && e.relativePath === newPath && e.relativePath !== relativePath)) {
-    return { ok: false, reason: 'id_collision' };
+
+  const norm = relativePath.replace(/\\/g, '/');
+  const entries = writer.getEntries();
+  const subtree = subtreePathSet(norm, entries);
+  const pathMap = mapSubtreePaths(norm, newPath, [...subtree]);
+  if (hasPathCollision(writer, pathMap.values(), subtree)) {
+    return { ok: false, reason: 'path_collision' };
   }
 
-  const entries = writer.getEntries();
   const linkPatches = oldId !== newId ? patchLinksForIdRename(entries, oldId, newId) : [];
 
   const fm = {
@@ -217,16 +299,18 @@ export async function renameDocumentTree(
   };
   const content = composeDocument(fm, entry.body);
 
-  if (relativePath !== newPath) {
-    await writer.renameRaw(relativePath, newPath);
+  await renameSubtreeFiles(writer, norm, newPath, entries);
+  if (norm !== newPath) {
+    await writer.renameRaw(norm, newPath);
   }
   await writer.writeRaw(newPath, content);
 
   for (const patch of linkPatches) {
-    if (patch.relativePath === relativePath || patch.relativePath === newPath) {
+    const targetPath = translatePatchPath(pathMap, patch.relativePath);
+    if (targetPath === newPath) {
       continue;
     }
-    await writer.writeRaw(patch.relativePath, composeDocument(patch.frontmatter, patch.body));
+    await writer.writeRaw(targetPath, composeDocument(patch.frontmatter, patch.body));
   }
 
   return { ok: true, path: newPath };
@@ -263,15 +347,15 @@ export async function moveDocumentTree(
   if (entry.frontmatter.parent === newParentId) {
     return { ok: true, path: norm };
   }
-  if ((entry.frontmatter.children?.length ?? 0) > 0) {
-    return { ok: false, reason: 'has_children' };
-  }
 
   const newPath = pathForMovedDoc(entry, newParent);
   if (!newPath) {
     return { ok: false, reason: 'invalid_path' };
   }
-  if (writer.getEntries().some((e) => e.valid && e.relativePath === newPath && e.relativePath !== norm)) {
+
+  const subtree = subtreePathSet(norm, entries);
+  const pathMap = mapSubtreePaths(norm, newPath, [...subtree]);
+  if (hasPathCollision(writer, pathMap.values(), subtree)) {
     return { ok: false, reason: 'path_collision' };
   }
 
@@ -297,6 +381,7 @@ export async function moveDocumentTree(
   const movedFm = { ...entry.frontmatter, parent: newParentId, lateral };
   const movedContent = composeDocument(movedFm, entry.body);
 
+  await renameSubtreeFiles(writer, norm, newPath, entries);
   if (norm !== newPath) {
     await writer.renameRaw(norm, newPath);
   }
@@ -310,42 +395,46 @@ export async function moveDocumentTree(
   return { ok: true, path: newPath };
 }
 
-export async function deleteLeafDocumentTree(
+export async function deleteDocumentTree(
   writer: TreeOpsWriter,
   relativePath: string
-): Promise<TreeOpResult> {
+): Promise<TreeOpResult & { deletedCount?: number }> {
   const norm = relativePath.replace(/\\/g, '/');
   const entry = writer.getEntries().find((e) => e.relativePath === norm);
   if (!entry?.valid) {
     return { ok: false, reason: 'document_not_found' };
   }
-  if ((entry.frontmatter.children?.length ?? 0) > 0) {
-    return { ok: false, reason: 'has_children' };
-  }
 
   const entries = writer.getEntries();
-  const removedId = entry.frontmatter.id;
-  const parent = entries.find((e) => e.valid && e.frontmatter.id === entry.frontmatter.parent);
-  const linkPatches = patchLinksForRemovedId(entries, removedId);
+  const subtreePaths = collectSubtreeDocPaths(norm, entries);
+  const subtreeSet = new Set(subtreePaths);
+  const removedIds = new Set<string>();
+  for (const path of subtreePaths) {
+    const doc = entries.find((e) => e.relativePath === path);
+    if (doc) {
+      removedIds.add(doc.frontmatter.id);
+    }
+  }
 
-  await writer.deleteRaw(norm);
-
-  if (parent) {
-    const parentFm = {
-      ...parent.frontmatter,
-      children: parent.frontmatter.children.filter((id) => id !== removedId),
-    };
-    await writer.writeRaw(parent.relativePath, composeDocument(parentFm, parent.body));
+  const linkPatches = patchLinksForRemovedIds(entries, removedIds, subtreeSet);
+  const sortedPaths = [...subtreePaths].sort((a, b) => b.length - a.length);
+  for (const path of sortedPaths) {
+    await writer.deleteRaw(path);
   }
 
   for (const patch of linkPatches) {
-    if (patch.relativePath === norm || patch.relativePath === parent?.relativePath) {
-      continue;
-    }
     await writer.writeRaw(patch.relativePath, composeDocument(patch.frontmatter, patch.body));
   }
 
-  return { ok: true };
+  return { ok: true, deletedCount: subtreePaths.length };
+}
+
+/** @deprecated use deleteDocumentTree */
+export async function deleteLeafDocumentTree(
+  writer: TreeOpsWriter,
+  relativePath: string
+): Promise<TreeOpResult> {
+  return deleteDocumentTree(writer, relativePath);
 }
 
 export async function unlinkLateralTree(

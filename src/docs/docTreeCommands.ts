@@ -5,6 +5,7 @@ import type { AppServices } from '../app/appServices';
 import { getTabWorkspace } from '../interaction/workspace';
 import type { LateralLink } from './frontmatter';
 import { childLevelFor } from './treeOps';
+import { collectSubtreeDocPaths } from './docLifecycle';
 import { t } from '../platform/l10n';
 
 const ID_PATTERN = /^[a-z][a-z0-9-]{2,63}$/;
@@ -127,13 +128,12 @@ export async function runDeleteDoc(app: AppServices, docPath?: string): Promise<
   if (!entry) {
     return;
   }
-  if ((entry.frontmatter.children?.length ?? 0) > 0) {
-    void vscode.window.showErrorMessage(t('docs.deleteHasChildren'));
-    return;
-  }
 
+  const subtreeCount = collectSubtreeDocPaths(path, app.docs.getEntries()).length;
   const confirm = await vscode.window.showWarningMessage(
-    t('docs.deleteConfirm', entry.frontmatter.title),
+    subtreeCount > 1
+      ? t('docs.deleteSubtreeConfirm', entry.frontmatter.title, subtreeCount)
+      : t('docs.deleteConfirm', entry.frontmatter.title),
     { modal: true },
     t('docs.deleteConfirmAction')
   );
@@ -141,12 +141,16 @@ export async function runDeleteDoc(app: AppServices, docPath?: string): Promise<
     return;
   }
 
-  const result = await app.docs.deleteLeafDocument(path);
+  const result = await app.docs.deleteDocumentTree(path);
   if (!result.ok) {
     void vscode.window.showErrorMessage(t('docs.treeOpFailed', result.reason));
     return;
   }
-  void vscode.window.showInformationMessage(t('docs.deleteDone', entry.frontmatter.title));
+  void vscode.window.showInformationMessage(
+    result.deletedCount && result.deletedCount > 1
+      ? t('docs.deleteSubtreeDone', entry.frontmatter.title, result.deletedCount)
+      : t('docs.deleteDone', entry.frontmatter.title)
+  );
   await refreshDocUi(app);
 }
 
@@ -224,9 +228,40 @@ export async function runUnlinkDoc(app: AppServices, sourcePath?: string): Promi
   await refreshDocUi(app, path);
 }
 
+export async function runEnsureSummary(app: AppServices, docPath?: string): Promise<void> {
+  const path = await pickDocPath(app, docPath, t('docs.ensureSummaryPickDoc'));
+  if (!path) {
+    return;
+  }
+  const entry = app.docs.getByPath(path);
+  if (!entry) {
+    return;
+  }
+  if (entry.frontmatter.level === 'system') {
+    void vscode.window.showInformationMessage(t('docs.ensureSummarySystemExempt'));
+    return;
+  }
+
+  const result = await app.docs.ensureSummary(path);
+  if (!result.ok) {
+    if (result.reason === 'user_rejected') {
+      return;
+    }
+    void vscode.window.showErrorMessage(t('docs.treeOpFailed', result.reason ?? 'ensure_summary_failed'));
+    return;
+  }
+  if (result.reason === 'already_valid') {
+    void vscode.window.showInformationMessage(t('docs.ensureSummaryAlreadyValid', entry.frontmatter.title));
+  } else {
+    void vscode.window.showInformationMessage(t('docs.ensureSummaryDone', entry.frontmatter.title));
+  }
+  await app.drift.runConsistencyCheck(false, { skipAgent: true });
+  await refreshDocUi(app, path);
+}
+
 export async function runDocTreeAction(
   app: AppServices,
-  action: 'createChild' | 'delete' | 'markReviewed' | 'link' | 'unlink',
+  action: 'createChild' | 'delete' | 'markReviewed' | 'link' | 'unlink' | 'ensureSummary',
   docPath: string
 ): Promise<void> {
   switch (action) {
@@ -249,6 +284,9 @@ export async function runDocTreeAction(
       break;
     case 'unlink':
       await runUnlinkDoc(app, docPath);
+      break;
+    case 'ensureSummary':
+      await runEnsureSummary(app, docPath);
       break;
   }
 }

@@ -6,10 +6,12 @@ import * as path from 'path';
 import {
   docPathValid,
   parseFrontmatter,
+  validateDocumentSize,
   validateFrontmatter,
   type DocFrontmatter,
   type DocLevel,
 } from './frontmatter';
+import { buildDraftSummary, isSummaryMissingOrInvalid, upsertSummarySection } from './summarySection';
 import { composeDocument, defaultBody, normalizeFrontmatter, serializeFrontmatter } from './frontmatterSerialize';
 import { computeReviewBadge, shouldAutoMarkReviewedOnAccept, type ReviewBadge } from './reviewBadge';
 import { isDocumentStale, collectSubtreeDocPaths } from './docLifecycle';
@@ -18,7 +20,7 @@ import { docsRoot, parseDocRelativePath, pathForDoc, systemDocPath } from './pat
 import type { DiffReviewService } from '../editing/diffReview';
 import {
   childLevelFor,
-  deleteLeafDocumentTree,
+  deleteDocumentTree,
   moveDocumentTree,
   renameDocumentTree,
   renameDocFile,
@@ -320,6 +322,31 @@ export class DocumentTreeService {
     await this.writeWithReview(relativePath, content, 'mark reviewed');
   }
 
+  /** R-DOCS-14.6 — insert or refresh ## Summary (100–800 chars) via Diff Review */
+  async ensureSummary(relativePath: string): Promise<{ ok: boolean; reason?: string }> {
+    const entry = this.getByPath(relativePath);
+    if (!entry?.valid) {
+      return { ok: false, reason: 'document_not_found' };
+    }
+    if (entry.frontmatter.level === 'system') {
+      return { ok: false, reason: 'system_exempt' };
+    }
+    if (!isSummaryMissingOrInvalid(entry.body)) {
+      return { ok: true, reason: 'already_valid' };
+    }
+
+    const draft = buildDraftSummary(entry);
+    const newBody = upsertSummarySection(entry.body, draft);
+    const sizeCheck = validateDocumentSize(entry.frontmatter.level, newBody);
+    if (!sizeCheck.ok) {
+      return { ok: false, reason: 'document_too_large' };
+    }
+
+    const content = composeDocument(entry.frontmatter, newBody);
+    const accepted = await this.writeWithReview(relativePath, content, 'ensure summary');
+    return accepted ? { ok: true } : { ok: false, reason: 'user_rejected' };
+  }
+
   findStaleDocuments(thresholdDays: number): DocEntry[] {
     return this.cache.filter((e) => e.valid && isDocumentStale(e, thresholdDays));
   }
@@ -370,20 +397,25 @@ export class DocumentTreeService {
   }
 
   async deleteDocument(relativePath: string): Promise<void> {
-    const result = await this.deleteLeafDocument(relativePath);
+    const result = await this.deleteDocumentTree(relativePath);
     if (!result.ok) {
       throw new Error(result.reason);
     }
   }
 
-  /** R-DOCS-6 — delete leaf document and repair all inbound links */
-  async deleteLeafDocument(relativePath: string): Promise<TreeOpResult> {
-    const result = await deleteLeafDocumentTree(this.treeOpsWriter(), relativePath);
+  /** R-DOCS-6.5 — delete document subtree and repair inbound links */
+  async deleteDocumentTree(relativePath: string): Promise<TreeOpResult & { deletedCount?: number }> {
+    const result = await deleteDocumentTree(this.treeOpsWriter(), relativePath);
     if (result.ok) {
       await this.scan();
       this.onChangeEmitter.fire();
     }
     return result;
+  }
+
+  /** @deprecated use deleteDocumentTree */
+  async deleteLeafDocument(relativePath: string): Promise<TreeOpResult> {
+    return this.deleteDocumentTree(relativePath);
   }
 
   async renameDocument(relativePath: string, newId: string, newTitle?: string): Promise<TreeOpResult> {

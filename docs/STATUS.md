@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：查漏补缺 — F5 手动冒烟（Drift Agent 一致性 + Resolve）
-> **本 session 下一项（功能）**：F5 手动冒烟 #8–22（含 Agent Fork 与文档树 CRUD）
+> **本 session 下一项（功能）**：F5 手动冒烟 #8–25
 
 ---
 
@@ -32,6 +32,9 @@
 | 20 | Requirement 子链接预览 | 选中文档后显示 Immediate children + Lateral links（按 type 分组） |
 | 21 | 文档树 CRUD | Requirement/Architecture 面板 + 命令面板：创建子文档 / 删除叶节点 / 链接 / 取消链接 / 重命名 / 移动 |
 | 22 | Agent Fork | Task 面板 View logs → 迭代 Fork from here → 新 Task + 虚线分叉边 + forks.json 持久化 |
+| 23 | 子树 rename/move | 有子文档时重命名 module/feature 应同步迁移子路径；预览标题显示审查徽章 |
+| 24 | 子树 delete + Summary | Delete subtree 整棵删除；缺/短 ## Summary → Add summary → Diff Review 后 Drift 清除 |
+| 25 | Architecture 完整预览 | Architecture 树选中文档 → 导航 + Markdown 正文 + 文档操作栏 |
 
 ---
 
@@ -43,7 +46,7 @@
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 | 1 | Platform 补全 | 1.1–1.9 | ✅ 完成 |
 
-**单元测试**：269/269 通过  
+**单元测试**：275/275 通过  
 **需求覆盖率（粗算）**：~97%
 
 ---
@@ -70,6 +73,10 @@
 | 文档树 telemetry | docs.tree.size 月度节流 + tokenEstimate / softLimitExceeded | R-DOCS-8.5 / R-PLAT-7 |
 | 文档树 CRUD | treeOps 重命名/移动/删除/取消链接 + 6 条命令 + Requirement/Architecture 面板操作 | R-DOCS-6 |
 | Agent Replay/Fork | taskFork + 迭代 transcript + Fork UI + DAG 分叉边 + forks.json + >20 警告 | R-INT-12 |
+| 子树路径迁移 | rename/move 递归更新 descendant 路径 + mapSubtreePaths + 链接 patch | R-DOCS-6.2–6.3 |
+| 子树 delete | deleteDocumentTree 整棵删除 + patchLinksForRemovedIds + Delete subtree 确认 | R-DOCS-6.5 |
+| Summary 补全 | 100–800 字校验 + ensureSummary 命令/面板 + Diff Review 草稿 | R-DOCS-14.6 |
+| Architecture 预览 | DocPreviewContent 共享 + Markdown 正文 + 审查徽章 + 与 Requirement 同等操作 | R-INT-5 |
 | 文档树操作 | rename/move/delete/link + 面板/命令面板 + 链接一致性修复 | R-DOCS-6 |
 | Web 工具 | webfetch（https/15s/截断）+ websearch（可配置 provider） | R-TOOL-12 |
 | LSP 重命名 | lsp_rename → Diff Review + Checkpoint + post_edit | R-TOOL-5.5 |
@@ -118,6 +125,8 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | R-DOCS-6.2–6.5 子树 rename/move 路径迁移 + delete subtree；R-DOCS-14.6 Summary 补全；R-INT-5 Architecture 完整预览 |
+| 2026-05-23 | verify:docs-smoke 扩展（treeOps 路径迁移/链接清理 + summarySection） |
 | 2026-05-23 | R-INT-12 Agent Replay/Fork（taskFork + 迭代 transcript + Fork UI + DAG 分叉边 + forks.json） |
 | 2026-05-23 | R-DOCS-6 文档树 CRUD（treeOps + 命令 + Requirement/Architecture 面板操作 + 链接一致性修复） |
 | 2026-05-23 | R-DOCS-3.3/4.4/8.5 Requirement 子链接预览 + docs.tree.size 月度 telemetry |

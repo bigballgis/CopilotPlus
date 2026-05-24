@@ -4,7 +4,16 @@ import * as vscode from 'vscode';
 import type { AppServices } from '../app/appServices';
 import { openWorkspace, getTabWorkspace } from '../interaction/workspace';
 import { runDocCompact } from '../docs/compactFlow';
-import { runDocTreeAction, runCreateChildDoc, runRenameDoc, runMoveDoc, runDeleteDoc, runLinkDoc, runUnlinkDoc } from '../docs/docTreeCommands';
+import {
+  runCreateChildDoc,
+  runRenameDoc,
+  runMoveDoc,
+  runDeleteDoc,
+  runLinkDoc,
+  runUnlinkDoc,
+  runEnsureSummary,
+  runDocTreeAction,
+} from '../docs/docTreeCommands';
 import { runCli, getCliOutputChannel } from '../cli/cliRunner';
 import { t } from './l10n';
 
@@ -40,6 +49,9 @@ export function registerCommands(
   );
   register('copilotPlus.docs.unlink', (sourcePath?: unknown) =>
     runUnlinkDoc(app, typeof sourcePath === 'string' ? sourcePath : undefined)
+  );
+  register('copilotPlus.docs.ensureSummary', (docPath?: unknown) =>
+    runEnsureSummary(app, typeof docPath === 'string' ? docPath : undefined)
   );
   register('copilotPlus.docs.markReviewed', async (docPath?: unknown) => {
     if (typeof docPath === 'string') {

@@ -5,11 +5,20 @@ import { ActionBar } from './ActionBar';
 interface DocTreeActionBarProps {
   labels: Pick<
     TabWorkspaceLabels,
-    'createChildDoc' | 'deleteDoc' | 'linkDoc' | 'unlinkDoc' | 'markReviewedDoc' | 'editDoc' | 'openDoc'
+    | 'createChildDoc'
+    | 'deleteDoc'
+    | 'deleteSubtree'
+    | 'linkDoc'
+    | 'unlinkDoc'
+    | 'markReviewedDoc'
+    | 'ensureSummaryDoc'
+    | 'editDoc'
+    | 'openDoc'
   >;
   selectedPath: string;
   hasChildren?: boolean;
   canCreateChild?: boolean;
+  missingSummary?: boolean;
   onAction: (action: DocTreePanelAction) => void;
   onEdit: () => void;
   onOpen: () => void;
@@ -20,10 +29,13 @@ export function DocTreeActionBar({
   selectedPath,
   hasChildren,
   canCreateChild,
+  missingSummary,
   onAction,
   onEdit,
   onOpen,
 }: DocTreeActionBarProps): JSX.Element {
+  const deleteLabel = hasChildren ? labels.deleteSubtree : labels.deleteDoc;
+
   return (
     <ActionBar>
       {canCreateChild ? (
@@ -31,11 +43,18 @@ export function DocTreeActionBar({
           {labels.createChildDoc}
         </VSCodeButton>
       ) : null}
-      {!hasChildren ? (
-        <VSCodeButton appearance="secondary" aria-label={labels.deleteDoc} onClick={() => onAction('delete')}>
-          {labels.deleteDoc}
+      {missingSummary ? (
+        <VSCodeButton
+          appearance="secondary"
+          aria-label={labels.ensureSummaryDoc}
+          onClick={() => onAction('ensureSummary')}
+        >
+          {labels.ensureSummaryDoc}
         </VSCodeButton>
       ) : null}
+      <VSCodeButton appearance="secondary" aria-label={deleteLabel} onClick={() => onAction('delete')}>
+        {deleteLabel}
+      </VSCodeButton>
       <VSCodeButton appearance="secondary" aria-label={labels.linkDoc} onClick={() => onAction('link')}>
         {labels.linkDoc}
       </VSCodeButton>

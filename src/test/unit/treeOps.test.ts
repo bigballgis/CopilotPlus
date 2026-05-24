@@ -2,8 +2,10 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   childLevelFor,
+  mapSubtreePaths,
   patchLinksForIdRename,
   patchLinksForRemovedId,
+  patchLinksForRemovedIds,
   pathForRenamedId,
 } from '../../docs/treeOps.js';
 import type { DocEntry } from '../../docs/documentTreeService.js';
@@ -21,6 +23,22 @@ describe('R-DOCS-6 tree operations', () => {
       pathForRenamedId('.copilotPlus/docs/system/app/auth.md', 'identity'),
       '.copilotPlus/docs/system/app/identity.md'
     );
+  });
+
+  it('maps descendant paths when a module id is renamed', () => {
+    const oldRoot = '.copilotPlus/docs/system/app/auth.md';
+    const newRoot = '.copilotPlus/docs/system/app/identity.md';
+    const mapped = mapSubtreePaths(oldRoot, newRoot, [
+      oldRoot,
+      '.copilotPlus/docs/system/app/auth/login.md',
+      '.copilotPlus/docs/system/app/billing.md',
+    ]);
+    assert.equal(mapped.get(oldRoot), newRoot);
+    assert.equal(
+      mapped.get('.copilotPlus/docs/system/app/auth/login.md'),
+      '.copilotPlus/docs/system/app/identity/login.md'
+    );
+    assert.equal(mapped.has('.copilotPlus/docs/system/app/billing.md'), false);
   });
 
   it('patches hierarchical and lateral links when an id is renamed', () => {
@@ -56,6 +74,25 @@ describe('R-DOCS-6 tree operations', () => {
     const patches = patchLinksForRemovedId(entries, 'peer');
     assert.equal(patches.length, 1);
     assert.equal(patches[0]!.frontmatter.lateral?.length, 0);
+  });
+
+  it('removes inbound links for multiple deleted ids in one pass', () => {
+    const entries = tree([
+      row('.copilotPlus/docs/system/app.md', 'app', 'system', '', ['auth']),
+      row('.copilotPlus/docs/system/app/auth.md', 'auth', 'module', 'app', ['login'], [
+        { target: 'billing', type: 'references' },
+      ]),
+      row('.copilotPlus/docs/system/app/auth/login.md', 'login', 'feature', 'auth', []),
+      row('.copilotPlus/docs/system/app/billing.md', 'billing', 'module', 'app', [], [
+        { target: 'login', type: 'depends_on' },
+      ]),
+    ]);
+    const patches = patchLinksForRemovedIds(entries, new Set(['auth', 'login']));
+    assert.equal(patches.length, 2);
+    const appPatch = patches.find((p) => p.relativePath.endsWith('/app.md'))!;
+    assert.deepEqual(appPatch.frontmatter.children, []);
+    const billingPatch = patches.find((p) => p.frontmatter.id === 'billing')!;
+    assert.equal(billingPatch.frontmatter.lateral?.length, 0);
   });
 });
 

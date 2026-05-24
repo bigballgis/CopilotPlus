@@ -6,6 +6,12 @@ import { validateDocumentSize } from '../dist-test/docs/frontmatter.js';
 import { CodeOwnershipIndex } from '../dist-test/docs/ownershipIndex.js';
 import { computeLateralDepth } from '../dist-test/docs/lateralDepth.js';
 import { NamingAliasStore } from '../dist-test/docs/namingAliases.js';
+import { mapSubtreePaths, pathForRenamedId, patchLinksForRemovedIds } from '../dist-test/docs/treeOps.js';
+import {
+  isSummaryMissingOrInvalid,
+  upsertSummarySection,
+  SUMMARY_MIN_CHARS,
+} from '../dist-test/docs/summarySection.js';
 
 const errors = [];
 
@@ -87,6 +93,51 @@ const login = depthEntries.find((e) => e.frontmatter.id === 'login');
 const billing = depthEntries.find((e) => e.frontmatter.id === 'billing');
 assert(login && billing && computeLateralDepth(login, billing, depthEntries) === 3, 'lateral depth invalid');
 
+// R-DOCS-6 subtree path migration
+assert(
+  pathForRenamedId('.copilotPlus/docs/system/app/auth.md', 'identity') ===
+    '.copilotPlus/docs/system/app/identity.md',
+  'pathForRenamedId invalid'
+);
+const subtreeMap = mapSubtreePaths(
+  '.copilotPlus/docs/system/app/auth.md',
+  '.copilotPlus/docs/system/app/identity.md',
+  [
+    '.copilotPlus/docs/system/app/auth.md',
+    '.copilotPlus/docs/system/app/auth/login.md',
+    '.copilotPlus/docs/system/app/billing.md',
+  ]
+);
+assert(
+  subtreeMap.get('.copilotPlus/docs/system/app/auth/login.md') ===
+    '.copilotPlus/docs/system/app/identity/login.md',
+  'mapSubtreePaths invalid'
+);
+
+// R-DOCS-6.5 inbound link cleanup on subtree delete
+const deleteEntries = [
+  entry('.copilotPlus/docs/system/app.md', 'app', 'system', '', ['leaf']),
+  {
+    ...entry('.copilotPlus/docs/system/app/leaf.md', 'leaf', 'module', 'app', []),
+    frontmatter: {
+      ...entry('.copilotPlus/docs/system/app/leaf.md', 'leaf', 'module', 'app', []).frontmatter,
+      lateral: [{ target: 'peer', type: 'references' }],
+    },
+  },
+  entry('.copilotPlus/docs/system/app/peer.md', 'peer', 'module', 'app', []),
+];
+const deletePatches = patchLinksForRemovedIds(deleteEntries, new Set(['peer']));
+assert(deletePatches.length === 1 && deletePatches[0]?.frontmatter.lateral?.length === 0, 'patchLinksForRemovedIds invalid');
+
+// R-DOCS-14.6 summary section
+assert(isSummaryMissingOrInvalid('## Overview\n\nHello'), 'missing summary should be invalid');
+assert(
+  !isSummaryMissingOrInvalid(`## Summary\n\n${'x'.repeat(SUMMARY_MIN_CHARS)}`),
+  'valid summary length should pass'
+);
+const summaryBody = upsertSummarySection('## Details\n\nMore', 'y'.repeat(SUMMARY_MIN_CHARS));
+assert(/^## Summary\n\n/.test(summaryBody), 'upsertSummarySection invalid');
+
 if (errors.length > 0) {
   console.error('DOCS smoke verification FAILED (run npm run compile first)');
   for (const err of errors) {
@@ -95,4 +146,6 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log('DOCS smoke verification OK (scope, breadcrumb, size cap, ownership, aliases, lateral depth)');
+console.log(
+  'DOCS smoke verification OK (scope, breadcrumb, size cap, ownership, aliases, lateral depth, tree ops, summary)'
+);

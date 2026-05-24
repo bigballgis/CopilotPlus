@@ -2,13 +2,10 @@
 
 import type { DocEntry } from './documentTreeService';
 import { resolveOwners } from './ownershipIndex';
+import { extractSummaryText, hasSummarySection, isSummaryLengthValid } from './summarySection';
 import type { DriftItem, DriftType, LayerConsistencyCounts } from './driftTypes';
 
-const SUMMARY_HEADING = /^##\s+Summary\s*$/im;
-
-export function hasSummarySection(body: string): boolean {
-  return SUMMARY_HEADING.test(body);
-}
+export { hasSummarySection } from './summarySection';
 
 export function scanDriftDiagnostics(
   entries: DocEntry[],
@@ -43,8 +40,23 @@ export function scanDriftDiagnostics(
       }
     }
 
-    if (layer !== 'system' && !hasSummarySection(entry.body)) {
-      items.push(makeItem('Missing_Summary', layer, entry.relativePath, undefined, ts));
+    if (layer !== 'system') {
+      if (!hasSummarySection(entry.body)) {
+        items.push(makeItem('Missing_Summary', layer, entry.relativePath, undefined, ts));
+      } else {
+        const summaryLen = extractSummaryText(entry.body).length;
+        if (!isSummaryLengthValid(extractSummaryText(entry.body))) {
+          items.push(
+            makeItem(
+              'Missing_Summary',
+              layer,
+              entry.relativePath,
+              `Summary length ${summaryLen} (need 100–800 chars)`,
+              ts
+            )
+          );
+        }
+      }
     }
 
     if (stalePaths.has(entry.relativePath)) {

@@ -5,10 +5,8 @@ import type {
   DocTreePanelAction,
   TabWorkspaceLabels,
 } from '@shared/tabWorkspaceWebviewProtocol';
-import { DocNavPreview } from './DocNavPreview';
-import { DocTreeActionBar } from './DocTreeActionBar';
+import { DocPreviewContent } from './DocPreviewContent';
 import { DocTreePicker } from './DocTreePicker';
-import { MarkdownBody } from './MarkdownBody';
 import { postToHost } from '../vscode';
 
 interface RequirementPreviewPanelProps {
@@ -22,6 +20,8 @@ interface RequirementPreviewPanelProps {
   lateralByType?: Record<string, DocNavLinkWire[]>;
   hasChildren?: boolean;
   canCreateChild?: boolean;
+  missingSummary?: boolean;
+  reviewBadge?: 'green' | 'yellow' | 'red';
   onSelectDoc: (path: string) => void;
   onDocTreeAction: (action: DocTreePanelAction) => void;
 }
@@ -37,6 +37,8 @@ export function RequirementPreviewPanel({
   lateralByType,
   hasChildren,
   canCreateChild,
+  missingSummary,
+  reviewBadge,
   onSelectDoc,
   onDocTreeAction,
 }: RequirementPreviewPanelProps): JSX.Element {
@@ -60,44 +62,22 @@ export function RequirementPreviewPanel({
       <div className="cp-req-preview">
         <div className="cp-viz-header">
           <h4 className="cp-viz-title">{labels.requirementPreview}</h4>
-          {selectedPath ? (
-            <DocTreeActionBar
-              labels={labels}
-              selectedPath={selectedPath}
-              hasChildren={hasChildren}
-              canCreateChild={canCreateChild}
-              onAction={onDocTreeAction}
-              onEdit={() => postToHost({ type: 'editDoc', path: selectedPath })}
-              onOpen={() => postToHost({ type: 'openDoc', path: selectedPath })}
-            />
-          ) : null}
         </div>
-        {previewTitle && previewMarkdown ? (
-          <>
-            <DocNavPreview
-              labels={labels}
-              selectedPath={selectedPath}
-              breadcrumb={breadcrumb}
-              children={children}
-              lateralByType={lateralByType}
-              onSelectDoc={onSelectDoc}
-            />
-            <p className="cp-meta">{previewTitle}</p>
-            <div className="cp-req-preview-body">
-              <MarkdownBody
-                text={previewMarkdown}
-                onLinkClick={(href) => {
-                  if (href.startsWith('.copilotPlus/docs/') || href.includes('.copilotPlus/docs/')) {
-                    const path = href.startsWith('.') ? href : `.copilotPlus/docs/${href.split('.copilotPlus/docs/')[1]}`;
-                    onSelectDoc(path.replace(/^\.\//, ''));
-                  }
-                }}
-              />
-            </div>
-          </>
-        ) : (
-          <p className="cp-meta">{labels.selectDocHint}</p>
-        )}
+        <DocPreviewContent
+          labels={labels}
+          selectedPath={selectedPath}
+          previewTitle={previewTitle}
+          previewMarkdown={previewMarkdown}
+          breadcrumb={breadcrumb}
+          children={children}
+          lateralByType={lateralByType}
+          hasChildren={hasChildren}
+          canCreateChild={canCreateChild}
+          missingSummary={missingSummary}
+          reviewBadge={reviewBadge}
+          onSelectDoc={onSelectDoc}
+          onDocTreeAction={onDocTreeAction}
+        />
       </div>
     </div>
   );

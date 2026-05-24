@@ -1,5 +1,6 @@
 import type { DocTreeNodeWire, TabWorkspaceLabels } from '@shared/tabWorkspaceWebviewProtocol';
 import { Icon } from './Icon';
+import { ReviewBadge } from './ReviewBadge';
 
 interface DocTreePickerProps {
   nodes: DocTreeNodeWire[];
@@ -9,13 +10,6 @@ interface DocTreePickerProps {
   labels: Pick<TabWorkspaceLabels, 'staleBadge' | 'compactSubtree' | 'compactSubtreeAria'>;
   onSelect: (path: string) => void;
   onCompactSubtree?: (path: string) => void;
-}
-
-function ReviewBadge({ badge }: { badge?: 'green' | 'yellow' | 'red' }): JSX.Element | null {
-  if (!badge) {
-    return null;
-  }
-  return <span className={`review-${badge}`}> ●</span>;
 }
 
 export function DocTreePicker({
