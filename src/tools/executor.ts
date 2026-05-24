@@ -381,7 +381,7 @@ export class ToolExecutor {
 
   private async codeSearch(args: Record<string, unknown>): Promise<ToolResult> {
     const query = String(args.query ?? args.pattern ?? '');
-    if (!this.app.platform.getSettings().ragEnabled || !this.app.indexManager.isRetrievalAvailable()) {
+    if (!this.app.indexManager.isRetrievalAvailable()) {
       return this.grep({ pattern: query, max_results: args.max_results ?? 50 });
     }
 
@@ -401,6 +401,7 @@ export class ToolExecutor {
       tier,
       docEntries: this.docs.getEntries(),
       queryEmbedding,
+      includeDocChunks: this.app.platform.getSettings().ragEnabled,
     });
 
     return {

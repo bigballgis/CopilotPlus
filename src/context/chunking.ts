@@ -139,22 +139,45 @@ function lineNumberAtOffset(lineStarts: number[], offset: number): number {
   return Math.max(1, high + 1);
 }
 
-export function chunkMarkdownDoc(path: string, content: string): Array<{ heading: string; text: string }> {
-  const sections: Array<{ heading: string; text: string }> = [];
-  const parts = content.split(/^##\s+/m);
-  if (parts.length <= 1) {
-    return [{ heading: 'root', text: content }];
+export function chunkMarkdownDoc(
+  path: string,
+  content: string
+): Array<{ heading: string; headingPath: string[]; text: string }> {
+  const lines = content.split('\n');
+  const chunks: Array<{ heading: string; headingPath: string[]; text: string }> = [];
+  const stack: Array<{ level: number; title: string }> = [];
+  let currentLines: string[] = [];
+  let currentTitle = 'root';
+  let currentPath: string[] = ['root'];
+
+  const flush = () => {
+    const text = currentLines.join('\n').trim();
+    if (text) {
+      chunks.push({ heading: currentTitle, headingPath: [...currentPath], text });
+    }
+  };
+
+  for (const line of lines) {
+    const match = line.match(/^(#{1,6})\s+(.+)$/);
+    if (match) {
+      flush();
+      const level = match[1].length;
+      const title = match[2].trim();
+      while (stack.length > 0 && stack[stack.length - 1]!.level >= level) {
+        stack.pop();
+      }
+      stack.push({ level, title });
+      currentTitle = title;
+      currentPath = stack.map((item) => item.title);
+      currentLines = [line];
+      continue;
+    }
+    currentLines.push(line);
   }
-  const preamble = parts[0];
-  if (preamble.trim()) {
-    sections.push({ heading: 'preamble', text: preamble.trim() });
+  flush();
+
+  if (!chunks.length) {
+    return [{ heading: 'root', headingPath: ['root'], text: content }];
   }
-  for (let i = 1; i < parts.length; i++) {
-    const block = parts[i];
-    const nl = block.indexOf('\n');
-    const title = nl >= 0 ? block.slice(0, nl).trim() : block.trim();
-    const body = nl >= 0 ? block.slice(nl + 1) : '';
-    sections.push({ heading: title || `section-${i}`, text: `## ${title}\n${body}`.trim() });
-  }
-  return sections;
+  return chunks;
 }

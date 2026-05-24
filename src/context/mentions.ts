@@ -271,6 +271,7 @@ async function resolveOneMention(
           tier,
           docEntries: app.docs.getEntries(),
           queryEmbedding,
+          includeDocChunks: false,
         });
         snippetBlock = response.results
           .filter((hit) => hit.kind === 'code' && hit.path.replace(/\\/g, '/').startsWith(folderPrefix))

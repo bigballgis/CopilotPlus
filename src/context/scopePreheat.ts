@@ -24,7 +24,7 @@ export function runScopePreheat(
   const model = app.platform.models.getSelected();
   const tier = resolveContextTier(model?.maxInputTokens, app.platform.getSettings().tierOverride);
 
-  if (!app.indexManager.isRetrievalAvailable()) {
+  if (!app.platform.getSettings().ragEnabled || !app.indexManager.isRetrievalAvailable()) {
     return '';
   }
 
@@ -35,6 +35,7 @@ export function runScopePreheat(
     docEntries: entries,
     thoroughness: 'quick',
     topK: tier === 'L' ? 20 : tier === 'M' ? 12 : 8,
+    includeDocChunks: true,
   });
 
   if (!response.results.length) {

@@ -14,10 +14,12 @@ import {
 } from '../../context/gitignoreFilter.js';
 
 describe('R-CTX chunking', () => {
-  it('splits markdown by headings', () => {
-    const chunks = chunkMarkdownDoc('doc.md', '# Title\n\n## Summary\n\nHello\n\n## Details\n\nMore');
-    assert.ok(chunks.some((c) => c.heading === 'Summary'));
-    assert.ok(chunks.some((c) => c.heading === 'Details'));
+  it('splits markdown by H1-H6 heading paths', () => {
+    const content = '# System\n\nIntro\n\n## Module\n\nBody\n\n### Feature\n\nDetails\n\n## Other\n\nMore';
+    const chunks = chunkMarkdownDoc('doc.md', content);
+    const feature = chunks.find((c) => c.heading === 'Feature');
+    assert.deepEqual(feature?.headingPath, ['System', 'Module', 'Feature']);
+    assert.ok(chunks.some((c) => c.heading === 'Other'));
   });
 
   it('uses 800/200 sliding windows for long source files', () => {

@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：Phase 6 — Context / RAG  
-> **本 session 下一项（功能）**：Phase 6.3 R-CTX-3 / R-CTX-6 RAG 混合检索
+> **本 session 下一项（功能）**：Phase 6.4 R-CTX-4 / R-CTX-7 / R-CTX-8 Budget / 摘要 / Tier
 
 ---
 
@@ -13,7 +13,7 @@
 | 0–9 | 全部 Phase | — | ✅ 完成 |
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 
-**单元测试**：181/181 通过  
+**单元测试**：187/187 通过  
 **需求覆盖率（粗算）**：~96%
 
 ---
@@ -24,6 +24,7 @@
 |------|------|------|
 | Mentions 七类 | @file/folder/symbol/selection/doc/web/skill + 25% 限额 + 预算确认 | R-CTX-1 |
 | Codebase Index | gitignore 过滤 + 语义/800 分块 + 增量 FS 更新 + 持久化加载 | R-CTX-2 |
+| RAG 混合检索 | BM25+RRF(k=60)+rerank + 6/4 配额 + heading/link 元数据 + rag.enabled | R-CTX-3 / R-CTX-6 |
 | Build 限额 | 工具调用/时长上限 + Decision + Stop All + 限额显示 | R-WF-8 |
 | Autonomy Levels | Manual Build/Deploy 全工具 Decision + deny list + Full_Auto Diff 绕过 + Control Console 选择器 | R-WF-7 |
 | Build 六步流水线 | Coder/Tester/Reviewer/Committer + 3 轮测试 + Decision | R-WF-4 |
@@ -66,6 +67,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | R-CTX-3/6 RAG 混合检索（RRF+rerank+doc 元数据+rag.enabled 代码索引保留） |
 | 2026-05-23 | R-CTX-2 Codebase Index（gitignore + 语义分块 + 增量更新 + 持久化） |
 | 2026-05-23 | R-CTX-1 Mentions（七类 + 预算限额 + 发送确认 + folder/web/symbol） |
 | 2026-05-23 | R-WF-9 Build isolation（worktree + 完成 Decision + prune） |

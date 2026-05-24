@@ -8,8 +8,10 @@ export interface IndexChunk {
   path: string;
   line?: number;
   heading?: string;
+  headingPath?: string[];
   text: string;
   docPaths?: string[];
+  linkTargets?: string[];
   embedding?: number[];
 }
 
@@ -20,6 +22,8 @@ export interface SearchHit {
   score: number;
   kind: IndexCorpus;
   heading?: string;
+  headingPath?: string[];
+  linkTargets?: string[];
 }
 
 export type IndexStatus = 'Idle' | 'Building' | 'Ready' | 'Rebuilding' | 'Failed';
