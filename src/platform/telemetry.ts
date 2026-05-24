@@ -9,7 +9,8 @@ export type TelemetryEventName =
   | 'nes.suggested'
   | 'nes.accepted'
   | 'nes.skipped'
-  | 'nes.dismissed';
+  | 'nes.dismissed'
+  | 'docs.tree.size';
 
 const ALLOWED_FIELDS = new Set([
   'durationMs',
@@ -17,6 +18,8 @@ const ALLOWED_FIELDS = new Set([
   'fallbackLocale',
   'reason',
   'count',
+  'tokenEstimate',
+  'softLimitExceeded',
 ]);
 
 export class TelemetryService {

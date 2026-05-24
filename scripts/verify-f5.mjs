@@ -29,7 +29,8 @@ const DOCS_LIFECYCLE_MARKERS = [
   { file: 'src/shared/tabWorkspaceWebviewProtocol.ts', tokens: ['stale?: boolean', "type: 'compactDocSubtree'"] },
   { file: 'src/docs/ownershipIndex.ts', tokens: ['class CodeOwnershipIndex', 'rebuild('] },
   { file: 'src/context/indexManager.ts', tokens: ['resolveOwnership(', 'refreshOwnershipIndex'] },
-  { file: 'src/interaction/conversationPane.ts', tokens: ['touchLastReferenced', 'resolveScope'] },
+  { file: 'src/tools/executor.ts', tokens: ["case 'doc_link'", 'lateral_link_limit'] },
+  { file: 'src/docs/docTreeStats.ts', tokens: ['computeDocTreeStats', 'DOC_TREE_SOFT_TOKEN_LIMIT'] },
   { file: 'src/docs/documentTreeService.ts', tokens: ['touchLastReferenced'] },
 ];
 

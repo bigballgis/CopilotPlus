@@ -2,6 +2,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { applyTextEdits as applyTextEditsPure } from './textEditApply';
 
 export interface LspDiagnostic {
   file: string;
@@ -110,7 +111,31 @@ export async function getHover(
   const contents = hover.contents
     .map((c) => (typeof c === 'string' ? c : 'value' in c ? String(c.value) : ''))
     .join('\n');
-  return { contents };
+  return { contents: contents.slice(0, 5000) };
+}
+
+export async function getRenameEdit(
+  relPath: string,
+  line: number,
+  character: number,
+  newName: string
+): Promise<vscode.WorkspaceEdit | null> {
+  const uri = vscode.Uri.file(absPath(relPath));
+  const pos = new vscode.Position(Math.max(0, line - 1), character);
+  const edit = await vscode.commands.executeCommand<vscode.WorkspaceEdit | undefined>(
+    'vscode.executeDocumentRenameProvider',
+    uri,
+    pos,
+    newName
+  );
+  if (!edit || edit.size === 0) {
+    return null;
+  }
+  return edit;
+}
+
+export function applyTextEdits(original: string, edits: readonly vscode.TextEdit[]): string {
+  return applyTextEditsPure(original, edits);
 }
 
 function absPath(rel: string): string {

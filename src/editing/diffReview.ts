@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { CheckpointService } from './checkpoint';
 import { ProposedContentProvider } from './proposedContentProvider';
 import { applyEdits, type PatchEdit } from '../tools/applyPatchLogic';
+import { applyTextEdits } from '../tools/textEditApply';
 import { runInternalEdit } from './editOrigin';
 import * as path from 'path';
 import { t } from '../platform/l10n';
@@ -330,6 +331,51 @@ export class DiffReviewService {
       return false;
     }
     return this.reviewFullFile(fileUri, doc.getText(), result.content, operation);
+  }
+
+  /** R-TOOL-5.5 — apply LSP rename edits through Diff Review */
+  async reviewWorkspaceEdit(
+    workspaceEdit: vscode.WorkspaceEdit,
+    operation: string,
+    options?: { autoApply?: boolean }
+  ): Promise<{ ok: boolean; changedPaths: string[] }> {
+    const items: ComposerBatchItem[] = [];
+    for (const [uri, textEdits] of workspaceEdit.entries()) {
+      const fileUri = uri;
+      const relativePath = this.relativePath(fileUri);
+      let original = '';
+      try {
+        const doc = await vscode.workspace.openTextDocument(fileUri);
+        original = doc.getText();
+      } catch {
+        original = '';
+      }
+      const proposed = applyTextEdits(original, textEdits);
+      if (original === proposed) {
+        continue;
+      }
+      items.push({ relativePath, fileUri, original, proposed });
+    }
+
+    if (items.length === 0) {
+      return { ok: false, changedPaths: [] };
+    }
+
+    if (items.length === 1) {
+      const item = items[0]!;
+      const ok = await this.reviewFullFile(
+        item.fileUri,
+        item.original,
+        item.proposed,
+        operation,
+        undefined,
+        options
+      );
+      return { ok, changedPaths: ok ? [item.relativePath] : [] };
+    }
+
+    const ok = await this.reviewComposerBatch(items, operation);
+    return { ok, changedPaths: ok ? items.map((item) => item.relativePath) : [] };
   }
 
   private relativePath(fileUri: vscode.Uri): string {

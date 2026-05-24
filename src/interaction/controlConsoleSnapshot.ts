@@ -1,5 +1,6 @@
 /** Build serializable Control Console snapshot for React webview — R-INT-9 */
 
+import { computeDocTreeStats } from '../docs/docTreeStats';
 import type { AppServices } from '../app/appServices';
 import { resolveContextTier } from '../context/contextTier';
 import { describeNesDelegateStatus, getCopilotExtensionProbe } from '../editing/nesDelegate';
@@ -28,6 +29,8 @@ export function buildControlConsoleLabels(): ControlConsoleLabels {
     labelEmbeddedChunks: t('controlConsole.labelEmbeddedChunks'),
     labelCode: t('controlConsole.labelCode'),
     labelDocs: t('controlConsole.labelDocs'),
+    labelDocTreeSize: t('controlConsole.labelDocTreeSize'),
+    docTreeSoftLimitWarning: t('controlConsole.docTreeSoftLimitWarning'),
     toolsCount: t('controlConsole.toolsCount', '{0}'),
     invalidSkill: t('controlConsole.invalidSkill'),
     ariaStatus: t('controlConsole.aria.status'),
@@ -101,6 +104,7 @@ export function buildControlConsoleStateSync(app: AppServices): ControlConsoleSt
   const driftSummary = app.drift.getSummary();
   const driftItems = app.drift.getItems();
   const decisions = app.decisions.getPendingViews();
+  const docTreeStats = computeDocTreeStats(app.docs.getEntries());
 
   return {
     type: 'stateSync',
@@ -167,6 +171,10 @@ export function buildControlConsoleStateSync(app: AppServices): ControlConsoleSt
       codeChunks: idx.codeChunks,
       docsStatus: idx.docs,
       docChunks: idx.docChunks,
+      docTreeChars: docTreeStats.totalChars,
+      docTreeTokens: docTreeStats.totalTokens,
+      docTreeByLevel: docTreeStats.byLevel,
+      docTreeSoftLimitWarning: docTreeStats.softLimitExceeded,
       lastError: idx.lastError,
       showDownloadAddon: Boolean(s.embeddingAddonUrl),
     },

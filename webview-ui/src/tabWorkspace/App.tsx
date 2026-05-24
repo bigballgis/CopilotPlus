@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { VSCodeButton, VSCodeDropdown, VSCodeOption, VSCodeTextArea } from '@vscode/webview-ui-toolkit/react';
 import type {
   DocBreadcrumbWire,
+  DocNavLinkWire,
   TabId,
   TabWorkspaceHostMessage,
   TabWorkspaceLabels,
@@ -72,6 +73,8 @@ const DEFAULT_LABELS: TabWorkspaceLabels = {
   editDoc: 'Edit',
   selectDocHint: 'Select a document to preview.',
   docBreadcrumb: 'Document hierarchy',
+  childDocsHeading: 'Immediate children',
+  lateralLinksHeading: 'Lateral links',
   lateralEdge: 'Lateral link',
   hierarchicalEdge: 'Hierarchy',
   columnId: 'Id',
@@ -560,7 +563,14 @@ function PanelBody({
 }: {
   state: TabWorkspaceStateSync;
   selectedDocPath?: string;
-  docPreview?: { path: string; title: string; markdown: string; breadcrumb?: DocBreadcrumbWire[] };
+  docPreview?: {
+    path: string;
+    title: string;
+    markdown: string;
+    breadcrumb?: DocBreadcrumbWire[];
+    children?: DocNavLinkWire[];
+    lateralByType?: Record<string, DocNavLinkWire[]>;
+  };
   onSelectDoc: (path: string) => void;
   taskLog?: { taskId: string; content: string };
   onCloseTaskLog: () => void;
@@ -616,6 +626,8 @@ function PanelBody({
           previewTitle={docPreview?.title}
           previewMarkdown={docPreview?.markdown}
           breadcrumb={docPreview?.breadcrumb}
+          children={docPreview?.children}
+          lateralByType={docPreview?.lateralByType}
           onSelectDoc={onSelectDoc}
         />
       );
@@ -637,7 +649,15 @@ export function App(): JSX.Element {
   const [state, setState] = useState<TabWorkspaceStateSync>(EMPTY_SYNC);
   const [selectedDocPath, setSelectedDocPath] = useState<string | undefined>();
   const [docPreview, setDocPreview] = useState<
-    { path: string; title: string; markdown: string; breadcrumb?: DocBreadcrumbWire[] } | undefined
+    | {
+        path: string;
+        title: string;
+        markdown: string;
+        breadcrumb?: DocBreadcrumbWire[];
+        children?: DocNavLinkWire[];
+        lateralByType?: Record<string, DocNavLinkWire[]>;
+      }
+    | undefined
   >();
   const [taskLog, setTaskLog] = useState<{ taskId: string; content: string } | undefined>();
   const [selectedCommitHash, setSelectedCommitHash] = useState<string | undefined>();
@@ -662,6 +682,8 @@ export function App(): JSX.Element {
           title: event.data.title,
           markdown: event.data.markdown,
           breadcrumb: event.data.breadcrumb,
+          children: event.data.children,
+          lateralByType: event.data.lateralByType,
         });
         return;
       }

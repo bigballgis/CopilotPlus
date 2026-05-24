@@ -1,5 +1,5 @@
 import { VSCodeButton } from '@vscode/webview-ui-toolkit/react';
-import type { DocTreeNodeWire, DocBreadcrumbWire, TabWorkspaceLabels } from '@shared/tabWorkspaceWebviewProtocol';
+import type { DocTreeNodeWire, DocBreadcrumbWire, DocNavLinkWire, TabWorkspaceLabels } from '@shared/tabWorkspaceWebviewProtocol';
 import { ActionBar } from './ActionBar';
 import { DocTreePicker } from './DocTreePicker';
 import { MarkdownBody } from './MarkdownBody';
@@ -12,6 +12,8 @@ interface RequirementPreviewPanelProps {
   previewTitle?: string;
   previewMarkdown?: string;
   breadcrumb?: DocBreadcrumbWire[];
+  children?: DocNavLinkWire[];
+  lateralByType?: Record<string, DocNavLinkWire[]>;
   onSelectDoc: (path: string) => void;
 }
 
@@ -22,6 +24,8 @@ export function RequirementPreviewPanel({
   previewTitle,
   previewMarkdown,
   breadcrumb,
+  children,
+  lateralByType,
   onSelectDoc,
 }: RequirementPreviewPanelProps): JSX.Element {
   if (panel.docCount === 0) {
@@ -80,6 +84,40 @@ export function RequirementPreviewPanel({
                   </span>
                 ))}
               </nav>
+            ) : null}
+            {children && children.length > 0 ? (
+              <div className="cp-doc-nav">
+                <h5 className="cp-doc-nav-title">{labels.childDocsHeading}</h5>
+                <ul className="cp-doc-nav-list">
+                  {children.map((child) => (
+                    <li key={child.path}>
+                      <button type="button" className="cp-breadcrumb-link" onClick={() => onSelectDoc(child.path)}>
+                        {child.title}
+                      </button>
+                      <span className="cp-meta"> ({child.level})</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {lateralByType && Object.keys(lateralByType).length > 0 ? (
+              <div className="cp-doc-nav">
+                <h5 className="cp-doc-nav-title">{labels.lateralLinksHeading}</h5>
+                {Object.entries(lateralByType).map(([type, links]) => (
+                  <div key={type} className="cp-doc-nav-group">
+                    <p className="cp-meta">{type}</p>
+                    <ul className="cp-doc-nav-list">
+                      {links.map((link) => (
+                        <li key={`${type}-${link.path}`}>
+                          <button type="button" className="cp-breadcrumb-link" onClick={() => onSelectDoc(link.path)}>
+                            {link.title}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             ) : null}
             <p className="cp-meta">{previewTitle}</p>
             <div className="cp-req-preview-body">

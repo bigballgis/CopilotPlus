@@ -409,6 +409,16 @@
           "type": "object",
           "default": {}
         },
+        "copilotPlus.tools.webSearch.endpoint": {
+          "type": "string",
+          "default": "",
+          "description": "Search provider URL. Use {query} placeholder or ?q= query param. Empty disables websearch (R-TOOL-12.4)."
+        },
+        "copilotPlus.tools.webSearch.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Optional Bearer token for the configured web search provider."
+        },
         "copilotPlus.decisions.timeoutSec": {
           "type": "number",
           "default": 300,

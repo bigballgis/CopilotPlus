@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { parseDocRelativePath, pathForDoc, systemDocPath } from '../../docs/paths.js';
 import { composeDocument, normalizeFrontmatter } from '../../docs/frontmatterSerialize.js';
 import { validateDocumentSize, validateFrontmatter } from '../../docs/frontmatter.js';
-import { resolveScope, buildDocBreadcrumb } from '../../docs/scopeResolution.js';
+import { resolveScope, buildDocBreadcrumb, buildDocPreviewNav } from '../../docs/scopeResolution.js';
 import { resolveOwners, CodeOwnershipIndex } from '../../docs/ownershipIndex.js';
 import type { DocEntry } from '../../docs/documentTreeService.js';
 
@@ -24,6 +24,7 @@ describe('R-DOCS-2 frontmatter', () => {
       title: 'Auth Module',
       parent: 'app',
       children: ['login'],
+      lateral: [{ target: 'billing', type: 'references' }],
       ai_generated: true,
     });
     const body = '\n## Summary\n\nAuth module summary.\n';
@@ -31,6 +32,8 @@ describe('R-DOCS-2 frontmatter', () => {
     const validation = validateFrontmatter(fm as unknown as Record<string, unknown>, body);
     assert.equal(validation.valid, true);
     assert.match(content, /^---\nid: auth/);
+    assert.match(content, /lateral:/);
+    assert.match(content, /target: billing/);
   });
 });
 
@@ -89,6 +92,48 @@ describe('R-DOCS-5 scope resolution', () => {
       crumbs.map((c) => c.title),
       ['app', 'auth', 'login']
     );
+  });
+
+  it('builds preview nav with children and lateral links by type', () => {
+    const entries: DocEntry[] = [
+      entry('.copilotPlus/docs/system/app.md', 'app', 'system', '', ['auth']),
+      entry('.copilotPlus/docs/system/app/auth.md', 'auth', 'module', 'app', ['login'], [
+        { target: 'billing', type: 'references' },
+        { target: 'audit', type: 'depends_on' },
+      ]),
+      entry('.copilotPlus/docs/system/app/auth/login.md', 'login', 'feature', 'auth', []),
+      entry('.copilotPlus/docs/system/app/billing.md', 'billing', 'module', 'app', []),
+      entry('.copilotPlus/docs/system/app/audit.md', 'audit', 'module', 'app', []),
+    ];
+
+    const nav = buildDocPreviewNav('.copilotPlus/docs/system/app/auth.md', entries);
+    assert.deepEqual(
+      nav.children.map((c) => c.path),
+      ['.copilotPlus/docs/system/app/auth/login.md']
+    );
+    assert.deepEqual(
+      nav.lateralByType.references?.map((l) => l.path),
+      ['.copilotPlus/docs/system/app/billing.md']
+    );
+    assert.deepEqual(
+      nav.lateralByType.depends_on?.map((l) => l.path),
+      ['.copilotPlus/docs/system/app/audit.md']
+    );
+  });
+
+  it('resolves lateral targets through alias resolver', () => {
+    const entries: DocEntry[] = [
+      entry('.copilotPlus/docs/system/app.md', 'app', 'system', '', ['auth']),
+      entry('.copilotPlus/docs/system/app/auth.md', 'auth', 'module', 'app', [], [
+        { target: 'billing-old', type: 'references' },
+      ]),
+      entry('.copilotPlus/docs/system/app/billing.md', 'billing', 'module', 'app', []),
+    ];
+
+    const nav = buildDocPreviewNav('.copilotPlus/docs/system/app/auth.md', entries, (id) =>
+      id === 'billing-old' ? 'billing' : id
+    );
+    assert.deepEqual(nav.lateralByType.references?.map((l) => l.title), ['billing']);
   });
 
   it('filters lateral scope by max depth', () => {

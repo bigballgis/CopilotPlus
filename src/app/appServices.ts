@@ -35,7 +35,8 @@ import { DesignWorkflowService } from '../workflow/designWorkflowService';
 import { BackgroundAgentService } from '../agents/backgroundAgentService';
 import { BuildIsolationService } from '../workflow/buildIsolationService';
 import type { CiSession } from '../cli/ciSession';
-import { DriftService } from '../docs/driftService';
+import { computeDocTreeStats } from '../docs/docTreeStats';
+import { maybeEmitDocTreeTelemetry } from '../docs/docTreeTelemetry';
 import { NamingAliasStore } from '../docs/namingAliases';
 
 export class AppServices {
@@ -147,6 +148,11 @@ export class AppServices {
     await this.deploy.load();
     this.docs.startWatching(this.context);
     void this.docs.ensureDefaultSystem();
+    this.context.subscriptions.push(
+      this.docs.onChange(() => {
+        void this.reportDocTreeTelemetry();
+      })
+    );
     void this.indexManager.start(this.context);
     this.drift.register(this.context);
     this.context.subscriptions.push(
@@ -247,5 +253,14 @@ export class AppServices {
     this.ciSession = undefined;
     this.diffReview.setCiAutoApply(false);
     this.decisions.setCiResolver(undefined);
+  }
+
+  private async reportDocTreeTelemetry(): Promise<void> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    await maybeEmitDocTreeTelemetry(
+      root,
+      this.platform.telemetry,
+      computeDocTreeStats(this.docs.getEntries())
+    );
   }
 }

@@ -113,6 +113,61 @@ export interface DocBreadcrumbSegment {
   level: string;
 }
 
+export interface DocNavLink {
+  path: string;
+  title: string;
+  level: string;
+}
+
+export interface DocPreviewNav {
+  children: DocNavLink[];
+  lateralByType: Partial<Record<'references' | 'depends_on' | 'extends' | 'conflicts_with', DocNavLink[]>>;
+}
+
+/** R-DOCS-3.3 / R-DOCS-4.4 — immediate children + lateral links grouped by type */
+export function buildDocPreviewNav(
+  startPath: string,
+  entries: DocEntry[],
+  resolveId: (id: string) => string = (id) => id
+): DocPreviewNav {
+  const norm = startPath.replace(/\\/g, '/');
+  const start = entries.find((e) => e.valid && e.relativePath === norm);
+  if (!start) {
+    return { children: [], lateralByType: {} };
+  }
+
+  const byId = new Map(entries.filter((e) => e.valid).map((e) => [e.frontmatter.id, e]));
+  const children: DocNavLink[] = [];
+  for (const childId of start.frontmatter.children ?? []) {
+    const child = byId.get(childId);
+    if (!child || child.relativePath.includes('/archive/')) {
+      continue;
+    }
+    children.push({
+      path: child.relativePath,
+      title: child.frontmatter.title,
+      level: child.frontmatter.level,
+    });
+  }
+
+  const lateralByType: DocPreviewNav['lateralByType'] = {};
+  for (const link of start.frontmatter.lateral ?? []) {
+    const target = byId.get(resolveId(link.target));
+    if (!target || target.relativePath.includes('/archive/')) {
+      continue;
+    }
+    const bucket = lateralByType[link.type] ?? [];
+    bucket.push({
+      path: target.relativePath,
+      title: target.frontmatter.title,
+      level: target.frontmatter.level,
+    });
+    lateralByType[link.type] = bucket;
+  }
+
+  return { children, lateralByType };
+}
+
 /** R-DOCS-3.2 — hierarchical breadcrumb from system down to document */
 export function buildDocBreadcrumb(startPath: string, entries: DocEntry[]): DocBreadcrumbSegment[] {
   const norm = startPath.replace(/\\/g, '/');

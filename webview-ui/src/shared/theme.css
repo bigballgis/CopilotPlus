@@ -121,6 +121,25 @@
   user-select: none;
 }
 
+.cp-doc-nav {
+  margin: 0 0 10px;
+}
+
+.cp-doc-nav-title {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cp-doc-nav-list {
+  margin: 0 0 6px;
+  padding-left: 18px;
+}
+
+.cp-doc-nav-group {
+  margin-bottom: 6px;
+}
+
 .cp-chip-row {
   display: flex;
   flex-wrap: wrap;

@@ -56,6 +56,8 @@ export interface TabWorkspaceLabels {
   editDoc: string;
   selectDocHint: string;
   docBreadcrumb: string;
+  childDocsHeading: string;
+  lateralLinksHeading: string;
   lateralEdge: string;
   hierarchicalEdge: string;
   columnId: string;
@@ -81,6 +83,12 @@ export interface TabWorkspaceLabels {
   staleBadge: string;
   compactSubtree: string;
   compactSubtreeAria: string;
+}
+
+export interface DocNavLinkWire {
+  path: string;
+  title: string;
+  level: string;
 }
 
 export interface DocLateralLinkWire {
@@ -225,7 +233,7 @@ export interface DocBreadcrumbWire {
 
 export type TabWorkspaceHostMessage =
   | TabWorkspaceStateSync
-  | { type: 'docPreview'; path: string; title: string; markdown: string; breadcrumb?: DocBreadcrumbWire[] }
+  | { type: 'docPreview'; path: string; title: string; markdown: string; breadcrumb?: DocBreadcrumbWire[]; children?: DocNavLinkWire[]; lateralByType?: Record<string, DocNavLinkWire[]> }
   | { type: 'taskLog'; taskId: string; content: string }
   | { type: 'commitDiff'; hash: string; diff: string };
 

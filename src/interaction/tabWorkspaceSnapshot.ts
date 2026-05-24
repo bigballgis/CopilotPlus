@@ -76,6 +76,8 @@ export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
     editDoc: t('tabWorkspace.editDoc'),
     selectDocHint: t('tabWorkspace.selectDocHint'),
     docBreadcrumb: t('tabWorkspace.docBreadcrumb'),
+    childDocsHeading: t('tabWorkspace.childDocsHeading'),
+    lateralLinksHeading: t('tabWorkspace.lateralLinksHeading'),
     lateralEdge: t('tabWorkspace.lateralEdge'),
     hierarchicalEdge: t('tabWorkspace.hierarchicalEdge'),
     columnId: t('tabWorkspace.columnId'),

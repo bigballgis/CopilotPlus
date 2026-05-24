@@ -37,6 +37,19 @@ export function serializeFrontmatter(fm: DocFrontmatter): string {
   for (const c of fm.children ?? []) {
     lines.push(`  - ${c}`);
   }
+  if (fm.secondary_parents?.length) {
+    lines.push('secondary_parents:');
+    for (const p of fm.secondary_parents) {
+      lines.push(`  - ${p}`);
+    }
+  }
+  if (fm.lateral?.length) {
+    lines.push('lateral:');
+    for (const link of fm.lateral) {
+      lines.push(`  - target: ${link.target}`);
+      lines.push(`    type: ${link.type}`);
+    }
+  }
   if (fm.code_paths?.length) {
     lines.push('code_paths:');
     for (const p of fm.code_paths) {

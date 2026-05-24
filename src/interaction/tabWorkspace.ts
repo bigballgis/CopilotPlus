@@ -2,7 +2,7 @@
 
 import * as vscode from 'vscode';
 import type { AppServices } from '../app/appServices';
-import { buildDocBreadcrumb } from '../docs/scopeResolution';
+import { buildDocBreadcrumb, buildDocPreviewNav } from '../docs/scopeResolution';
 import type { BuildSnapshot } from '../workflow/buildExecutor';
 import { getTabWorkspaceWebviewHtml } from './webviewBundle';
 import { buildTabWorkspaceStateSync } from './tabWorkspaceSnapshot';
@@ -149,12 +149,17 @@ export class TabWorkspaceProvider {
     if (!entry) {
       return;
     }
+    const entries = this.app.docs.getEntries();
+    const resolveId = (id: string) => this.app.namingAliases.resolve(id);
+    const nav = buildDocPreviewNav(relativePath, entries, resolveId);
     this.postMessage({
       type: 'docPreview',
       path: relativePath,
       title: entry.frontmatter.title,
       markdown: entry.body,
-      breadcrumb: buildDocBreadcrumb(relativePath, this.app.docs.getEntries()),
+      breadcrumb: buildDocBreadcrumb(relativePath, entries),
+      children: nav.children,
+      lateralByType: nav.lateralByType,
     });
   }
 

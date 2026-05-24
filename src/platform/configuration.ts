@@ -36,6 +36,8 @@ export interface CopilotPlusSettings {
   staleThresholdDays: number;
   maxLateralDepth: number;
   consistencyCheckBudget: number;
+  webSearchEndpoint: string;
+  webSearchApiKey: string;
   embeddingAddonUrl: string;
   embeddingAddonSha256: string;
   tierOverride: 'auto' | 's' | 'm' | 'l';
@@ -76,6 +78,8 @@ const DEFAULTS: CopilotPlusSettings = {
   staleThresholdDays: 90,
   maxLateralDepth: 4,
   consistencyCheckBudget: 50,
+  webSearchEndpoint: '',
+  webSearchApiKey: '',
   embeddingAddonUrl: '',
   embeddingAddonSha256: '',
   tierOverride: 'auto',
@@ -188,6 +192,8 @@ export class ConfigurationService {
       staleThresholdDays: clampInt(cfg.get('docs.staleThresholdDays'), 30, 365, 90),
       maxLateralDepth: clampInt(cfg.get('docs.maxLateralDepth'), 4, 8, 4),
       consistencyCheckBudget: clampInt(cfg.get('docs.consistencyCheckBudget'), 10, 500, 50),
+      webSearchEndpoint: cfg.get<string>('tools.webSearch.endpoint', '') ?? '',
+      webSearchApiKey: cfg.get<string>('tools.webSearch.apiKey', '') ?? '',
       embeddingAddonUrl: cfg.get<string>('indexing.embeddingAddon.url', '') ?? '',
       embeddingAddonSha256: cfg.get<string>('indexing.embeddingAddon.sha256', '') ?? '',
       tierOverride: this.enumValue(

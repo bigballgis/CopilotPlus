@@ -6,6 +6,7 @@ import * as path from 'path';
 import type { AppServices } from '../app/appServices';
 import type { DocumentTreeService } from '../docs/documentTreeService';
 import { composeDocument, normalizeFrontmatter } from '../docs/frontmatterSerialize';
+import { parseFrontmatter, validateDocumentSize, validateFrontmatter, type DocLevel, type LateralLink } from '../docs/frontmatter';
 import { findLateralDepthViolations } from '../docs/lateralDepth';
 import { findNamingCollision } from '../docs/namingConsistency';
 import { applyEdits, type PatchEdit } from './applyPatchLogic';
@@ -21,7 +22,9 @@ import {
   getDiagnostics,
   getHover,
   getReferences,
+  getRenameEdit,
 } from './lspTools';
+import { executeWebFetch, executeWebSearch, resolveWebSearchMaxResults } from './webTools';
 import { computeQueryEmbedding } from '../context/embeddingResolver';
 import { parseMcpToolId } from '../extensibility/mcpConfig';
 import { requiresAutonomyApproval, shouldBypassDiffReview } from '../workflow/autonomyGate';
@@ -114,6 +117,8 @@ export class ToolExecutor {
         return this.docRead(args);
       case 'doc_write':
         return this.docWrite(args);
+      case 'doc_link':
+        return this.docLink(args);
       case 'apply_patch':
         return this.applyPatch(args, role);
       case 'write_file':
@@ -140,6 +145,12 @@ export class ToolExecutor {
         return this.lspReferences(args);
       case 'lsp_hover':
         return this.lspHover(args);
+      case 'lsp_rename':
+        return this.lspRename(args);
+      case 'webfetch':
+        return this.webfetch(args);
+      case 'websearch':
+        return this.websearch(args);
       case 'git_status':
         return this.gitStatus();
       case 'git_diff':
@@ -359,6 +370,72 @@ export class ToolExecutor {
     }
     const ok = await this.docs.writeWithReview(docPath, composed, 'doc_write');
     return ok ? { ok: true, data: { path: docPath } } : { ok: false, reason: 'user_rejected' };
+  }
+
+  private async docLink(args: Record<string, unknown>): Promise<ToolResult> {
+    const sourceId = String(args.source_doc_id ?? '');
+    const targetId = String(args.target_doc_id ?? '');
+    const linkType = String(args.link_type ?? 'references') as LateralLink['type'];
+    const allowedTypes: LateralLink['type'][] = ['references', 'depends_on', 'extends', 'conflicts_with'];
+    if (!allowedTypes.includes(linkType)) {
+      return { ok: false, reason: 'invalid_link_type' };
+    }
+
+    const entries = this.docs.getEntries();
+    const resolveId = (id: string) => this.app.namingAliases.resolve(id);
+    const source = entries.find((e) => e.valid && e.frontmatter.id === sourceId);
+    const resolvedTargetId = resolveId(targetId);
+    const target = entries.find((e) => e.valid && e.frontmatter.id === resolvedTargetId);
+    if (!source) {
+      return { ok: false, reason: 'source_not_found' };
+    }
+    if (!target) {
+      return { ok: false, reason: 'target_not_found' };
+    }
+
+    const maxLateralDepth = this.app.platform.getSettings().maxLateralDepth;
+    const violations = findLateralDepthViolations(
+      {
+        ...source,
+        frontmatter: {
+          ...source.frontmatter,
+          lateral: [
+            ...(source.frontmatter.lateral ?? []).filter((link) => link.target !== resolvedTargetId),
+            { target: resolvedTargetId, type: linkType },
+          ],
+        },
+      },
+      entries,
+      maxLateralDepth,
+      resolveId
+    );
+    if (violations.length > 0) {
+      const first = violations[0]!;
+      return {
+        ok: false,
+        reason: 'lateral_depth_exceeded',
+        cap: first.maxDepth,
+        actual: first.depth,
+      };
+    }
+
+    const lateral = [...(source.frontmatter.lateral ?? [])];
+    const existingIndex = lateral.findIndex((link) => link.target === resolvedTargetId);
+    if (existingIndex >= 0) {
+      lateral[existingIndex] = { target: resolvedTargetId, type: linkType };
+    } else {
+      if (lateral.length >= 50) {
+        return { ok: false, reason: 'lateral_link_limit' };
+      }
+      lateral.push({ target: resolvedTargetId, type: linkType });
+    }
+
+    const fm = { ...source.frontmatter, lateral };
+    const content = composeDocument(fm, source.body);
+    const ok = await this.docs.writeWithReview(source.relativePath, content, 'doc_link');
+    return ok
+      ? { ok: true, data: { source: sourceId, target: resolvedTargetId, link_type: linkType } }
+      : { ok: false, reason: 'user_rejected' };
   }
 
   private async writeFile(args: Record<string, unknown>, role: string): Promise<ToolResult> {
@@ -610,6 +687,61 @@ export class ToolExecutor {
     const character = Number(args.character ?? 0);
     const hover = await getHover(rel, line, character);
     return { ok: true, data: hover ?? { contents: '' } };
+  }
+
+  private async lspRename(args: Record<string, unknown>): Promise<ToolResult> {
+    const rel = String(args.path ?? '');
+    const sens = this.checkSensitive(rel);
+    if (sens) {
+      return sens;
+    }
+    const newName = String(args.newName ?? args.new_name ?? '').trim();
+    if (!newName) {
+      return { ok: false, reason: 'missing_new_name' };
+    }
+    const line = Number(args.line ?? 1);
+    const character = Number(args.character ?? 0);
+    const edit = await getRenameEdit(rel, line, character, newName);
+    if (!edit) {
+      return { ok: false, reason: 'no_provider' };
+    }
+    const settings = this.app.platform.getSettings();
+    const result = await this.app.diffReview.reviewWorkspaceEdit(edit, 'lsp_rename', {
+      autoApply: shouldBypassDiffReview(settings.autonomyLevel),
+    });
+    if (!result.ok) {
+      return { ok: false, reason: 'user_rejected' };
+    }
+    for (const changed of result.changedPaths) {
+      await this.app.postEdit.recordEdit(changed);
+    }
+    return { ok: true, data: { path: rel, newName, changed: result.changedPaths } };
+  }
+
+  private async webfetch(args: Record<string, unknown>): Promise<ToolResult> {
+    const result = await executeWebFetch({
+      url: String(args.url ?? ''),
+      mode: args.mode,
+      max_chars: args.max_chars,
+    });
+    if (!result.ok) {
+      return result;
+    }
+    return { ok: true, data: result.data };
+  }
+
+  private async websearch(args: Record<string, unknown>): Promise<ToolResult> {
+    const settings = this.app.platform.getSettings();
+    const result = await executeWebSearch(
+      String(args.query ?? ''),
+      resolveWebSearchMaxResults(args.max_results),
+      settings.webSearchEndpoint,
+      settings.webSearchApiKey || undefined
+    );
+    if (!result.ok) {
+      return result;
+    }
+    return { ok: true, data: { results: result.data } };
   }
 
   private async gitStatus(): Promise<ToolResult> {

@@ -44,7 +44,7 @@ export function normalizeWebTarget(target: string): string | undefined {
   return `https://${trimmed}`;
 }
 
-function stripHtml(html: string): string {
+export function stripHtml(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')

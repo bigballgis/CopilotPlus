@@ -185,6 +185,9 @@ export const FALLBACK: Record<string, string> = {
   'controlConsole.labelCode': 'Code',
   'controlConsole.labelContextTier': 'Context tier',
   'controlConsole.labelDocs': 'Docs',
+  'controlConsole.labelDocTreeSize': 'Document tree',
+  'controlConsole.docTreeSoftLimitWarning':
+    'Document tree exceeds 500,000 tokens — consider running compaction.',
   'controlConsole.labelEmbeddedChunks': 'Embedded chunks',
   'controlConsole.labelMode': 'Mode',
   'controlConsole.labelModel': 'Model',
@@ -380,6 +383,8 @@ export const FALLBACK: Record<string, string> = {
   'tabWorkspace.activeCodeLayerOrphan': 'Orphan code — no Component doc',
   'tabWorkspace.selectDocHint': 'Select a document in the tree to preview.',
   'tabWorkspace.docBreadcrumb': 'Document hierarchy',
+  'tabWorkspace.childDocsHeading': 'Immediate children',
+  'tabWorkspace.lateralLinksHeading': 'Lateral links',
   'tabWorkspace.lateralEdge': 'Lateral link',
   'tabWorkspace.hierarchicalEdge': 'Hierarchy',
   'tabWorkspace.columnId': 'Id',

@@ -31,6 +31,8 @@ export interface ControlConsoleLabels {
   labelEmbeddedChunks: string;
   labelCode: string;
   labelDocs: string;
+  labelDocTreeSize: string;
+  docTreeSoftLimitWarning: string;
   toolsCount: string;
   invalidSkill: string;
   ariaStatus: string;
@@ -134,6 +136,13 @@ export interface MemoryEntryWire {
   pinned: boolean;
 }
 
+export interface DocTreeLevelWire {
+  level: string;
+  docs: number;
+  chars: number;
+  tokens: number;
+}
+
 export interface ControlConsoleStateSync {
   type: 'stateSync';
   labels: ControlConsoleLabels;
@@ -168,6 +177,10 @@ export interface ControlConsoleStateSync {
     codeChunks: number;
     docsStatus: string;
     docChunks: number;
+    docTreeChars?: number;
+    docTreeTokens?: number;
+    docTreeByLevel?: DocTreeLevelWire[];
+    docTreeSoftLimitWarning?: boolean;
     lastError?: string;
     showDownloadAddon: boolean;
   };

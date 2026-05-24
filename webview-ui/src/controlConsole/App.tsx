@@ -26,6 +26,8 @@ const EMPTY_LABELS: ControlConsoleLabels = {
   labelEmbeddedChunks: 'Embedded chunks',
   labelCode: 'Code',
   labelDocs: 'Docs',
+  labelDocTreeSize: 'Document tree',
+  docTreeSoftLimitWarning: 'Document tree exceeds 500,000 tokens — consider compaction.',
   toolsCount: '{0} tool(s)',
   invalidSkill: 'invalid',
   ariaStatus: 'Status',
@@ -334,6 +336,23 @@ export function App(): JSX.Element {
         <p className="cp-console-row">
           {L.labelDocs}: {state.indexing.docsStatus} ({state.indexing.docChunks} chunks)
         </p>
+        {state.indexing.docTreeTokens != null ? (
+          <>
+            <p className="cp-console-row">
+              {L.labelDocTreeSize}: {state.indexing.docTreeChars?.toLocaleString()} chars /{' '}
+              {state.indexing.docTreeTokens.toLocaleString()} tokens
+            </p>
+            {state.indexing.docTreeByLevel?.map((row) => (
+              <p key={row.level} className="cp-meta">
+                {row.level}: {row.docs} docs, {row.chars.toLocaleString()} chars, {row.tokens.toLocaleString()}{' '}
+                tokens
+              </p>
+            ))}
+            {state.indexing.docTreeSoftLimitWarning ? (
+              <p className="cp-console-error">{L.docTreeSoftLimitWarning}</p>
+            ) : null}
+          </>
+        ) : null}
         {state.indexing.lastError ? (
           <p className="cp-console-error">{state.indexing.lastError}</p>
         ) : null}

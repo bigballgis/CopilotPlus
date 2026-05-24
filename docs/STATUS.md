@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：查漏补缺 — F5 手动冒烟（Drift Agent 一致性 + Resolve）
-> **本 session 下一项（功能）**：F5 手动冒烟 #8–18（含 Decision Center + Commit 面板）
+> **本 session 下一项（功能）**：F5 手动冒烟 #8–19（含 Requirement 子链接 / lateral 分组预览）
 
 ---
 
@@ -10,7 +10,7 @@
 
 | # | 步骤 | 预期 |
 |---|------|------|
-| 1 | `npm run compile && npm run verify:f5` | 全部 OK |
+| 1 | `npm run compile && npm run verify:f5 && npm run verify:docs-smoke` | 全部 OK |
 | 2 | F5 启动扩展 | 激活 < 5s，无报错通知 |
 | 3 | Conversation 头部切换模型 | 下拉可见 Copilot 模型，切换后持久化 |
 | 4 | Tab Workspace 头部切换模型 | 与 Conversation 同步 |
@@ -29,6 +29,7 @@
 | 17 | @archive mention | Conversation 中 `@archive:…` 可附加归档文档内容 |
 | 18 | Commit 面板 | Tab Commit 列表 + diff 预览 + Checkpoint 回滚 + Rolled back 徽章 |
 | 19 | Decision Center | Control Console 待决列表 + 倒计时 + Bulk approve + 重启恢复 |
+| 20 | Requirement 子链接预览 | 选中文档后显示 Immediate children + Lateral links（按 type 分组） |
 
 ---
 
@@ -40,7 +41,7 @@
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 | 1 | Platform 补全 | 1.1–1.9 | ✅ 完成 |
 
-**单元测试**：244/244 通过  
+**单元测试**：257/257 通过  
 **需求覆盖率（粗算）**：~97%
 
 ---
@@ -62,6 +63,11 @@
 | Scope + 预览增强 | secondary_parents 纳入 scope + Requirement breadcrumb + doc_write 尺寸结构化错误 | R-DOCS-3.2 / R-DOCS-5.1 / R-DOCS-8.2 |
 | 横向链接深度 | maxLateralDepth 配置 + scope 过滤 + doc_write 校验 | R-DOCS-4 |
 | 文档命名一致性 | Levenshtein/标题重叠 Decision + naming_aliases.json + 链接重写 | R-DOCS-7 |
+| 文档树体量 | Console Indexing 分级 chars/tokens + 500k 软限 + doc_link 工具 | R-DOCS-8.4 / R-TOOL-7 |
+| Requirement 预览导航 | 子文档列表 + lateral 按 type 分组 + breadcrumb 点击跳转 | R-DOCS-3.3 / R-DOCS-4.4 |
+| 文档树 telemetry | docs.tree.size 月度节流 + tokenEstimate / softLimitExceeded | R-DOCS-8.5 / R-PLAT-7 |
+| Web 工具 | webfetch（https/15s/截断）+ websearch（可配置 provider） | R-TOOL-12 |
+| LSP 重命名 | lsp_rename → Diff Review + Checkpoint + post_edit | R-TOOL-5.5 |
 | 命名与横向链接 | maxLateralDepth + naming_aliases + 命名碰撞 Decision + Alias 诊断 | R-DOCS-4 / R-DOCS-7 |
 | Commit 面板 | CommitHistoryService + git_commit 记录 + diff 预览 + Checkpoint 回滚 | R-INT-7 |
 | Decision Center | 持久化 decisions.json + Console 列表/倒计时 + Bulk approve + transcript 记录 | R-INT-10 / R-INT-11 |
@@ -107,6 +113,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | R-DOCS-8.4/TOOL-7 doc_link 工具 + Control Console 文档树体量统计（分级 chars/tokens + 500k 软限警告） |
 | 2026-05-23 | R-DOCS-4/7 横向链接深度 + naming_aliases 自动重写 + doc_write 命名碰撞 Decision |
 | 2026-05-23 | R-DOCS-4/7 横向链接深度 + 文档命名一致性（Decision、aliases、scope 过滤、Compaction 注册别名） |
 | 2026-05-23 | R-INT-7 Commit 面板（CommitHistoryService + Tab UI diff/过滤/Checkpoint 回滚）+ R-DOCS-11.1 代码归属索引提交 |
