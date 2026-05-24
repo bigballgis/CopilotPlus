@@ -22,6 +22,10 @@ export interface TaskNode {
   depends_on: string[];
   status: TaskStatus;
   scope_doc: string;
+  /** User paused via Task_Panel — R-INT-4 */
+  user_paused?: boolean;
+  started_at?: string;
+  completed_at?: string;
 }
 
 export interface TaskDagFile {

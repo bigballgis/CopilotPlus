@@ -3,18 +3,39 @@
 import * as vscode from 'vscode';
 import type { AppServices } from '../app/appServices';
 import { loadAgentPrompt } from './promptLoader';
-import { BUILD_PIPELINE, roleToPromptFile } from './roleMapping';
+import { roleToPromptFile } from './roleMapping';
 import { SubAgentLoop, type AgentLoopResult } from './subAgentLoop';
 import type { TaskNode } from '../workflow/taskDag';
 import { buildLayerWalkForDoc } from '../docs/scopeResolution';
 import { resolveScope } from '../docs/scopeResolution';
 import { MultiAgentVerificationService } from './verificationService';
+import {
+  parseCommitterVerdict,
+  parseReviewerVerdict,
+  parseTesterVerdict,
+} from './buildStageParse';
+import {
+  interpretCommitFailureDecision,
+  interpretReviewDecision,
+  interpretTestExhaustedDecision,
+} from './buildPipelineDecisions';
+import { runBash } from '../tools/bashRunner';
+import { t } from '../platform/l10n';
 
 export interface SubAgentRunResult {
   ok: boolean;
   finalAnswer: string;
   failed: boolean;
   reason?: string;
+  blocked?: boolean;
+  skip?: boolean;
+  pauseRequested?: boolean;
+  terminateBuild?: boolean;
+}
+
+export interface BuildPipelineHooks {
+  onTaskBlocked?: () => Promise<void>;
+  onTaskRunning?: () => Promise<void>;
 }
 
 export class SubAgentRunner {
@@ -245,37 +266,459 @@ export class SubAgentRunner {
     task: TaskNode,
     buildId: string,
     token: vscode.CancellationToken,
-    onStatus?: (message: string) => void
+    onStatus?: (message: string) => void,
+    hooks?: BuildPipelineHooks
   ): Promise<SubAgentRunResult> {
     if (task.agent !== 'Coder') {
       return this.runRole(task.agent, task, buildId, token, onStatus);
     }
 
-    let lastAnswer = '';
-    for (const role of BUILD_PIPELINE) {
-      onStatus?.(`Running ${role} for ${task.id}`);
-      let stepTask: TaskNode = {
-        ...task,
-        description: `${task.description}\n\nBuild step: ${role}`,
-      };
+    const testCommand = this.resolveTestCommand();
+    let stepTask = task;
 
-      if (role === 'Coder') {
-        const coderResult = await this.runCoderWithVerification(stepTask, buildId, token, onStatus);
-        if (!coderResult.ok) {
-          return coderResult;
+    const testerOutcome = await this.runTesterWithDecisions(
+      stepTask,
+      buildId,
+      testCommand,
+      token,
+      onStatus
+    );
+    if (!('task' in testerOutcome)) {
+      return testerOutcome;
+    }
+    stepTask = testerOutcome.task;
+
+    const reviewResult = await this.runReviewerWithDecision(
+      stepTask,
+      buildId,
+      testCommand,
+      token,
+      onStatus,
+      hooks
+    );
+    if (!('task' in reviewResult)) {
+      return reviewResult;
+    }
+    stepTask = reviewResult.task;
+
+    const commitOutcome = await this.runCommitterWithDecisions(
+      stepTask,
+      buildId,
+      token,
+      onStatus
+    );
+    if (!commitOutcome.ok) {
+      return commitOutcome;
+    }
+
+    return { ok: true, finalAnswer: commitOutcome.finalAnswer, failed: false };
+  }
+
+  /** R-WF-4.3–4.5 — Coder then Tester with user decision after exhaustion */
+  private async runTesterWithDecisions(
+    task: TaskNode,
+    buildId: string,
+    testCommand: string,
+    token: vscode.CancellationToken,
+    onStatus?: (message: string) => void
+  ): Promise<{ ok: true; task: TaskNode } | SubAgentRunResult> {
+    let stepTask = task;
+
+    const coderResult = await this.runCoderWithVerification(stepTask, buildId, token, onStatus);
+    if (!coderResult.ok) {
+      return coderResult;
+    }
+
+    while (true) {
+      const testerLoop = await this.runTesterCoderLoop(
+        stepTask,
+        buildId,
+        testCommand,
+        token,
+        onStatus
+      );
+      if (testerLoop.ok) {
+        return testerLoop;
+      }
+      if (testerLoop.reason !== 'test_exhausted') {
+        return testerLoop;
+      }
+
+      const decision = await this.app.decisions.ask({
+        id: `test-fail-${task.id}-${Date.now()}`,
+        taskId: task.id,
+        question: t('build.testExhausted', task.id),
+        options: ['Retry_Task', 'Skip_Task', 'Terminate_Build'],
+        defaultOption: 'Retry_Task',
+        timeoutSec: this.app.platform.getSettings().decisionTimeoutSec,
+      });
+      const action = interpretTestExhaustedDecision(decision.selected, decision.timedOut);
+      if (action === 'retry') {
+        const coderRetry = await this.runCoderWithVerification(
+          stepTask,
+          buildId,
+          token,
+          onStatus
+        );
+        if (!coderRetry.ok) {
+          return coderRetry;
         }
-        lastAnswer = coderResult.finalAnswer;
+        continue;
+      }
+      if (action === 'skip') {
+        return {
+          ok: false,
+          finalAnswer: testerLoop.finalAnswer,
+          failed: false,
+          skip: true,
+          reason: 'test_skipped',
+        };
+      }
+      if (action === 'pause') {
+        return {
+          ok: false,
+          finalAnswer: testerLoop.finalAnswer,
+          failed: true,
+          blocked: true,
+          pauseRequested: true,
+          reason: 'test_paused',
+        };
+      }
+      if (action === 'terminate') {
+        return {
+          ok: false,
+          finalAnswer: testerLoop.finalAnswer,
+          failed: true,
+          terminateBuild: true,
+          reason: 'test_terminated',
+        };
+      }
+      return testerLoop;
+    }
+  }
+
+  /** R-WF-4.8–4.9 — Committer with retry + decision on failure */
+  private async runCommitterWithDecisions(
+    task: TaskNode,
+    buildId: string,
+    token: vscode.CancellationToken,
+    onStatus?: (message: string) => void
+  ): Promise<{ ok: true; finalAnswer: string } | SubAgentRunResult> {
+    let lastAnswer = '';
+    let autoAttempts = 0;
+
+    while (autoAttempts < 4) {
+      autoAttempts += 1;
+      onStatus?.(`Running Committer for ${task.id} (attempt ${autoAttempts})`);
+      const committerResult = await this.runRole(
+        'Committer',
+        this.buildCommitterTask(task),
+        buildId,
+        token,
+        onStatus
+      );
+      if (!committerResult.ok) {
+        return committerResult;
+      }
+      lastAnswer = committerResult.finalAnswer;
+
+      const commitVerdict = parseCommitterVerdict(committerResult.finalAnswer);
+      if (commitVerdict.committed) {
+        return { ok: true, finalAnswer: committerResult.finalAnswer };
+      }
+
+      if (autoAttempts < 2) {
+        onStatus?.(t('build.commitRetry', task.id, autoAttempts + 1));
         continue;
       }
 
-      const result = await this.runRole(role, stepTask, buildId, token, onStatus);
-      if (!result.ok) {
-        return result;
+      const decision = await this.app.decisions.ask({
+        id: `commit-fail-${task.id}-${Date.now()}`,
+        taskId: task.id,
+        question: t('build.commitFailed', task.id, commitVerdict.error ?? commitVerdict.summary),
+        options: ['Retry_Commit', 'Skip_Commit', 'Terminate_Task'],
+        defaultOption: 'Retry_Commit',
+        timeoutSec: this.app.platform.getSettings().decisionTimeoutSec,
+      });
+      const action = interpretCommitFailureDecision(decision.selected);
+      if (action === 'retry') {
+        autoAttempts = 0;
+        continue;
       }
-      lastAnswer = result.finalAnswer;
+      if (action === 'skip') {
+        return { ok: true, finalAnswer: lastAnswer };
+      }
+      if (action === 'pause') {
+        return {
+          ok: false,
+          finalAnswer: lastAnswer,
+          failed: true,
+          blocked: true,
+          pauseRequested: true,
+          reason: 'commit_paused',
+        };
+      }
+      return {
+        ok: false,
+        finalAnswer: lastAnswer,
+        failed: true,
+        reason: 'commit_failed',
+      };
     }
 
-    return { ok: true, finalAnswer: lastAnswer, failed: false };
+    return {
+      ok: false,
+      finalAnswer: lastAnswer,
+      failed: true,
+      reason: 'commit_failed',
+    };
+  }
+
+  /** R-WF-4.5 — Tester with up to 3 Coder retry rounds on failure */
+  private async runTesterCoderLoop(
+    task: TaskNode,
+    buildId: string,
+    testCommand: string,
+    token: vscode.CancellationToken,
+    onStatus?: (message: string) => void
+  ): Promise<{ ok: true; task: TaskNode } | SubAgentRunResult> {
+    let stepTask = task;
+
+    for (let round = 1; round <= 3; round++) {
+      onStatus?.(`Running Tester for ${task.id} (round ${round}/3)`);
+      const testerResult = await this.runRole(
+        'Tester',
+        this.buildTesterTask(stepTask, testCommand),
+        buildId,
+        token,
+        onStatus
+      );
+      if (!testerResult.ok) {
+        return testerResult;
+      }
+
+      const verdict = parseTesterVerdict(testerResult.finalAnswer);
+      if (verdict.passed) {
+        return { ok: true, task: stepTask };
+      }
+
+      if (round >= 3) {
+        return {
+          ok: false,
+          finalAnswer: testerResult.finalAnswer,
+          failed: true,
+          reason: 'test_exhausted',
+        };
+      }
+
+      onStatus?.(`Tests failed — Coder retry ${round + 1}/3`);
+      stepTask = {
+        ...stepTask,
+        description: `${stepTask.description}\n\n## tester_failure (round ${round})\n${verdict.failureOutput || verdict.summary}`,
+      };
+      const coderRetry = await this.runCoderWithVerification(stepTask, buildId, token, onStatus);
+      if (!coderRetry.ok) {
+        return coderRetry;
+      }
+    }
+
+    return {
+      ok: false,
+      finalAnswer: '',
+      failed: true,
+      reason: 'test_exhausted',
+    };
+  }
+
+  /** R-WF-4.6–4.7 — Reviewer with diff context and blocking decision */
+  private async runReviewerWithDecision(
+    task: TaskNode,
+    buildId: string,
+    testCommand: string,
+    token: vscode.CancellationToken,
+    onStatus?: (message: string) => void,
+    hooks?: BuildPipelineHooks
+  ): Promise<{ ok: true; task: TaskNode } | SubAgentRunResult> {
+    let stepTask = task;
+
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      onStatus?.(`Running Reviewer for ${task.id}`);
+      const gitDiff = await this.captureGitDiff();
+      const reviewerResult = await this.runRole(
+        'Reviewer',
+        this.buildReviewerTask(stepTask, gitDiff),
+        buildId,
+        token,
+        onStatus
+      );
+      if (!reviewerResult.ok) {
+        return reviewerResult;
+      }
+
+      const verdict = parseReviewerVerdict(reviewerResult.finalAnswer);
+      if (verdict.passed || !verdict.blocking) {
+        return { ok: true, task: stepTask };
+      }
+
+      await hooks?.onTaskBlocked?.();
+      const decision = await this.app.decisions.ask({
+        id: `review-${task.id}-${Date.now()}`,
+        taskId: task.id,
+        question: t('build.reviewBlocked', task.id, verdict.summary),
+        options: ['Feed_to_Coder', 'Accept_anyway', 'Terminate'],
+        defaultOption: 'Feed_to_Coder',
+        timeoutSec: this.app.platform.getSettings().decisionTimeoutSec,
+      });
+      await hooks?.onTaskRunning?.();
+
+      const action = interpretReviewDecision(decision.selected, decision.timedOut);
+      if (action === 'pause') {
+        return {
+          ok: false,
+          finalAnswer: reviewerResult.finalAnswer,
+          failed: true,
+          blocked: true,
+          pauseRequested: true,
+          reason: 'review_paused',
+        };
+      }
+      if (action === 'terminate' || action === 'fail') {
+        return {
+          ok: false,
+          finalAnswer: reviewerResult.finalAnswer,
+          failed: true,
+          blocked: true,
+          reason: 'review_terminated',
+        };
+      }
+      if (action === 'skip') {
+        return { ok: true, task: stepTask };
+      }
+
+      stepTask = {
+        ...stepTask,
+        description: `${stepTask.description}\n\n## reviewer_blocking_issues\n${verdict.issues.join('\n') || verdict.summary}`,
+      };
+      const coderFix = await this.runCoderWithVerification(stepTask, buildId, token, onStatus);
+      if (!coderFix.ok) {
+        return coderFix;
+      }
+
+      const retest = await this.runTesterCoderLoop(stepTask, buildId, testCommand, token, onStatus);
+      if (!retest.ok) {
+        if (retest.reason === 'test_exhausted') {
+          const decision = await this.app.decisions.ask({
+            id: `test-fail-${task.id}-${Date.now()}`,
+            taskId: task.id,
+            question: t('build.testExhausted', task.id),
+            options: ['Retry_Task', 'Skip_Task', 'Terminate_Build'],
+            defaultOption: 'Retry_Task',
+            timeoutSec: this.app.platform.getSettings().decisionTimeoutSec,
+          });
+          const action = interpretTestExhaustedDecision(decision.selected, decision.timedOut);
+          if (action === 'retry') {
+            const coderRetry = await this.runCoderWithVerification(
+              stepTask,
+              buildId,
+              token,
+              onStatus
+            );
+            if (!coderRetry.ok) {
+              return coderRetry;
+            }
+            const again = await this.runTesterCoderLoop(
+              stepTask,
+              buildId,
+              testCommand,
+              token,
+              onStatus
+            );
+            if (again.ok) {
+              stepTask = again.task;
+              continue;
+            }
+            return again;
+          }
+          if (action === 'skip') {
+            return {
+              ok: false,
+              finalAnswer: retest.finalAnswer,
+              failed: false,
+              skip: true,
+              reason: 'test_skipped',
+            };
+          }
+          if (action === 'pause') {
+            return {
+              ok: false,
+              finalAnswer: retest.finalAnswer,
+              failed: true,
+              blocked: true,
+              pauseRequested: true,
+              reason: 'test_paused',
+            };
+          }
+          if (action === 'terminate') {
+            return {
+              ok: false,
+              finalAnswer: retest.finalAnswer,
+              failed: true,
+              terminateBuild: true,
+              reason: 'test_terminated',
+            };
+          }
+          return retest;
+        }
+        return retest;
+      }
+      stepTask = retest.task;
+    }
+
+    return {
+      ok: false,
+      finalAnswer: '',
+      failed: true,
+      blocked: true,
+      reason: 'review_exhausted',
+    };
+  }
+
+  private buildTesterTask(task: TaskNode, testCommand: string): TaskNode {
+    return {
+      ...task,
+      description: `${task.description}\n\nBuild step: Testing\n\n## test_command\n${testCommand}\n\nRun tests with run_tests (default command above) and report pass/fail as JSON with keys passed, summary, failure_output.`,
+    };
+  }
+
+  private buildReviewerTask(task: TaskNode, gitDiff: string): TaskNode {
+    return {
+      ...task,
+      description: `${task.description}\n\nBuild step: Review\n\n## git_diff\n${gitDiff}\n\nReview the diff against Scope resolution above. Return JSON with keys passed, blocking, blocking_issues, layer_consistency, summary.`,
+    };
+  }
+
+  private buildCommitterTask(task: TaskNode): TaskNode {
+    return {
+      ...task,
+      description: `${task.description}\n\nBuild step: Commit\n\nStage and commit changes. Return JSON with keys committed, commit_hash, summary, error.`,
+    };
+  }
+
+  private resolveTestCommand(): string {
+    return (
+      vscode.workspace.getConfiguration('copilotPlus').get<string>('workflow.testCommand') ||
+      'npm run test:unit'
+    );
+  }
+
+  private async captureGitDiff(): Promise<string> {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!root) {
+      return '(no workspace)';
+    }
+    const result = await runBash('git diff && git diff --staged', root, 120_000);
+    const combined = [result.stdout, result.stderr].filter(Boolean).join('\n').trim();
+    return combined || '(no diff)';
   }
 
   /** R-AG-6 — up to 3 Coder rounds on LSP regression */

@@ -8,6 +8,7 @@ import { newBuildId } from './buildTypes';
 import { TaskDagStore } from './taskDagStore';
 import type { DagValidationError, TaskDagFile, TaskNode, TaskDagValidationContext } from './taskDag';
 import { allTasksTerminal, hasSchedulableWork } from './taskDag';
+import { readTaskTranscriptAt } from './taskTranscript';
 import { t } from '../platform/l10n';
 
 export interface BuildSnapshot {
@@ -27,6 +28,8 @@ export class BuildExecutor {
   private activeBuildId: string | undefined;
   private status: BuildStatus = 'Idle';
   private running = new Set<string>();
+  private pauseRequested = new Set<string>();
+  private taskCancelSources = new Map<string, vscode.CancellationTokenSource>();
   private cancelSource: vscode.CancellationTokenSource | undefined;
   private listeners = new Set<ChangeListener>();
   private lastMessage = '';
@@ -237,9 +240,132 @@ export class BuildExecutor {
 
   stop(): void {
     this.cancelSource?.cancel();
+    for (const source of this.taskCancelSources.values()) {
+      source.cancel();
+    }
     this.status = 'Paused';
-    this.setMessage('Build stopped by user');
+    this.setMessage(t('build.stoppedByUser'));
     this.notify();
+  }
+
+  async pauseTask(taskId: string): Promise<boolean> {
+    const buildId = this.activeBuildId;
+    if (!buildId) {
+      void vscode.window.showWarningMessage(t('build.noActiveBuild'));
+      return false;
+    }
+    const dag = await this.store.load(buildId);
+    const task = dag?.tasks.find((entry) => entry.id === taskId);
+    if (!task) {
+      return false;
+    }
+
+    if (task.status === 'Running' || this.running.has(taskId)) {
+      this.pauseRequested.add(taskId);
+      this.taskCancelSources.get(taskId)?.cancel();
+      this.setMessage(t('build.taskPausing', taskId));
+      this.notify();
+      return true;
+    }
+
+    if (task.status === 'Ready' || task.status === 'Pending') {
+      await this.store.updateTask(buildId, taskId, {
+        status: 'Blocked',
+        user_paused: true,
+      });
+      this.setMessage(t('build.taskPaused', taskId));
+      this.notify();
+      return true;
+    }
+
+    void vscode.window.showWarningMessage(t('build.taskActionBlocked', taskId, task.status));
+    return false;
+  }
+
+  async resumeTask(taskId: string): Promise<boolean> {
+    const buildId = this.activeBuildId;
+    if (!buildId) {
+      void vscode.window.showWarningMessage(t('build.noActiveBuild'));
+      return false;
+    }
+    const dag = await this.store.load(buildId);
+    const task = dag?.tasks.find((entry) => entry.id === taskId);
+    if (!task || task.status !== 'Blocked' || !task.user_paused) {
+      void vscode.window.showWarningMessage(t('build.taskActionBlocked', taskId, task.status));
+      return false;
+    }
+
+    await this.store.updateTask(buildId, taskId, {
+      status: 'Pending',
+      user_paused: false,
+    });
+    this.setMessage(t('build.taskResumed', taskId));
+    this.notify();
+    return true;
+  }
+
+  async skipTask(taskId: string): Promise<boolean> {
+    const buildId = this.activeBuildId;
+    if (!buildId) {
+      void vscode.window.showWarningMessage(t('build.noActiveBuild'));
+      return false;
+    }
+    const dag = await this.store.load(buildId);
+    const task = dag?.tasks.find((entry) => entry.id === taskId);
+    if (!task || task.status === 'Running' || this.running.has(taskId)) {
+      void vscode.window.showWarningMessage(t('build.taskActionBlocked', taskId, task.status));
+      return false;
+    }
+    if (!['Pending', 'Ready', 'Blocked', 'Failed'].includes(task.status)) {
+      void vscode.window.showWarningMessage(t('build.taskActionBlocked', taskId, task.status));
+      return false;
+    }
+
+    await this.store.updateTask(buildId, taskId, {
+      status: 'Skipped',
+      user_paused: false,
+      completed_at: new Date().toISOString(),
+    });
+    this.setMessage(t('build.taskSkipped', taskId));
+    this.notify();
+    return true;
+  }
+
+  async retryTask(taskId: string): Promise<boolean> {
+    const buildId = this.activeBuildId;
+    if (!buildId) {
+      void vscode.window.showWarningMessage(t('build.noActiveBuild'));
+      return false;
+    }
+    const dag = await this.store.load(buildId);
+    const task = dag?.tasks.find((entry) => entry.id === taskId);
+    if (!task || task.status !== 'Failed') {
+      void vscode.window.showWarningMessage(t('build.taskActionBlocked', taskId, task.status));
+      return false;
+    }
+
+    await this.store.updateTask(buildId, taskId, {
+      status: 'Pending',
+      user_paused: false,
+      started_at: undefined,
+      completed_at: undefined,
+    });
+    this.setMessage(t('build.taskRetried', taskId));
+    this.notify();
+    return true;
+  }
+
+  async getTaskLog(taskId: string): Promise<string> {
+    const buildId = this.activeBuildId;
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!buildId || !root) {
+      return '';
+    }
+    return readTaskTranscriptAt(root, buildId, taskId);
+  }
+
+  hasRunningTasks(): boolean {
+    return this.running.size > 0;
   }
 
   async rollbackTask(taskId: string): Promise<boolean> {
@@ -358,39 +484,144 @@ export class BuildExecutor {
   private async runTask(
     buildId: string,
     task: TaskNode,
-    token: vscode.CancellationToken
+    parentToken: vscode.CancellationToken
   ): Promise<void> {
     this.running.add(task.id);
-    await this.store.updateTaskStatus(buildId, task.id, 'Running');
+    const taskSource = new vscode.CancellationTokenSource();
+    parentToken.onCancellationRequested(() => taskSource.cancel());
+    this.taskCancelSources.set(task.id, taskSource);
+
+    const nowIso = new Date().toISOString();
+    await this.store.updateTask(buildId, task.id, {
+      status: 'Running',
+      started_at: nowIso,
+      completed_at: undefined,
+    });
     await this.app.hooks.fire('task.started', { buildId, taskId: task.id, agent: task.agent });
-    this.setMessage(`Running ${task.id} (${task.agent})`);
+    this.setMessage(t('build.taskRunning', task.id, task.agent));
     this.notify();
 
+    let paused = false;
     try {
-      const result = await this.runner.runBuildPipeline(task, buildId, token, (msg) =>
-        this.setMessage(msg)
+      const result = await this.runner.runBuildPipeline(
+        task,
+        buildId,
+        taskSource.token,
+        (msg) => this.setMessage(msg),
+        {
+          onTaskBlocked: async () => {
+            await this.store.updateTask(buildId, task.id, { status: 'Blocked' });
+            this.notify();
+          },
+          onTaskRunning: async () => {
+            await this.store.updateTask(buildId, task.id, { status: 'Running' });
+            this.notify();
+          },
+        }
       );
-      const nextStatus = result.ok ? 'Done' : 'Failed';
-      await this.store.updateTaskStatus(buildId, task.id, nextStatus);
+
+      if (!result.ok && result.reason === 'cancelled') {
+        if (this.pauseRequested.has(task.id)) {
+          this.pauseRequested.delete(task.id);
+          await this.store.updateTask(buildId, task.id, {
+            status: 'Blocked',
+            user_paused: true,
+            completed_at: new Date().toISOString(),
+          });
+          this.setMessage(t('build.taskPaused', task.id));
+          return;
+        }
+        await this.store.updateTask(buildId, task.id, {
+          status: 'Blocked',
+          completed_at: new Date().toISOString(),
+        });
+        this.setMessage(t('build.taskPaused', task.id));
+        return;
+      }
+
+      paused = this.pauseRequested.has(task.id);
+      if (paused) {
+        this.pauseRequested.delete(task.id);
+        await this.store.updateTask(buildId, task.id, {
+          status: 'Blocked',
+          user_paused: true,
+          completed_at: new Date().toISOString(),
+        });
+        this.setMessage(t('build.taskPaused', task.id));
+        return;
+      }
+
+      if (result.skip) {
+        await this.store.updateTask(buildId, task.id, {
+          status: 'Skipped',
+          completed_at: new Date().toISOString(),
+        });
+        this.setMessage(t('build.taskSkipped', task.id));
+        return;
+      }
+
+      if (result.terminateBuild) {
+        await this.store.updateTask(buildId, task.id, {
+          status: 'Failed',
+          completed_at: new Date().toISOString(),
+        });
+        this.setMessage(t('build.taskFailed', task.id, result.reason ?? 'terminated'));
+        this.stop();
+        return;
+      }
+
+      if (result.pauseRequested) {
+        await this.store.updateTask(buildId, task.id, {
+          status: 'Blocked',
+          user_paused: true,
+          completed_at: new Date().toISOString(),
+        });
+        this.setMessage(t('build.taskPaused', task.id));
+        return;
+      }
+
+      const nextStatus = result.ok ? 'Done' : result.blocked ? 'Blocked' : 'Failed';
+      await this.store.updateTask(buildId, task.id, {
+        status: nextStatus,
+        completed_at: new Date().toISOString(),
+      });
       await this.app.hooks.fire(result.ok ? 'task.completed' : 'task.failed', {
         buildId,
         taskId: task.id,
         reason: result.reason,
       });
+      if (result.ok) {
+        return;
+      }
       if (!result.ok && result.reason) {
-        this.setMessage(`Task ${task.id} failed: ${result.reason}`);
+        this.setMessage(t('build.taskFailed', task.id, result.reason));
       }
     } catch (err) {
-      await this.store.updateTaskStatus(buildId, task.id, 'Failed');
+      paused = this.pauseRequested.has(task.id);
+      if (paused) {
+        this.pauseRequested.delete(task.id);
+        await this.store.updateTask(buildId, task.id, {
+          status: 'Blocked',
+          user_paused: true,
+          completed_at: new Date().toISOString(),
+        });
+        this.setMessage(t('build.taskPaused', task.id));
+        return;
+      }
+      await this.store.updateTask(buildId, task.id, {
+        status: 'Failed',
+        completed_at: new Date().toISOString(),
+      });
       await this.app.hooks.fire('task.failed', {
         buildId,
         taskId: task.id,
         reason: err instanceof Error ? err.message : String(err),
       });
       this.setMessage(
-        `Task ${task.id} error: ${err instanceof Error ? err.message : String(err)}`
+        t('build.taskError', task.id, err instanceof Error ? err.message : String(err))
       );
     } finally {
+      this.taskCancelSources.delete(task.id);
       this.running.delete(task.id);
       this.notify();
     }

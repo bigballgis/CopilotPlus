@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：Phase 5 — Workflow  
-> **本 session 下一项（功能）**：R-WF-4 Build 六步深化（Tester 重试 / Reviewer Blocked）
+> **本 session 下一项（功能）**：R-WF-7 Autonomy Levels
 
 ---
 
@@ -13,7 +13,7 @@
 | 0–9 | 全部 Phase | — | ✅ 完成 |
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 
-**单元测试**：135/135 通过  
+**单元测试**：145/145 通过  
 **需求覆盖率（粗算）**：~96%
 
 ---
@@ -22,13 +22,16 @@
 
 | 模块 | 交付 | 需求 |
 |------|------|------|
-| Task DAG 执行深化 | scope 校验 + Problem Pane 诊断 + 依赖失败 Blocked + Deploy 提示 | R-WF-3 |
+| Build 六步深化 | Tester 3 轮重试 + testCommand 注入 + Reviewer diff/Blocked Decision + Committer 失败 Decision | R-WF-4 |
+| Build 六步流水线 | Coder/Tester/Reviewer/Committer + 3 轮测试 + Decision | R-WF-4 |
+| Task DAG + Panel 控制 | scope 校验 + 诊断 + Pause/Resume/Skip/Retry/Logs + elapsed | R-WF-3 / R-INT-4 |
 | Background Agent | 空闲检测 + 7 类任务 + 暂停/恢复 + Decision 队列 + Control Console 状态 | R-AG-9 |
 | Design 工作流 Continue/Step picker | 产物完整性门禁 + 协议/命令 + 面板刷新 | R-WF-2.8–2.9 |
 | UI 设计系统 Phase 2.8 | `webview-ui/shared` theme + toolkit + codicons + 消息气泡/Markdown | R-INT-2 / R-INT-3 / R-PLAT-9 |
 | Control Console React | 折叠分组 + stateSync + toolkit 按钮 | R-INT-9 |
 | Panel 可视化 | Task DAG + Architecture 图 + Requirement 预览 | R-INT-4–6 |
 | Conversation 工作流控件 | Continue + Step picker + 步骤门禁提示 | R-WF-2.8–2.9 |
+| Task Panel 执行控制 | Pause/Resume/Skip/Retry + 耗时 + 日志查看 | R-INT-4 |
 | Multi-Agent Verification | N 路并行 + majority/arbiter/union + Decision 升级 + audit | R-AG-8 |
 | Conversation React | `webview-ui/` Vite+React + 消息协议 + 宿主 stateSync | R-INT-2 / R-PLAT-9 |
 | Tab Workspace React | 五 Tab React + snapshot 协议 + Composer/Build/Deploy 面板 | R-INT-3 |
@@ -60,6 +63,8 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | R-WF-4 Build 六步 Decision 同步门禁（Tester/Reviewer/Commit + Pause Task） |
+| 2026-05-23 | Build 六步深化（Tester 重试 / Reviewer Blocked / Committer Decision） |
 | 2026-05-23 | Phase 2.8.7 Conversation Continue/Step picker UI |
 | 2026-05-23 | Phase 2.8.6 Panel 可视化（Task DAG + Architecture 图 + Requirement 预览） |
 | 2026-05-23 | Task DAG 深化（校验/诊断/Blocked 传播/Build 完成 Deploy 提示） |
