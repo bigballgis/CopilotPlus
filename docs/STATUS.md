@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：查漏补缺 — F5 手动冒烟（Drift Agent 一致性 + Resolve）
-> **本 session 下一项（功能）**：F5 手动冒烟 #8–26
+> **本 session 下一项（功能）**：F5 手动冒烟 #8–27
 
 ---
 
@@ -36,6 +36,7 @@
 | 24 | 子树 delete + Summary | Delete subtree 整棵删除；缺/短 ## Summary → Add summary → Diff Review 后 Drift 清除 |
 | 25 | Architecture 完整预览 | Architecture 树选中文档 → 导航 + Markdown 正文 + 文档操作栏 |
 | 26 | Architecture 导出 | Architecture 图 → Export SVG / Export PNG → 保存对话框 → 文件写入成功 |
+| 27 | Rollback build | Task 面板 **Rollback build** → 确认 → 逆 DAG 序回滚 Done/Failed 任务；失败时 Decision Retry/Skip/Terminate |
 
 ---
 
@@ -47,7 +48,7 @@
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 | 1 | Platform 补全 | 1.1–1.9 | ✅ 完成 |
 
-**单元测试**：277/277 通过  
+**单元测试**：279/279 通过  
 **需求覆盖率（粗算）**：~97%
 
 ---
@@ -87,6 +88,7 @@
 | Build 限额 | 工具调用/时长上限 + Decision + Stop All + 限额显示 | R-WF-8 |
 | Autonomy Levels | Manual Build/Deploy 全工具 Decision + deny list + Full_Auto Diff 绕过 + Control Console 选择器 | R-WF-7 |
 | Build 六步流水线 | Coder/Tester/Reviewer/Committer + 3 轮测试 + Decision | R-WF-4 |
+| Rollback build | 逆拓扑序整 Build 回滚 + Decision Retry/Skip/Terminate | R-WF-5.4 |
 | Task DAG + Panel 控制 | scope 校验 + 诊断 + Pause/Resume/Skip/Retry/Logs + elapsed | R-WF-3 / R-INT-4 |
 | Background Agent | 空闲检测 + 7 类任务 + 暂停/恢复 + Decision 队列 + Control Console 状态 | R-AG-9 |
 | Design 工作流 Continue/Step picker | 产物完整性门禁 + 协议/命令 + 面板刷新 | R-WF-2.8–2.9 |
@@ -126,6 +128,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | R-WF-5.4 Rollback build（逆 DAG 序整 Build 回滚 + Task 面板按钮 + Decision） |
 | 2026-05-23 | R-INT-5.4 Architecture 图导出（Export SVG/PNG + fit-to-view + SaveDialog + diagramExport） |
 | 2026-05-23 | R-INT-12.8 fork DAG 重启恢复（reconcileForkDag + loadDag 持久化对齐 forks.json） |
 | 2026-05-23 | R-DOCS-6.2–6.5 子树 rename/move 路径迁移 + delete subtree；R-DOCS-14.6 Summary 补全；R-INT-5 Architecture 完整预览 |

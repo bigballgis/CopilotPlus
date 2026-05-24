@@ -168,3 +168,47 @@ export function allTasksTerminal(tasks: TaskNode[]): boolean {
     ['Done', 'Skipped', 'RolledBack', 'Failed', 'Blocked'].includes(t.status)
   );
 }
+
+/** R-WF-5.4 — dependency-first topological order for task ids */
+export function topologicalSortTaskIds(tasks: TaskNode[]): string[] {
+  if (tasks.length === 0) {
+    return [];
+  }
+  const inDegree = new Map(tasks.map((task) => [task.id, task.depends_on.length]));
+  const dependents = new Map<string, string[]>();
+  for (const task of tasks) {
+    for (const dep of task.depends_on) {
+      const list = dependents.get(dep) ?? [];
+      list.push(task.id);
+      dependents.set(dep, list);
+    }
+  }
+
+  const queue = tasks.filter((task) => (inDegree.get(task.id) ?? 0) === 0).map((task) => task.id);
+  const order: string[] = [];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    order.push(id);
+    for (const child of dependents.get(id) ?? []) {
+      const next = (inDegree.get(child) ?? 0) - 1;
+      inDegree.set(child, next);
+      if (next === 0) {
+        queue.push(child);
+      }
+    }
+  }
+
+  if (order.length !== tasks.length) {
+    return tasks.map((task) => task.id);
+  }
+  return order;
+}
+
+/** R-WF-5.4 — reverse DAG order for build-wide rollback (dependents before dependencies) */
+export function rollbackOrderTaskIds(tasks: TaskNode[]): string[] {
+  return [...topologicalSortTaskIds(tasks)].reverse();
+}
+
+export function tasksRollbackable(tasks: TaskNode[]): TaskNode[] {
+  return tasks.filter((task) => task.status === 'Done' || task.status === 'Failed');
+}

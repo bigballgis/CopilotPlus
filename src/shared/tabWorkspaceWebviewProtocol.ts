@@ -22,6 +22,9 @@ export interface TabWorkspaceLabels {
   workPath: string;
   fallbackNotice: string;
   rollback: string;
+  rollbackBuild: string;
+  rollbackBuildConfirm: string;
+  rollbackBuildConfirmAction: string;
   noTasks: string;
   composerTitle: string;
   composerGoalPlaceholder: string;
@@ -187,6 +190,7 @@ export interface TaskPanelWire {
   fallbackNotice?: string;
   forkTaskCount?: number;
   forkWarning?: string;
+  canRollbackBuild?: boolean;
 }
 
 export interface DeployRunWire {

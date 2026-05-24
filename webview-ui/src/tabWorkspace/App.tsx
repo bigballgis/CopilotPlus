@@ -39,6 +39,10 @@ const DEFAULT_LABELS: TabWorkspaceLabels = {
   workPath: 'Work path',
   fallbackNotice: 'Isolation fallback',
   rollback: 'Rollback',
+  rollbackBuild: 'Rollback build',
+  rollbackBuildConfirm:
+    'Roll back every Done or Failed task in this build (reverse DAG order)? Running tasks will be stopped first.',
+  rollbackBuildConfirmAction: 'Rollback build',
   noTasks: 'No tasks yet.',
   composerTitle: 'Composer (multi-file)',
   composerGoalPlaceholder: 'Describe coordinated edits…',
@@ -233,6 +237,15 @@ function TaskPanel({
         >
           {labels.stopAll}
         </VSCodeButton>
+        {task.canRollbackBuild ? (
+          <VSCodeButton
+            appearance="secondary"
+            aria-label={labels.rollbackBuild}
+            onClick={() => postToHost({ type: 'buildAction', action: 'rollbackBuild' })}
+          >
+            {labels.rollbackBuild}
+          </VSCodeButton>
+        ) : null}
       </ActionBar>
 
       <div className="cp-composer-box">

@@ -52,3 +52,20 @@ export function interpretReviewDecision(selected: string, timedOut: boolean): Bu
   }
   return timedOut ? 'fail' : 'fail';
 }
+
+/** R-WF-5.5 — rollback build chain failure */
+export function interpretRollbackBuildDecision(
+  selected: string,
+  timedOut: boolean
+): BuildFailureAction {
+  if (selected === 'Retry') {
+    return 'retry';
+  }
+  if (selected === 'Skip') {
+    return 'skip';
+  }
+  if (selected === 'Terminate') {
+    return 'terminate';
+  }
+  return timedOut ? 'terminate' : 'fail';
+}

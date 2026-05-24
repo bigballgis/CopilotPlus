@@ -41,6 +41,9 @@ export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
     workPath: t('tabWorkspace.workPath'),
     fallbackNotice: t('tabWorkspace.fallbackNotice'),
     rollback: t('tabWorkspace.rollback'),
+    rollbackBuild: t('tabWorkspace.rollbackBuild'),
+    rollbackBuildConfirm: t('tabWorkspace.rollbackBuildConfirm'),
+    rollbackBuildConfirmAction: t('tabWorkspace.rollbackBuildConfirmAction'),
     noTasks: t('tabWorkspace.noTasks'),
     composerTitle: t('tabWorkspace.composerTitle'),
     composerGoalPlaceholder: t('tabWorkspace.composerGoalPlaceholder'),
@@ -191,6 +194,7 @@ function buildTaskPanel(app: AppServices, build: BuildSnapshot | undefined): Tas
     fallbackNotice: build?.fallbackNotice,
     forkTaskCount: forkTaskCount > 0 ? forkTaskCount : undefined,
     forkWarning: forkTaskCount > 20 ? labels.forkWarning.replace('{0}', String(forkTaskCount)) : undefined,
+    canRollbackBuild: tasks.some((task) => task.status === 'Done' || task.status === 'Failed'),
   };
 }
 

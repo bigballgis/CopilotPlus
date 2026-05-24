@@ -7,9 +7,10 @@ import type { BuildManifest, BuildStatus } from './buildTypes';
 import { newBuildId } from './buildTypes';
 import { TaskDagStore } from './taskDagStore';
 import type { DagValidationError, TaskDagFile, TaskNode, TaskDagValidationContext } from './taskDag';
-import { allTasksTerminal, hasSchedulableWork } from './taskDag';
+import { allTasksTerminal, hasSchedulableWork, rollbackOrderTaskIds, tasksRollbackable } from './taskDag';
 import { readStructuredTaskTranscript, type StructuredTaskTranscript } from './taskTranscript';
 import { createTaskFork, reconcileForkDagOnDisk } from './taskFork';
+import { interpretRollbackBuildDecision } from '../agents/buildPipelineDecisions';
 import {
   BuildLimitsTracker,
   interpretBuildLimitDecision,
@@ -528,6 +529,68 @@ export class BuildExecutor {
     await this.store.updateTaskStatus(buildId, taskId, 'RolledBack');
     await this.app.hooks.fire('rollback.completed', { buildId, taskId });
     this.setMessage(`Task ${taskId} rolled back`);
+    this.notify();
+    return true;
+  }
+
+  /** R-WF-5.4 — rollback every Done/Failed task in reverse DAG order */
+  async rollbackBuild(): Promise<boolean> {
+    const buildId = this.activeBuildId;
+    if (!buildId) {
+      void vscode.window.showErrorMessage(t('build.noActiveBuild'));
+      return false;
+    }
+
+    if (this.running.size > 0 || this.status === 'Running') {
+      await this.stopAll();
+    }
+
+    const dag = await this.loadDag(buildId);
+    if (!dag?.tasks.length) {
+      return false;
+    }
+
+    const order = rollbackOrderTaskIds(dag.tasks);
+    const rollbackable = new Set(tasksRollbackable(dag.tasks).map((task) => task.id));
+    const queue = order.filter((id) => rollbackable.has(id));
+    if (queue.length === 0) {
+      void vscode.window.showInformationMessage(t('build.rollbackBuildNothing'));
+      return false;
+    }
+
+    this.setMessage(t('build.rollbackBuildStarting', String(queue.length)));
+    this.notify();
+
+    let index = 0;
+    while (index < queue.length) {
+      const taskId = queue[index]!;
+      const ok = await this.rollbackTask(taskId);
+      if (ok) {
+        index += 1;
+        continue;
+      }
+
+      const decision = await this.app.decisions.ask({
+        id: `rollback-build-${buildId}-${taskId}-${Date.now()}`,
+        question: t('build.rollbackBuildFailed', taskId),
+        options: ['Retry', 'Skip', 'Terminate'],
+        defaultOption: 'Retry',
+        timeoutSec: this.app.platform.getSettings().decisionTimeoutSec,
+      });
+      const action = interpretRollbackBuildDecision(decision.selected, decision.timedOut);
+      if (action === 'retry') {
+        continue;
+      }
+      if (action === 'skip') {
+        index += 1;
+        continue;
+      }
+      this.setMessage(t('build.rollbackBuildStopped', taskId));
+      this.notify();
+      return false;
+    }
+
+    this.setMessage(t('build.rollbackBuildDone', String(queue.length)));
     this.notify();
     return true;
   }

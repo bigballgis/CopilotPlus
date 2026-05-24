@@ -74,9 +74,9 @@ const ARCHITECTURE_PANEL_MARKERS = [
 const TASK_FORK_MARKERS = [
   { file: 'src/workflow/taskFork.ts', tokens: ['createTaskFork', 'forks.json', 'reconcileForkDag'] },
   { file: 'src/workflow/taskTranscript.ts', tokens: ['groupTranscriptIterations', 'readStructuredTaskTranscript'] },
-  { file: 'src/workflow/buildExecutor.ts', tokens: ['forkTask', 'getStructuredTaskLog'] },
+  { file: 'src/workflow/buildExecutor.ts', tokens: ['forkTask', 'getStructuredTaskLog', 'rollbackBuild'] },
   { file: 'src/agents/subAgentLoop.ts', tokens: ["role: 'iteration'", 'loadPersistedMessages'] },
-  { file: 'webview-ui/src/tabWorkspace/App.tsx', tokens: ['forkFromHere', 'cp-task-log-iteration'] },
+  { file: 'webview-ui/src/tabWorkspace/App.tsx', tokens: ['forkFromHere', 'cp-task-log-iteration', 'rollbackBuild'] },
   { file: 'webview-ui/src/shared/components/TaskDagView.tsx', tokens: ['cp-dag-edge--fork'] },
 ];
 

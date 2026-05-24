@@ -279,6 +279,15 @@ export class TabWorkspaceProvider {
       await this.app.buildExecutor.stopAll();
     } else if (action === 'create') {
       await this.app.buildExecutor.createBuild();
+    } else if (action === 'rollbackBuild') {
+      const confirm = await vscode.window.showWarningMessage(
+        t('tabWorkspace.rollbackBuildConfirm'),
+        { modal: true },
+        t('tabWorkspace.rollbackBuildConfirmAction')
+      );
+      if (confirm === t('tabWorkspace.rollbackBuildConfirmAction')) {
+        await this.app.buildExecutor.rollbackBuild();
+      }
     } else if (action === 'rollback' && taskId) {
       await this.app.buildExecutor.rollbackTask(taskId);
     } else if (action === 'pause' && taskId) {

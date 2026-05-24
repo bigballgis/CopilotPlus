@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   interpretCommitFailureDecision,
   interpretReviewDecision,
+  interpretRollbackBuildDecision,
   interpretTestExhaustedDecision,
 } from '../../agents/buildPipelineDecisions';
 
@@ -26,5 +27,12 @@ describe('R-WF-4 build pipeline decisions', () => {
     assert.equal(interpretCommitFailureDecision('Skip_Commit'), 'skip');
     assert.equal(interpretCommitFailureDecision('Pause Task'), 'pause');
     assert.equal(interpretCommitFailureDecision('Terminate_Task'), 'terminate');
+  });
+
+  it('maps rollback build failure options', () => {
+    assert.equal(interpretRollbackBuildDecision('Retry', false), 'retry');
+    assert.equal(interpretRollbackBuildDecision('Skip', false), 'skip');
+    assert.equal(interpretRollbackBuildDecision('Terminate', false), 'terminate');
+    assert.equal(interpretRollbackBuildDecision('', true), 'terminate');
   });
 });

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateTaskDag, computeReadyTasks, markReadyStatuses } from '../../workflow/taskDag.js';
+import { validateTaskDag, computeReadyTasks, markReadyStatuses, rollbackOrderTaskIds } from '../../workflow/taskDag.js';
 import { canTransition } from '../../workflow/stageTransitions.js';
 import { roleToPromptFile } from '../../agents/roleMapping.js';
 
@@ -87,6 +87,42 @@ describe('R-WF-3 task DAG', () => {
     ]);
     assert.equal(tasks.find((t) => t.id === 'b')?.status, 'Blocked');
     assert.equal(computeReadyTasks(tasks).length, 0);
+  });
+
+  it('orders rollback in reverse topological order', () => {
+    const order = rollbackOrderTaskIds([
+      {
+        id: 'a',
+        title: 'A',
+        description: '',
+        agent: 'Coder',
+        inputs: {},
+        depends_on: [],
+        status: 'Done',
+        scope_doc: '.copilotPlus/docs/system/app/a.md',
+      },
+      {
+        id: 'b',
+        title: 'B',
+        description: '',
+        agent: 'Coder',
+        inputs: {},
+        depends_on: ['a'],
+        status: 'Done',
+        scope_doc: '.copilotPlus/docs/system/app/b.md',
+      },
+      {
+        id: 'c',
+        title: 'C',
+        description: '',
+        agent: 'Coder',
+        inputs: {},
+        depends_on: ['b'],
+        status: 'Done',
+        scope_doc: '.copilotPlus/docs/system/app/c.md',
+      },
+    ]);
+    assert.deepEqual(order, ['c', 'b', 'a']);
   });
 
   it('rejects non-build agents and unknown scope docs', () => {
