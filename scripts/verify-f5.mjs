@@ -74,10 +74,16 @@ const ARCHITECTURE_PANEL_MARKERS = [
 const TASK_FORK_MARKERS = [
   { file: 'src/workflow/taskFork.ts', tokens: ['createTaskFork', 'forks.json', 'reconcileForkDag'] },
   { file: 'src/workflow/taskTranscript.ts', tokens: ['groupTranscriptIterations', 'readStructuredTaskTranscript'] },
-  { file: 'src/workflow/buildExecutor.ts', tokens: ['forkTask', 'getStructuredTaskLog', 'rollbackBuild'] },
+  { file: 'src/workflow/buildExecutor.ts', tokens: ['forkTask', 'getStructuredTaskLog', 'rollbackBuild', 'pauseRunningForStageTransition'] },
   { file: 'src/agents/subAgentLoop.ts', tokens: ["role: 'iteration'", 'loadPersistedMessages'] },
   { file: 'webview-ui/src/tabWorkspace/App.tsx', tokens: ['forkFromHere', 'cp-task-log-iteration', 'rollbackBuild'] },
   { file: 'webview-ui/src/shared/components/TaskDagView.tsx', tokens: ['cp-dag-edge--fork'] },
+];
+
+const STAGE_TRANSITION_GATE_MARKERS = [
+  { file: 'src/workflow/stageTransitionGate.ts', tokens: ['evaluateStageTransition', 'R-WF-6'] },
+  { file: 'src/workflow/stageTransitionFlow.ts', tokens: ['transitionStage', 'pauseRunningForStageTransition'] },
+  { file: 'src/platform/commands.ts', tokens: ['transitionStage'] },
 ];
 
 async function main() {
@@ -110,6 +116,7 @@ async function main() {
     ...DOCS_TREE_OPS_MARKERS,
     ...ARCHITECTURE_PANEL_MARKERS,
     ...TASK_FORK_MARKERS,
+    ...STAGE_TRANSITION_GATE_MARKERS,
   ]) {
     const source = await fs.readFile(path.join(root, file), 'utf8');
     for (const token of tokens) {

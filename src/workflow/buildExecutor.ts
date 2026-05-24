@@ -316,6 +316,32 @@ export class BuildExecutor {
     this.notify();
   }
 
+  /** Pause running tasks when leaving Build for Design — R-WF-6.2 */
+  async pauseRunningForStageTransition(): Promise<void> {
+    const snap = await this.getSnapshotAsync();
+    if (snap.runningTaskIds.length === 0) {
+      return;
+    }
+
+    for (const taskId of snap.runningTaskIds) {
+      await this.pauseTask(taskId);
+    }
+
+    const deadline = Date.now() + 3000;
+    while (this.running.size > 0 && Date.now() < deadline) {
+      await sleep(50);
+    }
+
+    await this.blockAllRunningTasks();
+    if (this.status === 'Running') {
+      this.clearDurationTimer();
+      this.cancelSource?.cancel();
+      this.status = 'Paused';
+      this.app.buildIsolation.clearActive();
+      this.notify();
+    }
+  }
+
   recordToolCall(): void {
     if (this.status !== 'Running' || !this.limits.isActive()) {
       return;
@@ -947,7 +973,8 @@ export class BuildExecutor {
       t('common.cancel')
     );
     if (choice === t('build.advanceDeploy')) {
-      await this.app.stages.transition('Deploy');
+      const { transitionStage } = await import('./stageTransitionFlow');
+      await transitionStage(this.app, 'Deploy');
     }
   }
 

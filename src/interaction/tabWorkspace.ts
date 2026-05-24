@@ -13,6 +13,7 @@ import type { TabId, TabWorkspaceWebviewMessage } from '../shared/tabWorkspaceWe
 import { runDocCompact } from '../docs/compactFlow';
 import { runDocTreeAction } from '../docs/docTreeCommands';
 import { t } from '../platform/l10n';
+import { transitionStage } from '../workflow/stageTransitionFlow';
 
 export class TabWorkspaceProvider {
   private panel: vscode.WebviewPanel | undefined;
@@ -259,8 +260,10 @@ export class TabWorkspaceProvider {
     } else if (action === 'attachOpen') {
       this.app.composer.attachOpenEditors();
     } else if (action === 'submit') {
-      await this.app.stages.transition('Build');
-      await this.app.composer.submit();
+      const ok = await transitionStage(this.app, 'Build');
+      if (ok) {
+        await this.app.composer.submit();
+      }
     } else if (action === 'cancel') {
       this.app.composer.cancel();
     }
@@ -273,8 +276,10 @@ export class TabWorkspaceProvider {
     iteration?: number
   ): Promise<void> {
     if (action === 'start') {
-      await this.app.stages.transition('Build');
-      await this.app.buildExecutor.start();
+      const ok = await transitionStage(this.app, 'Build');
+      if (ok) {
+        await this.app.buildExecutor.start();
+      }
     } else if (action === 'stop' || action === 'stopAll') {
       await this.app.buildExecutor.stopAll();
     } else if (action === 'create') {

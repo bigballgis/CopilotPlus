@@ -363,6 +363,12 @@ export const FALLBACK: Record<string, string> = {
   'autonomy.toolWithCommandPrompt': 'Allow {0}?\n{1}',
   'autonomy.denyListPrompt': 'Command matches deny list. Allow?\n{0}',
   'stage.transitionBlocked': 'Transition {0} → {1} is not allowed.',
+  'stage.designBuildWrongStep':
+    'Switch to Task List Generation before starting Build (current step: {0}).',
+  'stage.buildDesignRunningConfirm': 'Running tasks will be paused. Continue to Design?',
+  'stage.buildDeployIncomplete':
+    'All tasks must be Done or RolledBack before Deploy ({0} still pending).',
+  'stage.buildDeployNoTasks': 'No tasks in the active build — generate tasks in Design first.',
   'diffReview.noChanges': 'No changes proposed.',
   'diffReview.reviewPrompt': 'Review AI changes to {0}',
   'diffReview.accept': 'Accept',

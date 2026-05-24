@@ -16,6 +16,7 @@ import {
 } from '../docs/docTreeCommands';
 import { runCli, getCliOutputChannel } from '../cli/cliRunner';
 import { t } from './l10n';
+import { transitionStage } from '../workflow/stageTransitionFlow';
 
 export function registerCommands(
   context: vscode.ExtensionContext,
@@ -153,7 +154,7 @@ export function registerCommands(
 
   register('copilotPlus.workflow.setStage', async (stage: unknown) => {
     if (stage === 'Design' || stage === 'Build' || stage === 'Deploy') {
-      await app.stages.transition(stage);
+      await transitionStage(app, stage);
     }
   });
 
@@ -195,7 +196,10 @@ export function registerCommands(
   });
 
   register('copilotPlus.build.start', async () => {
-    await app.stages.transition('Build');
+    const ok = await transitionStage(app, 'Build');
+    if (!ok) {
+      return;
+    }
     await app.buildExecutor.start();
     await getTabWorkspace()?.refresh();
   });
@@ -243,7 +247,10 @@ export function registerCommands(
   });
 
   register('copilotPlus.composer.submit', async () => {
-    await app.stages.transition('Build');
+    const ok = await transitionStage(app, 'Build');
+    if (!ok) {
+      return;
+    }
     await app.composer.submit();
     await getTabWorkspace()?.refresh();
   });
