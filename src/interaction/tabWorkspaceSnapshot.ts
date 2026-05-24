@@ -3,6 +3,7 @@
 import type { AppServices } from '../app/appServices';
 import type { DocTreeNode } from '../docs/documentTreeService';
 import type { BuildSnapshot } from '../workflow/buildExecutor';
+import { computeTaskElapsedMs, resolveTaskActions } from '../workflow/taskControls';
 import { t } from '../platform/l10n';
 import type {
   ComposerSnapshotWire,
@@ -29,6 +30,8 @@ export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
     newBuild: t('tabWorkspace.newBuild'),
     startBuild: t('tabWorkspace.startBuild'),
     stop: t('tabWorkspace.stop'),
+    stopAll: t('tabWorkspace.stopAll'),
+    buildLimits: t('tabWorkspace.buildLimits', '{0}', '{1}', '{2}', '{3}'),
     rollback: t('tabWorkspace.rollback'),
     noTasks: t('tabWorkspace.noTasks'),
     composerTitle: t('tabWorkspace.composerTitle'),
@@ -66,6 +69,15 @@ export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
     columnAgent: t('tabWorkspace.columnAgent'),
     columnStatus: t('tabWorkspace.columnStatus'),
     columnActions: t('tabWorkspace.columnActions'),
+    columnElapsed: t('tabWorkspace.columnElapsed'),
+    pause: t('tabWorkspace.pause'),
+    resume: t('tabWorkspace.resume'),
+    skip: t('tabWorkspace.skip'),
+    retry: t('tabWorkspace.retry'),
+    viewLogs: t('tabWorkspace.viewLogs'),
+    taskLogTitle: t('tabWorkspace.taskLogTitle'),
+    closeLog: t('tabWorkspace.closeLog'),
+    noTaskLog: t('tabWorkspace.noTaskLog'),
     openDoc: t('tabWorkspace.openDoc'),
   };
 }
@@ -93,6 +105,7 @@ export function buildTabWorkspaceStateSync(
 function buildTaskPanel(app: AppServices, build: BuildSnapshot | undefined): TaskPanelWire {
   const composer = app.composer.getSnapshot();
   const tasks = build?.dag?.tasks ?? [];
+  const runningSet = new Set(build?.runningTaskIds ?? []);
   const edges: TaskEdgeWire[] = [];
   for (const task of tasks) {
     for (const dep of task.depends_on) {
@@ -105,16 +118,26 @@ function buildTaskPanel(app: AppServices, build: BuildSnapshot | undefined): Tas
     lastMessage: build?.lastMessage ?? '',
     runningTaskIds: build?.runningTaskIds ?? [],
     validationErrors: build?.validationErrors ?? [],
-    tasks: tasks.map((task) => ({
-      id: task.id,
-      title: task.title,
-      agent: task.agent,
-      status: task.status,
-      dependsOn: task.depends_on,
-      canRollback: task.status === 'Done' || task.status === 'Failed',
-    })),
+    tasks: tasks.map((task) => {
+      const actions = resolveTaskActions(task, runningSet.has(task.id));
+      return {
+        id: task.id,
+        title: task.title,
+        agent: task.agent,
+        status: task.status,
+        dependsOn: task.depends_on,
+        elapsedMs: computeTaskElapsedMs(task),
+        canPause: actions.canPause,
+        canResume: actions.canResume,
+        canSkip: actions.canSkip,
+        canRetry: actions.canRetry,
+        hasLogs: Boolean(task.started_at),
+        canRollback: task.status === 'Done' || task.status === 'Failed',
+      };
+    }),
     edges,
     composer: buildComposerSnapshot(composer),
+    limits: build?.limits,
   };
 }
 

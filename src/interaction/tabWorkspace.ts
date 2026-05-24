@@ -12,6 +12,7 @@ export class TabWorkspaceProvider {
   private panel: vscode.WebviewPanel | undefined;
   private activeTab: TabId = 'requirement';
   private buildSnapshot: BuildSnapshot | undefined;
+  private tickTimer: ReturnType<typeof setInterval> | undefined;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -41,6 +42,10 @@ export class TabWorkspaceProvider {
 
     this.panel.onDidDispose(() => {
       this.panel = undefined;
+      if (this.tickTimer) {
+        clearInterval(this.tickTimer);
+        this.tickTimer = undefined;
+      }
     });
 
     this.panel.webview.onDidReceiveMessage(async (msg: TabWorkspaceWebviewMessage) => {
@@ -54,6 +59,14 @@ export class TabWorkspaceProvider {
         return;
       }
       if (msg.type === 'openDoc') {
+        void this.app.docs.openInEditor(msg.path);
+        return;
+      }
+      if (msg.type === 'selectDoc') {
+        this.postDocPreview(msg.path);
+        return;
+      }
+      if (msg.type === 'editDoc') {
         void this.app.docs.openInEditor(msg.path);
         return;
       }
@@ -86,10 +99,37 @@ export class TabWorkspaceProvider {
     const latest = this.app.deploy.getRuns()[0];
     await this.app.deploy.readLogTail(latest?.logPath, 12);
     this.postMessage(buildTabWorkspaceStateSync(this.app, this.activeTab, this.buildSnapshot));
+    this.scheduleElapsedTick();
+  }
+
+  private scheduleElapsedTick(): void {
+    if (this.tickTimer) {
+      clearInterval(this.tickTimer);
+      this.tickTimer = undefined;
+    }
+    if (!this.panel || !this.app.buildExecutor.hasRunningTasks()) {
+      return;
+    }
+    this.tickTimer = setInterval(() => {
+      void this.syncWebviewState();
+    }, 1000);
   }
 
   private postMessage(msg: unknown): void {
     void this.panel?.webview.postMessage(msg);
+  }
+
+  private postDocPreview(relativePath: string): void {
+    const entry = this.app.docs.getByPath(relativePath);
+    if (!entry) {
+      return;
+    }
+    this.postMessage({
+      type: 'docPreview',
+      path: relativePath,
+      title: entry.frontmatter.title,
+      markdown: entry.body,
+    });
   }
 
   private async handleComposerAction(action: string, goal?: string, files?: string[]): Promise<void> {
@@ -114,12 +154,23 @@ export class TabWorkspaceProvider {
     if (action === 'start') {
       await this.app.stages.transition('Build');
       await this.app.buildExecutor.start();
-    } else if (action === 'stop') {
-      this.app.buildExecutor.stop();
+    } else if (action === 'stop' || action === 'stopAll') {
+      await this.app.buildExecutor.stopAll();
     } else if (action === 'create') {
       await this.app.buildExecutor.createBuild();
     } else if (action === 'rollback' && taskId) {
       await this.app.buildExecutor.rollbackTask(taskId);
+    } else if (action === 'pause' && taskId) {
+      await this.app.buildExecutor.pauseTask(taskId);
+    } else if (action === 'resume' && taskId) {
+      await this.app.buildExecutor.resumeTask(taskId);
+    } else if (action === 'skip' && taskId) {
+      await this.app.buildExecutor.skipTask(taskId);
+    } else if (action === 'retry' && taskId) {
+      await this.app.buildExecutor.retryTask(taskId);
+    } else if (action === 'viewLogs' && taskId) {
+      const content = await this.app.buildExecutor.getTaskLog(taskId);
+      this.postMessage({ type: 'taskLog', taskId, content });
     } else if (action === 'deployGenerate') {
       await vscode.commands.executeCommand('copilotPlus.deploy.generateManifest');
     } else if (action === 'deployApply') {

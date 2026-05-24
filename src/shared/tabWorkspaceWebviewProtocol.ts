@@ -13,6 +13,8 @@ export interface TabWorkspaceLabels {
   newBuild: string;
   startBuild: string;
   stop: string;
+  stopAll: string;
+  buildLimits: string;
   rollback: string;
   noTasks: string;
   composerTitle: string;
@@ -50,6 +52,15 @@ export interface TabWorkspaceLabels {
   columnAgent: string;
   columnStatus: string;
   columnActions: string;
+  columnElapsed: string;
+  pause: string;
+  resume: string;
+  skip: string;
+  retry: string;
+  viewLogs: string;
+  taskLogTitle: string;
+  closeLog: string;
+  noTaskLog: string;
   openDoc: string;
 }
 
@@ -81,6 +92,11 @@ export interface TaskRowWire {
   status: string;
   dependsOn: string[];
   elapsedMs?: number;
+  canPause: boolean;
+  canResume: boolean;
+  canSkip: boolean;
+  canRetry: boolean;
+  hasLogs: boolean;
   canRollback: boolean;
 }
 
@@ -106,6 +122,12 @@ export interface TaskPanelWire {
   tasks: TaskRowWire[];
   edges: TaskEdgeWire[];
   composer: ComposerSnapshotWire;
+  limits?: {
+    toolCallCount: number;
+    maxToolCalls: number;
+    elapsedSec: number;
+    maxDurationSec: number;
+  };
 }
 
 export interface DeployRunWire {
@@ -146,7 +168,8 @@ export interface TabWorkspaceStateSync {
 
 export type TabWorkspaceHostMessage =
   | TabWorkspaceStateSync
-  | { type: 'docPreview'; path: string; title: string; markdown: string };
+  | { type: 'docPreview'; path: string; title: string; markdown: string }
+  | { type: 'taskLog'; taskId: string; content: string };
 
 export type TabWorkspaceWebviewMessage =
   | { type: 'ready' }

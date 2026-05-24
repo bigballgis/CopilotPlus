@@ -62,6 +62,10 @@ export class ToolExecutor {
       if (mcpDenied) {
         return mcpDenied;
       }
+      const buildLimit = this.maybeBlockBuildToolCall();
+      if (buildLimit) {
+        return buildLimit;
+      }
       const result = await this.app.mcp.invokeTool(mcpParsed.serverId, mcpParsed.toolName, args);
       await this.app.hooks.fire('mcp.tool.called', {
         serverId: mcpParsed.serverId,
@@ -79,6 +83,11 @@ export class ToolExecutor {
     const denied = await this.ensureToolApproved(toolId, args);
     if (denied) {
       return denied;
+    }
+
+    const buildLimit = this.maybeBlockBuildToolCall();
+    if (buildLimit) {
+      return buildLimit;
     }
 
     if (toolId === 'explore') {
@@ -647,6 +656,17 @@ export class ToolExecutor {
       return { ok: true, data: { runId } };
     }
     return { ok: false, reason: result.reason ?? 'rollback_failed' };
+  }
+
+  private maybeBlockBuildToolCall(): ToolResult | null {
+    if (this.app.buildExecutor.getBuildStatus() !== 'Running') {
+      return null;
+    }
+    if (this.app.buildExecutor.isBuildLimitReached()) {
+      return { ok: false, reason: 'build_tool_limit' };
+    }
+    this.app.buildExecutor.recordToolCall();
+    return null;
   }
 
   private async ensureToolApproved(

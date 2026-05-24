@@ -50,6 +50,18 @@ export class SubAgentRunner {
     this.verification = new MultiAgentVerificationService(app, extensionUri);
   }
 
+  private resolveMaxToolCalls(): number {
+    const ci = this.app.getCiSession();
+    if (ci) {
+      return ci.maxToolCalls;
+    }
+    const remaining = this.app.buildExecutor.getRemainingToolCalls();
+    if (remaining !== undefined) {
+      return Math.max(1, remaining);
+    }
+    return this.app.platform.getSettings().maxToolCalls;
+  }
+
   async runRole(
     role: string,
     task: TaskNode,
@@ -77,7 +89,6 @@ export class SubAgentRunner {
     const toolIds = this.app.tools.getEffectiveTools(role);
     const taskId = candidateIndex === 0 ? task.id : `${task.id}-c${candidateIndex}`;
 
-    const ci = this.app.getCiSession();
     const result = await this.loop.run({
       role,
       buildId,
@@ -88,7 +99,7 @@ export class SubAgentRunner {
       token,
       onStatus,
       temperature,
-      maxToolCalls: ci?.maxToolCalls,
+      maxToolCalls: this.resolveMaxToolCalls(),
     });
 
     return toRunResult(result);
@@ -164,7 +175,6 @@ export class SubAgentRunner {
       historySummary
     );
     const taskId = candidateIndex === 0 ? task.id : `${task.id}-c${candidateIndex}`;
-    const ci = this.app.getCiSession();
     const result = await this.loop.run({
       role,
       buildId: 'design-session',
@@ -175,7 +185,7 @@ export class SubAgentRunner {
       token,
       onStatus,
       temperature,
-      maxToolCalls: ci?.maxToolCalls,
+      maxToolCalls: this.resolveMaxToolCalls(),
     });
 
     return toRunResult(result);
@@ -244,7 +254,6 @@ export class SubAgentRunner {
     candidateIndex = 0
   ): Promise<SubAgentRunResult> {
     const taskId = candidateIndex === 0 ? task.id : `${task.id}-c${candidateIndex}`;
-    const ci = this.app.getCiSession();
     const result = await this.loop.run({
       role: 'Deployer',
       buildId,
@@ -255,7 +264,7 @@ export class SubAgentRunner {
       token,
       onStatus,
       temperature,
-      maxToolCalls: ci?.maxToolCalls,
+      maxToolCalls: this.resolveMaxToolCalls(),
     });
 
     return toRunResult(result);

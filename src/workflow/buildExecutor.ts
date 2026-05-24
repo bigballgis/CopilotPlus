@@ -9,6 +9,12 @@ import { TaskDagStore } from './taskDagStore';
 import type { DagValidationError, TaskDagFile, TaskNode, TaskDagValidationContext } from './taskDag';
 import { allTasksTerminal, hasSchedulableWork } from './taskDag';
 import { readTaskTranscriptAt } from './taskTranscript';
+import {
+  BuildLimitsTracker,
+  interpretBuildLimitDecision,
+  type BuildLimitReason,
+  type BuildLimitsSnapshot,
+} from './buildLimits';
 import { t } from '../platform/l10n';
 
 export interface BuildSnapshot {
@@ -18,6 +24,7 @@ export interface BuildSnapshot {
   runningTaskIds: string[];
   validationErrors: DagValidationError[];
   lastMessage?: string;
+  limits?: BuildLimitsSnapshot;
 }
 
 type ChangeListener = () => void;
@@ -34,6 +41,9 @@ export class BuildExecutor {
   private listeners = new Set<ChangeListener>();
   private lastMessage = '';
   private lastValidationErrors: DagValidationError[] = [];
+  private readonly limits = new BuildLimitsTracker();
+  private limitHandling = false;
+  private durationTimer: ReturnType<typeof setInterval> | undefined;
 
   constructor(
     private readonly app: AppServices,
@@ -96,6 +106,7 @@ export class BuildExecutor {
       runningTaskIds: [...this.running],
       validationErrors: this.lastValidationErrors,
       lastMessage: this.lastMessage,
+      limits: this.limits.isActive() ? this.limits.snapshot() : undefined,
     };
   }
 
@@ -111,6 +122,7 @@ export class BuildExecutor {
       runningTaskIds: [...this.running],
       validationErrors: this.lastValidationErrors,
       lastMessage: this.lastMessage,
+      limits: this.limits.isActive() ? this.limits.snapshot() : undefined,
     };
   }
 
@@ -227,6 +239,9 @@ export class BuildExecutor {
     this.activeBuildId = id;
     this.status = 'Running';
     this.cancelSource = new vscode.CancellationTokenSource();
+    const settings = this.app.platform.getSettings();
+    this.limits.reset(settings.maxToolCalls, settings.maxBuildDurationSec);
+    this.startDurationTimer();
     await this.store.saveManifest(id, {
       id,
       status: 'Running',
@@ -239,13 +254,49 @@ export class BuildExecutor {
   }
 
   stop(): void {
+    void this.stopAll();
+  }
+
+  async stopAll(): Promise<void> {
+    this.clearDurationTimer();
     this.cancelSource?.cancel();
     for (const source of this.taskCancelSources.values()) {
       source.cancel();
     }
+
+    const deadline = Date.now() + 2000;
+    while (this.running.size > 0 && Date.now() < deadline) {
+      await sleep(50);
+    }
+
+    await this.blockAllRunningTasks();
     this.status = 'Paused';
     this.setMessage(t('build.stoppedByUser'));
     this.notify();
+  }
+
+  recordToolCall(): void {
+    if (this.status !== 'Running' || !this.limits.isActive()) {
+      return;
+    }
+    this.limits.recordToolCall();
+    if (this.limits.isToolCallLimitReached()) {
+      void this.handleLimitReached('tool_calls');
+    }
+  }
+
+  getRemainingToolCalls(): number | undefined {
+    if (this.status !== 'Running' || !this.limits.isActive()) {
+      return undefined;
+    }
+    return this.limits.getRemainingToolCalls();
+  }
+
+  isBuildLimitReached(): boolean {
+    return (
+      this.limits.isToolCallLimitReached() ||
+      this.limits.isDurationLimitReached()
+    );
   }
 
   async pauseTask(taskId: string): Promise<boolean> {
@@ -406,7 +457,12 @@ export class BuildExecutor {
     const maxConcurrent = this.app.platform.getSettings().maxConcurrentTasks;
 
     try {
-      while (!token.isCancellationRequested && this.activeBuildId) {
+      while (!token.isCancellationRequested && this.activeBuildId && this.status === 'Running') {
+        if (this.limits.isDurationLimitReached()) {
+          await this.handleLimitReached('duration');
+          break;
+        }
+
         const buildId = this.activeBuildId;
         let dag = await this.store.load(buildId);
         if (!dag) {
@@ -434,6 +490,7 @@ export class BuildExecutor {
           );
           this.status = allDone ? 'Completed' : 'Failed';
           if (allDone) {
+            this.clearDurationTimer();
             await this.store.saveManifest(buildId, {
               id: buildId,
               status: 'Completed',
@@ -457,6 +514,7 @@ export class BuildExecutor {
         await Promise.all(batch.map((task) => this.runTask(buildId, task, token)));
       }
     } finally {
+      this.clearDurationTimer();
       if (this.status === 'Running') {
         this.status = 'Paused';
       }
@@ -624,6 +682,112 @@ export class BuildExecutor {
       this.taskCancelSources.delete(task.id);
       this.running.delete(task.id);
       this.notify();
+    }
+  }
+
+  private async handleLimitReached(reason: BuildLimitReason): Promise<void> {
+    if (this.limitHandling || this.status !== 'Running') {
+      return;
+    }
+    this.limitHandling = true;
+    try {
+      this.cancelSource?.cancel();
+      for (const source of this.taskCancelSources.values()) {
+        source.cancel();
+      }
+
+      const deadline = Date.now() + 2000;
+      while (this.running.size > 0 && Date.now() < deadline) {
+        await sleep(50);
+      }
+
+      await this.blockAllRunningTasks();
+      this.status = 'Paused';
+      this.clearDurationTimer();
+
+      const snap = this.limits.snapshot();
+      const settings = this.app.platform.getSettings();
+      const question =
+        reason === 'tool_calls'
+          ? t('build.limitToolCalls', snap.toolCallCount, snap.maxToolCalls)
+          : t('build.limitDuration', snap.elapsedSec, snap.maxDurationSec);
+
+      const decision = await this.app.decisions.ask({
+        id: `build-limit-${this.activeBuildId ?? 'unknown'}-${Date.now()}`,
+        question,
+        options: ['Continue', 'Pause', 'Terminate'],
+        defaultOption: 'Pause',
+        timeoutSec: settings.decisionTimeoutSec,
+      });
+
+      const action = interpretBuildLimitDecision(decision.selected, decision.timedOut);
+      if (action === 'continue') {
+        this.limits.raiseLimits();
+        this.status = 'Running';
+        this.cancelSource = new vscode.CancellationTokenSource();
+        this.startDurationTimer();
+        this.setMessage(t('build.limitContinued'));
+        this.notify();
+        void this.runLoop();
+        return;
+      }
+
+      if (action === 'terminate') {
+        this.status = 'Failed';
+        const buildId = this.activeBuildId;
+        if (buildId) {
+          await this.store.saveManifest(buildId, {
+            id: buildId,
+            status: 'Failed',
+            completedAt: new Date().toISOString(),
+          });
+        }
+        this.setMessage(t('build.limitTerminated'));
+        this.notify();
+        return;
+      }
+
+      this.setMessage(t('build.limitPaused'));
+      this.notify();
+    } finally {
+      this.limitHandling = false;
+    }
+  }
+
+  private async blockAllRunningTasks(): Promise<void> {
+    const buildId = this.activeBuildId;
+    if (!buildId) {
+      return;
+    }
+    const dag = await this.store.load(buildId);
+    if (!dag) {
+      return;
+    }
+    const completedAt = new Date().toISOString();
+    for (const task of dag.tasks) {
+      if (task.status === 'Running' || this.running.has(task.id)) {
+        await this.store.updateTask(buildId, task.id, {
+          status: 'Blocked',
+          completed_at: completedAt,
+        });
+      }
+    }
+  }
+
+  private startDurationTimer(): void {
+    this.clearDurationTimer();
+    this.durationTimer = setInterval(() => {
+      if (this.status === 'Running' && this.limits.isDurationLimitReached()) {
+        void this.handleLimitReached('duration');
+      }
+      this.notify();
+    }, 1000);
+  }
+
+  private clearDurationTimer(): void {
+    if (this.durationTimer) {
+      clearInterval(this.durationTimer);
+      this.durationTimer = undefined;
     }
   }
 

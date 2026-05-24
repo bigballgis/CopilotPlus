@@ -26,6 +26,8 @@ export interface CopilotPlusSettings {
   toolPermissions: Record<string, 'allow' | 'ask' | 'deny'>;
   decisionTimeoutSec: number;
   maxConcurrentTasks: number;
+  maxToolCalls: number;
+  maxBuildDurationSec: number;
   defaultModels: Record<string, string>;
   summarizationMode: 'auto' | 'manual' | 'disabled';
   summarizationKeepLastTurns: number;
@@ -60,6 +62,8 @@ const DEFAULTS: CopilotPlusSettings = {
   toolPermissions: {},
   decisionTimeoutSec: 300,
   maxConcurrentTasks: 3,
+  maxToolCalls: 200,
+  maxBuildDurationSec: 7200,
   defaultModels: {},
   summarizationMode: 'auto',
   summarizationKeepLastTurns: 6,
@@ -146,6 +150,13 @@ export class ConfigurationService {
       toolPermissions: (cfg.get<Record<string, 'allow' | 'ask' | 'deny'>>('tools.permissions') ?? {}),
       decisionTimeoutSec: clampInt(cfg.get('decisions.timeoutSec'), 30, 1800, 300),
       maxConcurrentTasks: clampInt(cfg.get('workflow.maxConcurrentTasks'), 1, 8, 3),
+      maxToolCalls: clampInt(cfg.get('workflow.maxToolCalls'), 10, 2000, DEFAULTS.maxToolCalls),
+      maxBuildDurationSec: clampInt(
+        cfg.get('workflow.maxBuildDuration'),
+        60,
+        86_400,
+        DEFAULTS.maxBuildDurationSec
+      ),
       defaultModels: cfg.get<Record<string, string>>('models.defaults') ?? {},
       summarizationMode: this.enumValue(
         cfg.get('context.summarization.mode'),
