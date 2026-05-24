@@ -46,7 +46,7 @@
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 | 1 | Platform 补全 | 1.1–1.9 | ✅ 完成 |
 
-**单元测试**：275/275 通过  
+**单元测试**：277/277 通过  
 **需求覆盖率（粗算）**：~97%
 
 ---
@@ -72,7 +72,7 @@
 | Requirement 预览导航 | 子文档列表 + lateral 按 type 分组 + breadcrumb 点击跳转 | R-DOCS-3.3 / R-DOCS-4.4 |
 | 文档树 telemetry | docs.tree.size 月度节流 + tokenEstimate / softLimitExceeded | R-DOCS-8.5 / R-PLAT-7 |
 | 文档树 CRUD | treeOps 重命名/移动/删除/取消链接 + 6 条命令 + Requirement/Architecture 面板操作 | R-DOCS-6 |
-| Agent Replay/Fork | taskFork + 迭代 transcript + Fork UI + DAG 分叉边 + forks.json + >20 警告 | R-INT-12 |
+| Agent Replay/Fork | taskFork + 迭代 transcript + Fork UI + forks.json 恢复 DAG + >20 警告 | R-INT-12 |
 | 子树路径迁移 | rename/move 递归更新 descendant 路径 + mapSubtreePaths + 链接 patch | R-DOCS-6.2–6.3 |
 | 子树 delete | deleteDocumentTree 整棵删除 + patchLinksForRemovedIds + Delete subtree 确认 | R-DOCS-6.5 |
 | Summary 补全 | 100–800 字校验 + ensureSummary 命令/面板 + Diff Review 草稿 | R-DOCS-14.6 |
@@ -125,9 +125,11 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | R-INT-12.8 fork DAG 重启恢复（reconcileForkDag + loadDag 持久化对齐 forks.json） |
 | 2026-05-23 | R-DOCS-6.2–6.5 子树 rename/move 路径迁移 + delete subtree；R-DOCS-14.6 Summary 补全；R-INT-5 Architecture 完整预览 |
 | 2026-05-23 | verify:docs-smoke 扩展（treeOps 路径迁移/链接清理 + summarySection） |
-| 2026-05-23 | R-INT-12 Agent Replay/Fork（taskFork + 迭代 transcript + Fork UI + DAG 分叉边 + forks.json） |
+| 2026-05-23 | R-INT-12.8 forks.json 恢复 fork DAG（reconcileForkDag + build 加载时持久化） |
+| 2026-05-23 | verify:docs-smoke 扩展（treeOps/summarySection/preview nav） |
 | 2026-05-23 | R-DOCS-6 文档树 CRUD（treeOps + 命令 + Requirement/Architecture 面板操作 + 链接一致性修复） |
 | 2026-05-23 | R-DOCS-3.3/4.4/8.5 Requirement 子链接预览 + docs.tree.size 月度 telemetry |
 | 2026-05-23 | R-DOCS-4/7 横向链接深度 + naming_aliases 自动重写 + doc_write 命名碰撞 Decision |

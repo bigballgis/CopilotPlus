@@ -11,6 +11,7 @@ import {
   createTaskFork,
   forkEdgesFromTasks,
   loadForks,
+  reconcileForkDag,
   truncateTranscriptAtIteration,
 } from '../../workflow/taskFork';
 import { groupTranscriptIterations, parseTranscriptLines } from '../../workflow/taskTranscript';
@@ -151,5 +152,56 @@ describe('R-INT-12 task fork', () => {
       { from: 'task-a', to: 'task-b' },
       { from: 'task-b', to: 'task-c' },
     ]);
+  });
+
+  it('reconciles missing fork tasks and metadata from forks.json', () => {
+    const dag = {
+      tasks: [parentTask],
+    };
+    const { dag: restored, added, patched } = reconcileForkDag(dag, {
+      forks: [
+        {
+          parentTaskId: 'task-a',
+          childTaskId: 'task-a-fork-restored',
+          iteration: 2,
+          instruction: 'Retry',
+          createdAt: '2026-05-23T00:00:00.000Z',
+        },
+      ],
+    });
+    assert.equal(added, 1);
+    assert.equal(patched, 0);
+    assert.equal(restored.tasks.length, 2);
+    const child = restored.tasks.find((task) => task.id === 'task-a-fork-restored');
+    assert.equal(child?.parent_task_id, 'task-a');
+    assert.equal(child?.forked_from_iteration, 2);
+  });
+
+  it('patches fork metadata when child exists without parent_task_id', () => {
+    const dag = {
+      tasks: [
+        parentTask,
+        {
+          ...parentTask,
+          id: 'task-a-fork-orphan',
+          status: 'Pending' as const,
+        },
+      ],
+    };
+    const { dag: restored, added, patched } = reconcileForkDag(dag, {
+      forks: [
+        {
+          parentTaskId: 'task-a',
+          childTaskId: 'task-a-fork-orphan',
+          iteration: 1,
+          createdAt: '2026-05-23T00:00:00.000Z',
+        },
+      ],
+    });
+    assert.equal(added, 0);
+    assert.equal(patched, 1);
+    const child = restored.tasks.find((task) => task.id === 'task-a-fork-orphan');
+    assert.equal(child?.parent_task_id, 'task-a');
+    assert.equal(child?.forked_from_iteration, 1);
   });
 });

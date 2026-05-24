@@ -3,7 +3,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { COPILOT_PLUS_HOME } from '../shared/constants';
-import type { TaskNode } from './taskDag';
+import type { TaskDagFile, TaskNode } from './taskDag';
 import {
   groupTranscriptIterations,
   loadTranscriptLines,
@@ -155,4 +155,63 @@ export function forkEdgesFromTasks(tasks: TaskNode[]): Array<{ from: string; to:
 
 export function countForkTasks(tasks: TaskNode[]): number {
   return tasks.filter((task) => task.parent_task_id).length;
+}
+
+/** R-INT-12.8 — restore fork metadata / missing fork tasks from forks.json */
+export function reconcileForkDag(
+  dag: TaskDagFile,
+  forks: ForksFile
+): { dag: TaskDagFile; added: number; patched: number } {
+  if (forks.forks.length === 0) {
+    return { dag, added: 0, patched: 0 };
+  }
+
+  const tasks = [...dag.tasks];
+  const byId = new Map(tasks.map((task) => [task.id, task]));
+  let added = 0;
+  let patched = 0;
+
+  for (const fork of forks.forks) {
+    const parent = byId.get(fork.parentTaskId);
+    if (!parent) {
+      continue;
+    }
+
+    let child = byId.get(fork.childTaskId);
+    if (!child) {
+      child = buildForkTask(parent, fork.childTaskId, fork.iteration, fork.instruction);
+      tasks.push(child);
+      byId.set(child.id, child);
+      added++;
+      continue;
+    }
+
+    if (
+      child.parent_task_id !== fork.parentTaskId ||
+      child.forked_from_iteration !== fork.iteration
+    ) {
+      const index = tasks.findIndex((task) => task.id === child!.id);
+      if (index >= 0) {
+        tasks[index] = {
+          ...child,
+          parent_task_id: fork.parentTaskId,
+          forked_from_iteration: fork.iteration,
+        };
+        byId.set(child.id, tasks[index]!);
+        patched++;
+      }
+    }
+  }
+
+  return { dag: { tasks }, added, patched };
+}
+
+export async function reconcileForkDagOnDisk(
+  workspaceRoot: string,
+  buildId: string,
+  dag: TaskDagFile
+): Promise<{ dag: TaskDagFile; changed: boolean }> {
+  const forks = await loadForks(workspaceRoot, buildId);
+  const result = reconcileForkDag(dag, forks);
+  return { dag: result.dag, changed: result.added > 0 || result.patched > 0 };
 }

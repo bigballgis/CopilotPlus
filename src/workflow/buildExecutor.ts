@@ -9,7 +9,7 @@ import { TaskDagStore } from './taskDagStore';
 import type { DagValidationError, TaskDagFile, TaskNode, TaskDagValidationContext } from './taskDag';
 import { allTasksTerminal, hasSchedulableWork } from './taskDag';
 import { readStructuredTaskTranscript, type StructuredTaskTranscript } from './taskTranscript';
-import { createTaskFork } from './taskFork';
+import { createTaskFork, reconcileForkDagOnDisk } from './taskFork';
 import {
   BuildLimitsTracker,
   interpretBuildLimitDecision,
@@ -66,13 +66,13 @@ export class BuildExecutor {
   }
 
   async getTasksDag(): Promise<TaskDagFile | undefined> {
-    const active = this.activeBuildId ? await this.store.load(this.activeBuildId) : undefined;
+    const active = this.activeBuildId ? await this.loadDag(this.activeBuildId) : undefined;
     if (active?.tasks.length) {
       return active;
     }
     const ids = await this.store.listBuildIds();
     for (const id of ids) {
-      const dag = await this.store.load(id);
+      const dag = await this.loadDag(id);
       if (dag?.tasks.length) {
         return dag;
       }
@@ -115,7 +115,7 @@ export class BuildExecutor {
   }
 
   async getSnapshotAsync(): Promise<BuildSnapshot> {
-    const dag = this.activeBuildId ? await this.store.load(this.activeBuildId) : undefined;
+    const dag = this.activeBuildId ? await this.loadDag(this.activeBuildId) : undefined;
     const manifest = this.activeBuildId
       ? await this.store.loadManifest(this.activeBuildId)
       : undefined;
@@ -143,11 +143,27 @@ export class BuildExecutor {
       return;
     }
     const buildId = match[1];
-    const dag = await this.store.load(buildId);
+    const dag = await this.loadDag(buildId);
     await this.validateBuild(buildId, dag);
     if (buildId === this.activeBuildId) {
       this.notify();
     }
+  }
+
+  private async loadDag(buildId: string, persistReconcile = true): Promise<TaskDagFile | undefined> {
+    const dag = await this.store.load(buildId);
+    if (!dag) {
+      return undefined;
+    }
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!root) {
+      return dag;
+    }
+    const { dag: reconciled, changed } = await reconcileForkDagOnDisk(root, buildId, dag);
+    if (changed && persistReconcile) {
+      await this.store.save(buildId, reconciled);
+    }
+    return reconciled;
   }
 
   private validationContext(): TaskDagValidationContext {
@@ -164,7 +180,7 @@ export class BuildExecutor {
     buildId: string,
     dag?: TaskDagFile
   ): Promise<DagValidationError[]> {
-    const loaded = dag ?? (await this.store.load(buildId));
+    const loaded = dag ?? (await this.loadDag(buildId, false));
     if (!loaded) {
       this.lastValidationErrors = [{ message: 'tasks.json not found' }];
       await this.app.taskDagDiagnostics.publish(buildId, this.lastValidationErrors);
@@ -232,7 +248,7 @@ export class BuildExecutor {
       return false;
     }
 
-    const dag = await this.store.load(id);
+    const dag = await this.loadDag(id);
     if (!dag) {
       void vscode.window.showErrorMessage(t('build.noTasksJson', id));
       return false;
@@ -453,7 +469,7 @@ export class BuildExecutor {
       return false;
     }
 
-    const dag = await this.store.load(buildId);
+    const dag = await this.loadDag(buildId);
     const parent = dag?.tasks.find((entry) => entry.id === taskId);
     if (!parent) {
       void vscode.window.showWarningMessage(t('build.taskActionBlocked', taskId, 'missing'));
