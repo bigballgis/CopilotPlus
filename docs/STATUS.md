@@ -10,7 +10,7 @@
 
 | # | 步骤 | 预期 |
 |---|------|------|
-| 1 | `npm run compile && npm run verify:f5 && npm run verify:docs-smoke` | 全部 OK |
+| 1 | `npm run compile && npm run verify:f5 && npm run verify:docs-smoke && npm run verify:workflow-smoke` | 全部 OK |
 | 2 | F5 启动扩展 | 激活 < 5s，无报错通知 |
 | 3 | Conversation 头部切换模型 | 下拉可见 Copilot 模型，切换后持久化 |
 | 4 | Tab Workspace 头部切换模型 | 与 Conversation 同步 |
@@ -90,7 +90,7 @@
 | Autonomy Levels | Manual Build/Deploy 全工具 Decision + deny list + Full_Auto Diff 绕过 + Control Console 选择器 | R-WF-7 |
 | Build 六步流水线 | Coder/Tester/Reviewer/Committer + 3 轮测试 + Decision | R-WF-4 |
 | Rollback build | 逆拓扑序整 Build 回滚 + Decision Retry/Skip/Terminate | R-WF-5.4 |
-| Stage transition gates | evaluateStageTransition + transitionStage + Build→Design 暂停确认 | R-WF-6 |
+| Stage transition gates | evaluateStageTransition + transitionStage + Build→Design 暂停确认 + verify:workflow-smoke | R-WF-6 |
 | Task DAG + Panel 控制 | scope 校验 + 诊断 + Pause/Resume/Skip/Retry/Logs + elapsed | R-WF-3 / R-INT-4 |
 | Background Agent | 空闲检测 + 7 类任务 + 暂停/恢复 + Decision 队列 + Control Console 状态 | R-AG-9 |
 | Design 工作流 Continue/Step picker | 产物完整性门禁 + 协议/命令 + 面板刷新 | R-WF-2.8–2.9 |
@@ -130,6 +130,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | verify:workflow-smoke（rollback/fork/stage gate 无头校验 + test 链集成） |
 | 2026-05-23 | R-DOCS-6 预览面板 Rename/Move 按钮（DocTreeActionBar + runDocTreeAction + canMove） |
 | 2026-05-23 | R-WF-6 Stage transition gates（Design→Build / Build→Deploy 条件 + Build→Design 运行中确认暂停） |
 | 2026-05-23 | R-WF-5.4 Rollback build（逆 DAG 序整 Build 回滚 + Task 面板按钮 + Decision） |
