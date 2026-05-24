@@ -103,6 +103,16 @@
         "command": "copilotPlus.cli",
         "title": "Copilot Plus: CLI",
         "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.design.continue",
+        "title": "Copilot Plus: Continue Design Step",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.design.pickStep",
+        "title": "Copilot Plus: Pick Design Step",
+        "category": "Copilot Plus"
       }
     ],
     "keybindings": [

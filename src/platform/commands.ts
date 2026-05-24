@@ -119,6 +119,43 @@ export function registerCommands(
     }
   });
 
+  register('copilotPlus.design.continue', async () => {
+    if (app.stages.getStage() !== 'Design') {
+      return;
+    }
+    await app.designWorkflow.continueToNextStep();
+    const { getConversationPane } = await import('../interaction/workspace');
+    await getConversationPane()?.syncStage('Design');
+  });
+
+  register('copilotPlus.design.pickStep', async (step: unknown) => {
+    if (app.stages.getStage() !== 'Design') {
+      return;
+    }
+    if (typeof step === 'string') {
+      const picked = await app.designWorkflow.pickStep(step);
+      if (picked) {
+        const { getConversationPane } = await import('../interaction/workspace');
+        await getConversationPane()?.syncStage('Design');
+      }
+      return;
+    }
+    const state = await app.designWorkflow.getState();
+    const pick = await vscode.window.showQuickPick(
+      state.steps.map((s) => ({
+        label: s.label,
+        description: s.current ? t('design.currentStep') : s.complete ? t('design.stepComplete') : s.missing.join(', '),
+        step: s.id,
+      })),
+      { placeHolder: t('design.pickStepPlaceHolder') }
+    );
+    if (pick) {
+      await app.designWorkflow.pickStep(pick.step);
+      const { getConversationPane } = await import('../interaction/workspace');
+      await getConversationPane()?.syncStage('Design');
+    }
+  });
+
   register('copilotPlus.build.start', async () => {
     await app.stages.transition('Build');
     await app.buildExecutor.start();

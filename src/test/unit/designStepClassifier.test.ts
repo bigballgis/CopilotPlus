@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   classifyDesignMessage,
+  isContinueOnlyMessage,
   shouldAdvanceDesignStep,
 } from '../../workflow/designStepClassifier.js';
 import {
@@ -41,8 +42,10 @@ describe('R-AG-3 design step classifier', () => {
     assert.equal(result.reason, 'explicit');
   });
 
-  it('detects continue commands without changing classification step', () => {
+  it('detects continue-only commands without changing classification step', () => {
     assert.equal(shouldAdvanceDesignStep('continue'), true);
+    assert.equal(isContinueOnlyMessage('continue'), true);
+    assert.equal(isContinueOnlyMessage('continue please'), false);
     assert.equal(shouldAdvanceDesignStep('下一步'), true);
     const result = classifyDesignMessage('continue', 'Requirement_Clarification');
     assert.equal(result.step, 'Requirement_Clarification');

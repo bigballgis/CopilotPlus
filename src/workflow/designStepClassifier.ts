@@ -124,8 +124,12 @@ export function classifyDesignMessage(
   return wrap(currentStep, 'current');
 }
 
-export function shouldAdvanceDesignStep(text: string): boolean {
+export function isContinueOnlyMessage(text: string): boolean {
   return CONTINUE_PATTERN.test(text.trim());
+}
+
+export function shouldAdvanceDesignStep(text: string): boolean {
+  return isContinueOnlyMessage(text);
 }
 
 function wrap(step: DesignWorkflowStep, reason: DesignClassification['reason']): DesignClassification {

@@ -44,6 +44,10 @@ const DEFAULT_LABELS: ConversationLabels = {
   newSession: 'New Session',
   newSessionAria: 'New session',
   designStepLabel: 'Design step',
+  continueLabel: 'Continue',
+  continueAria: 'Advance to the next design step',
+  pickStepLabel: 'Steps',
+  pickStepAria: 'Pick a design workflow step',
 };
 
 function roleLabel(prefix: string): string {

@@ -1,8 +1,9 @@
 # Copilot Plus — 进度总览
 
 > **最后更新**：2026-05-23  
-> **当前阶段**：Phase 2.8 — UI Experience  
-> **下一项**：Design 工作流补全（Continue / step picker）或 R-AG-9 背景 Agent
+> **当前阶段**：Phase 2.8 — UI Experience（UI session）  
+> **本 session 下一项（功能）**：R-AG-9 背景 Agent  
+> **UI session 下一项**：2.8.6 Task DAG / Doc 树可视化 + Conversation Continue/Step picker 按钮
 
 ---
 
@@ -11,9 +12,9 @@
 | Phase | 名称 | 进度 | 状态 |
 |-------|------|------|------|
 | 0–9 | 全部 Phase | — | ✅ 完成 |
-| 2.8 | UI Experience | 2.8.1–2.8.4 | 🔄 进行中 |
+| 2.8 | UI Experience | 2.8.1–2.8.5 | 🔄 进行中（UI session） |
 
-**单元测试**：124/124 通过  
+**单元测试**：128/128 通过  
 **需求覆盖率（粗算）**：~96%
 
 ---
@@ -22,7 +23,9 @@
 
 | 模块 | 交付 | 需求 |
 |------|------|------|
+| Design 工作流 Continue/Step picker | 产物完整性门禁 + 协议/命令 + 面板刷新 | R-WF-2.8–2.9 |
 | UI 设计系统 Phase 2.8 | `webview-ui/shared` theme + toolkit + codicons + 消息气泡/Markdown | R-INT-2 / R-INT-3 / R-PLAT-9 |
+| Control Console React | 折叠分组 + stateSync + toolkit 按钮 | R-INT-9 |
 | Multi-Agent Verification | N 路并行 + majority/arbiter/union + Decision 升级 + audit | R-AG-8 |
 | Conversation React | `webview-ui/` Vite+React + 消息协议 + 宿主 stateSync | R-INT-2 / R-PLAT-9 |
 | Tab Workspace React | 五 Tab React + snapshot 协议 + Composer/Build/Deploy 面板 | R-INT-3 |
@@ -54,8 +57,10 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | Design 工作流 Continue 门禁 + step picker 宿主逻辑 + 产物校验 |
 | 2026-05-23 | Multi-Agent Verification（并行候选 + 策略选择 + audit） |
 | 2026-05-23 | Tab Workspace React 化（Task/Architecture/Requirement/Commit/Deploy） |
+| 2026-05-23 | Control Console React 化（折叠分组 + stateSync + toolkit） |
 | 2026-05-23 | Phase 2.8 UI：shared 设计系统 + toolkit/codicons + Conversation 气泡/Markdown + Tab 样式统一 |
 | 2026-05-23 | Primary Agent Design 委派循环（四步分类 + Sub-Agent + Decision 重试） |
 | 2026-05-23 | Speculative 预取（Tab + Scope 预热）+ Composer Response Cache |

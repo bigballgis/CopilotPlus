@@ -41,6 +41,21 @@ export class BuildExecutor {
     return this.activeBuildId;
   }
 
+  async getTasksDag(): Promise<TaskDagFile | undefined> {
+    const active = this.activeBuildId ? await this.store.load(this.activeBuildId) : undefined;
+    if (active?.tasks.length) {
+      return active;
+    }
+    const ids = await this.store.listBuildIds();
+    for (const id of ids) {
+      const dag = await this.store.load(id);
+      if (dag?.tasks.length) {
+        return dag;
+      }
+    }
+    return undefined;
+  }
+
   async addTask(task: TaskNode): Promise<TaskDagFile> {
     const buildId = this.activeBuildId ?? (await this.pickOrCreateBuild());
     if (!buildId) {

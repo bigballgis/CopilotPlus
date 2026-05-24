@@ -8,6 +8,14 @@ export interface MentionAttachmentWire {
   label: string;
 }
 
+export interface DesignStepOptionWire {
+  id: string;
+  label: string;
+  complete: boolean;
+  missing: string[];
+  current: boolean;
+}
+
 export interface ConversationLabels {
   userPrefix: string;
   assistantPrefix: string;
@@ -27,6 +35,10 @@ export interface ConversationLabels {
   newSession: string;
   newSessionAria: string;
   designStepLabel: string;
+  continueLabel: string;
+  continueAria: string;
+  pickStepLabel: string;
+  pickStepAria: string;
 }
 
 export interface ConversationStateSync {
@@ -36,6 +48,10 @@ export interface ConversationStateSync {
   readOnlyBanner?: string;
   model: string;
   designStep: string;
+  designCanContinue: boolean;
+  designContinueBlockedReason?: string;
+  designIsFinalStep: boolean;
+  designSteps: DesignStepOptionWire[];
   tokens: number;
   labels: ConversationLabels;
   resetMessages?: boolean;
@@ -60,4 +76,6 @@ export type ConversationWebviewMessage =
   | { type: 'pickMention' }
   | { type: 'cancel' }
   | { type: 'newSession' }
+  | { type: 'continueDesign' }
+  | { type: 'pickDesignStep'; step: string }
   | { type: 'inputDraft'; text: string; attachments: MentionAttachmentWire[] };

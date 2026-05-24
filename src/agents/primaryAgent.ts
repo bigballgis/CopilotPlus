@@ -7,7 +7,7 @@ import { loadAgentPrompt } from './promptLoader';
 import type { SessionMessage } from '../interaction/sessionStore';
 import {
   classifyDesignMessage,
-  shouldAdvanceDesignStep,
+  isContinueOnlyMessage,
 } from '../workflow/designStepClassifier';
 import type { DesignWorkflowStep } from '../workflow/designSteps';
 import { designStepLabel } from '../workflow/designSteps';
@@ -49,14 +49,29 @@ export class PrimaryAgent {
     const currentStep = this.app.stages.getDesignStep();
     let activeStep = currentStep;
 
-    if (shouldAdvanceDesignStep(userText)) {
-      const next = await this.app.stages.advanceDesignStep();
-      if (next) {
-        activeStep = next;
-        onStatus?.(t('design.advancedStep', designStepLabel(next)));
-      } else {
-        onStatus?.(t('design.finalStep'));
+    if (isContinueOnlyMessage(userText)) {
+      const advance = await this.app.designWorkflow.continueToNextStep();
+      if (advance.ok && advance.nextStep) {
+        activeStep = advance.nextStep;
+        const message = t('design.continueOnly', designStepLabel(activeStep));
+        emitChunks(message, onChunk);
+        return {
+          text: message,
+          inputTokens: estimateTokens(userText),
+          outputTokens: estimateTokens(message),
+          cancelled: false,
+          designStep: activeStep,
+        };
       }
+      const reason = advance.reason ?? t('design.finalStep');
+      emitChunks(reason, onChunk);
+      return {
+        text: reason,
+        inputTokens: estimateTokens(userText),
+        outputTokens: estimateTokens(reason),
+        cancelled: false,
+        designStep: activeStep,
+      };
     }
 
     const classification = classifyDesignMessage(userText, activeStep);
@@ -119,6 +134,8 @@ export class PrimaryAgent {
     }
 
     emitChunks(result.finalAnswer, onChunk);
+    await this.app.docs.scan();
+    void this.app.designWorkflow.refreshPanelsForStep(activeStep);
     return {
       text: result.finalAnswer,
       inputTokens,

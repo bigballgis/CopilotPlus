@@ -29,6 +29,7 @@ import { ConversationSummarizer } from '../context/conversationSummarizer';
 import { McpService } from '../extensibility/mcpService';
 import { KnowledgeService } from '../knowledge/knowledgeService';
 import { SpeculativeService } from '../platform/speculativeService';
+import { DesignWorkflowService } from '../workflow/designWorkflowService';
 import type { CiSession } from '../cli/ciSession';
 
 export class AppServices {
@@ -60,6 +61,7 @@ export class AppServices {
   readonly mcp: McpService;
   readonly knowledge: KnowledgeService;
   readonly speculative: SpeculativeService;
+  readonly designWorkflow: DesignWorkflowService;
   private ciSession: CiSession | undefined;
 
   private constructor(
@@ -102,6 +104,7 @@ export class AppServices {
     this.mcp = new McpService(context);
     this.knowledge = new KnowledgeService(context, platform);
     this.speculative = new SpeculativeService(platform);
+    this.designWorkflow = new DesignWorkflowService(this);
   }
 
   async initialize(): Promise<void> {

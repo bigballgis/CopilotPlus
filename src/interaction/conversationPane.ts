@@ -20,7 +20,6 @@ import {
 } from '../context/mentions';
 import { buildScopePreheatKey, runScopePreheat } from '../context/scopePreheat';
 import { estimateTokens } from '../platform/chatClient';
-import { designStepLabel } from '../workflow/designSteps';
 import { t } from '../platform/l10n';
 
 export class ConversationPaneProvider {
@@ -43,12 +42,20 @@ export class ConversationPaneProvider {
       this.sessions.addTokens(tokens);
       this.postMessage({ type: 'tokenUpdate', tokens: this.sessionTokens });
     });
+    context.subscriptions.push(
+      app.stages.onDesignStepChange(() => {
+        void this.syncWebviewState();
+      }),
+      app.buildExecutor.onChange(() => {
+        void this.syncWebviewState();
+      })
+    );
   }
 
   async show(column: vscode.ViewColumn): Promise<void> {
     if (this.panel) {
       this.panel.reveal(column);
-      this.syncWebviewState();
+      void this.syncWebviewState();
       return;
     }
 
@@ -68,7 +75,7 @@ export class ConversationPaneProvider {
 
     this.panel.webview.onDidReceiveMessage(async (msg: ConversationWebviewMessage) => {
       if (msg.type === 'ready') {
-        this.syncWebviewState();
+        void this.syncWebviewState();
         return;
       }
       if (msg.type === 'submit' && msg.text) {
@@ -88,7 +95,13 @@ export class ConversationPaneProvider {
         this.app.summarizer.resetSession();
         this.sessionTokens = 0;
         this.pendingAttachments = [];
-        this.syncWebviewState({ resetMessages: true });
+        void this.syncWebviewState({ resetMessages: true });
+      }
+      if (msg.type === 'continueDesign') {
+        await this.handleContinueDesign();
+      }
+      if (msg.type === 'pickDesignStep' && msg.step) {
+        await this.handlePickDesignStep(msg.step);
       }
       if (msg.type === 'inputDraft' && typeof msg.text === 'string') {
         this.scheduleScopePreheat(msg.text, msg.attachments ?? []);
@@ -120,7 +133,7 @@ export class ConversationPaneProvider {
   }
 
   syncStage(_stage: WorkflowStage): void {
-    this.syncWebviewState();
+    void this.syncWebviewState();
   }
 
   private buildLabels(): ConversationLabels {
@@ -143,27 +156,62 @@ export class ConversationPaneProvider {
       newSession: t('conversation.newSession'),
       newSessionAria: t('conversation.newSessionAria'),
       designStepLabel: t('design.stepLabel'),
+      continueLabel: t('design.continueLabel'),
+      continueAria: t('design.continueAria'),
+      pickStepLabel: t('design.pickStepLabel'),
+      pickStepAria: t('design.pickStepAria'),
     };
   }
 
-  private syncWebviewState(options?: { resetMessages?: boolean }): void {
+  private async syncWebviewState(options?: { resetMessages?: boolean }): Promise<void> {
     if (!this.panel) {
       return;
     }
     const stage = this.app.stages.getStage();
     const readOnly = stage !== 'Design';
+    const design = await this.app.designWorkflow.getState();
     const payload: ConversationStateSync = {
       type: 'stateSync',
       stage,
       readOnly,
       readOnlyBanner: readOnly ? t('conversation.readOnlyBanner', stage) : undefined,
       model: this.app.platform.models.getSelected()?.name ?? 'none',
-      designStep: designStepLabel(this.app.stages.getDesignStep()),
+      designStep: design.currentStepLabel,
+      designCanContinue: design.canContinue,
+      designContinueBlockedReason: design.continueBlockedReason,
+      designIsFinalStep: design.isFinalStep,
+      designSteps: design.steps.map((step) => ({
+        id: step.id,
+        label: step.label,
+        complete: step.complete,
+        missing: step.missing,
+        current: step.current,
+      })),
       tokens: this.sessionTokens,
       labels: this.buildLabels(),
       resetMessages: options?.resetMessages,
     };
     this.postMessage(payload);
+  }
+
+  private async handleContinueDesign(): Promise<void> {
+    if (this.app.stages.getStage() !== 'Design') {
+      return;
+    }
+    const result = await this.app.designWorkflow.continueToNextStep();
+    if (result.ok) {
+      await this.syncWebviewState();
+    }
+  }
+
+  private async handlePickDesignStep(step: string): Promise<void> {
+    if (this.app.stages.getStage() !== 'Design') {
+      return;
+    }
+    const picked = await this.app.designWorkflow.pickStep(step);
+    if (picked) {
+      await this.syncWebviewState();
+    }
   }
 
   private async handleSubmit(text: string, webAttachments: MentionAttachment[]): Promise<void> {
@@ -264,6 +312,7 @@ export class ConversationPaneProvider {
         designStep: result.designStep,
         delegatedRole: result.delegatedRole,
       });
+      await this.syncWebviewState();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.postMessage({ type: 'error', message });
