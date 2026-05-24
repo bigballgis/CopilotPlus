@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Headless DOCS module smoke checks — R-DOCS-3/5/8/11 (no VS Code runtime) */
 
-import { resolveScope, buildDocBreadcrumb } from '../dist-test/docs/scopeResolution.js';
+import { resolveScope, buildDocBreadcrumb, buildDocPreviewNav } from '../dist-test/docs/scopeResolution.js';
 import { validateDocumentSize } from '../dist-test/docs/frontmatter.js';
 import { CodeOwnershipIndex } from '../dist-test/docs/ownershipIndex.js';
 import { computeLateralDepth } from '../dist-test/docs/lateralDepth.js';
@@ -55,6 +55,21 @@ assert(
 // R-DOCS-3 breadcrumb
 const crumbs = buildDocBreadcrumb('.copilotPlus/docs/system/app/auth/login.md', entries);
 assert(crumbs.length === 3 && crumbs[0]?.title === 'app', 'breadcrumb chain invalid');
+
+// R-DOCS-3.3 / R-DOCS-4.4 preview nav
+const navEntries = [
+  entry('.copilotPlus/docs/system/app.md', 'app', 'system', '', ['auth']),
+  entry('.copilotPlus/docs/system/app/auth.md', 'auth', 'module', 'app', ['login'], undefined),
+  entry('.copilotPlus/docs/system/app/auth/login.md', 'login', 'feature', 'auth', []),
+  entry('.copilotPlus/docs/system/app/billing.md', 'billing', 'module', 'app', []),
+];
+navEntries[1].frontmatter.lateral = [{ target: 'billing', type: 'references' }];
+const nav = buildDocPreviewNav('.copilotPlus/docs/system/app/auth.md', navEntries);
+assert(nav.children.some((child) => child.path.includes('login.md')), 'preview nav children invalid');
+assert(
+  nav.lateralByType.references?.some((link) => link.path.includes('billing.md')),
+  'preview nav lateral invalid'
+);
 
 // R-DOCS-8 size cap
 const oversize = validateDocumentSize('component', 'x'.repeat(1001));
@@ -147,5 +162,5 @@ if (errors.length > 0) {
 }
 
 console.log(
-  'DOCS smoke verification OK (scope, breadcrumb, size cap, ownership, aliases, lateral depth, tree ops, summary)'
+  'DOCS smoke verification OK (scope, breadcrumb, preview nav, size cap, ownership, aliases, lateral depth, tree ops, summary)'
 );

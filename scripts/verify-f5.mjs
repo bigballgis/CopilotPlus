@@ -65,7 +65,7 @@ const DOCS_TREE_OPS_MARKERS = [
 ];
 
 const TASK_FORK_MARKERS = [
-  { file: 'src/workflow/taskFork.ts', tokens: ['createTaskFork', 'forks.json', 'parent_task_id'] },
+  { file: 'src/workflow/taskFork.ts', tokens: ['createTaskFork', 'forks.json', 'reconcileForkDag'] },
   { file: 'src/workflow/taskTranscript.ts', tokens: ['groupTranscriptIterations', 'readStructuredTaskTranscript'] },
   { file: 'src/workflow/buildExecutor.ts', tokens: ['forkTask', 'getStructuredTaskLog'] },
   { file: 'src/agents/subAgentLoop.ts', tokens: ["role: 'iteration'", 'loadPersistedMessages'] },
