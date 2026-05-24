@@ -1,6 +1,7 @@
 /** Task DAG validation — R-WF-3 */
 
 import { SUB_AGENT_ALLOWLISTS } from '../tools/registry';
+import { isBuildTaskAgent } from './buildTaskAgents';
 
 export type TaskStatus =
   | 'Pending'
@@ -32,7 +33,14 @@ export interface DagValidationError {
   message: string;
 }
 
-export function validateTaskDag(dag: TaskDagFile): DagValidationError[] {
+export interface TaskDagValidationContext {
+  knownScopeDocs?: Set<string>;
+}
+
+export function validateTaskDag(
+  dag: TaskDagFile,
+  context?: TaskDagValidationContext
+): DagValidationError[] {
   const errors: DagValidationError[] = [];
   const ids = new Set<string>();
 
@@ -46,9 +54,19 @@ export function validateTaskDag(dag: TaskDagFile): DagValidationError[] {
   for (const task of dag.tasks) {
     if (!SUB_AGENT_ALLOWLISTS[task.agent]) {
       errors.push({ taskId: task.id, message: `unknown agent role: ${task.agent}` });
+    } else if (!isBuildTaskAgent(task.agent)) {
+      errors.push({
+        taskId: task.id,
+        message: `agent ${task.agent} is not a Build-stage role`,
+      });
     }
     if (!task.scope_doc.startsWith('.copilotPlus/docs/')) {
       errors.push({ taskId: task.id, message: 'invalid scope_doc path' });
+    } else if (context?.knownScopeDocs && !context.knownScopeDocs.has(task.scope_doc)) {
+      errors.push({
+        taskId: task.id,
+        message: `scope_doc not found in document tree: ${task.scope_doc}`,
+      });
     }
     for (const dep of task.depends_on) {
       if (!ids.has(dep)) {
@@ -97,19 +115,48 @@ function hasCycle(tasks: TaskNode[]): boolean {
 
 export function computeReadyTasks(tasks: TaskNode[]): TaskNode[] {
   const done = new Set(tasks.filter((t) => t.status === 'Done').map((t) => t.id));
+  const blockedDeps = new Set(
+    tasks
+      .filter((t) => t.status === 'Failed' || t.status === 'Blocked')
+      .map((t) => t.id)
+  );
+
   return tasks.filter(
     (t) =>
-      (t.status === 'Pending' || t.status === 'Ready') &&
-      t.depends_on.every((d) => done.has(d))
+      t.status === 'Ready' &&
+      t.depends_on.every((d) => done.has(d)) &&
+      !t.depends_on.some((d) => blockedDeps.has(d))
   );
 }
 
 export function markReadyStatuses(tasks: TaskNode[]): TaskNode[] {
   const done = new Set(tasks.filter((t) => t.status === 'Done').map((t) => t.id));
+  const failed = new Set(
+    tasks.filter((t) => t.status === 'Failed' || t.status === 'Blocked').map((t) => t.id)
+  );
+
   return tasks.map((task) => {
-    if (task.status === 'Pending' && task.depends_on.every((dep) => done.has(dep))) {
+    if (task.status !== 'Pending') {
+      return task;
+    }
+    if (task.depends_on.some((dep) => failed.has(dep))) {
+      return { ...task, status: 'Blocked' as TaskStatus };
+    }
+    if (task.depends_on.every((dep) => done.has(dep))) {
       return { ...task, status: 'Ready' as TaskStatus };
     }
     return task;
   });
+}
+
+export function hasSchedulableWork(tasks: TaskNode[]): boolean {
+  return tasks.some(
+    (t) => t.status === 'Pending' || t.status === 'Ready' || t.status === 'Running'
+  );
+}
+
+export function allTasksTerminal(tasks: TaskNode[]): boolean {
+  return tasks.every((t) =>
+    ['Done', 'Skipped', 'RolledBack', 'Failed', 'Blocked'].includes(t.status)
+  );
 }

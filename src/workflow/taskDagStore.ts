@@ -91,8 +91,8 @@ export class TaskDagStore {
     await fs.writeFile(file, JSON.stringify(manifest, null, 2), 'utf8');
   }
 
-  validate(dag: TaskDagFile) {
-    return validateTaskDag(dag);
+  validate(dag: TaskDagFile, context?: import('./taskDag').TaskDagValidationContext) {
+    return validateTaskDag(dag, context);
   }
 
   markReadyStatuses(tasks: TaskNode[]): TaskNode[] {
@@ -101,9 +101,7 @@ export class TaskDagStore {
 
   getReadyTasks(tasks: TaskNode[]): TaskNode[] {
     const refreshed = this.markReadyStatuses(tasks);
-    return computeReadyTasks(refreshed).filter(
-      (t) => t.status === 'Ready' || t.status === 'Pending'
-    );
+    return computeReadyTasks(refreshed);
   }
 
   async updateTaskStatus(

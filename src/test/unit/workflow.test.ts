@@ -61,6 +61,55 @@ describe('R-WF-3 task DAG', () => {
     assert.equal(ready.length, 1);
     assert.equal(ready[0].id, 'b');
   });
+
+  it('blocks pending tasks when a dependency failed', () => {
+    const tasks = markReadyStatuses([
+      {
+        id: 'a',
+        title: 'A',
+        description: '',
+        agent: 'Coder',
+        inputs: {},
+        depends_on: [],
+        status: 'Failed',
+        scope_doc: '.copilotPlus/docs/system/default.md',
+      },
+      {
+        id: 'b',
+        title: 'B',
+        description: '',
+        agent: 'Coder',
+        inputs: {},
+        depends_on: ['a'],
+        status: 'Pending',
+        scope_doc: '.copilotPlus/docs/system/default.md',
+      },
+    ]);
+    assert.equal(tasks.find((t) => t.id === 'b')?.status, 'Blocked');
+    assert.equal(computeReadyTasks(tasks).length, 0);
+  });
+
+  it('rejects non-build agents and unknown scope docs', () => {
+    const errors = validateTaskDag(
+      {
+        tasks: [
+          {
+            id: 'x',
+            title: 'X',
+            description: '',
+            agent: 'Architect',
+            inputs: {},
+            depends_on: [],
+            status: 'Pending',
+            scope_doc: '.copilotPlus/docs/system/missing.md',
+          },
+        ],
+      },
+      { knownScopeDocs: new Set(['.copilotPlus/docs/system/default.md']) }
+    );
+    assert.ok(errors.some((e) => e.message.includes('Build-stage')));
+    assert.ok(errors.some((e) => e.message.includes('not found')));
+  });
 });
 
 describe('R-AG-2 role mapping', () => {

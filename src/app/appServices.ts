@@ -31,6 +31,7 @@ import { KnowledgeService } from '../knowledge/knowledgeService';
 import { SpeculativeService } from '../platform/speculativeService';
 import { DesignWorkflowService } from '../workflow/designWorkflowService';
 import { BackgroundAgentService } from '../agents/backgroundAgentService';
+import { TaskDagDiagnostics } from '../workflow/taskDagDiagnostics';
 import type { CiSession } from '../cli/ciSession';
 
 export class AppServices {
@@ -64,6 +65,7 @@ export class AppServices {
   readonly speculative: SpeculativeService;
   readonly designWorkflow: DesignWorkflowService;
   readonly backgroundAgent: BackgroundAgentService;
+  readonly taskDagDiagnostics: TaskDagDiagnostics;
   private ciSession: CiSession | undefined;
 
   private constructor(
@@ -108,6 +110,7 @@ export class AppServices {
     this.speculative = new SpeculativeService(platform);
     this.designWorkflow = new DesignWorkflowService(this);
     this.backgroundAgent = new BackgroundAgentService(this, context.extensionUri, context);
+    this.taskDagDiagnostics = new TaskDagDiagnostics();
   }
 
   async initialize(): Promise<void> {
@@ -137,6 +140,20 @@ export class AppServices {
     );
     this.backgroundAgent.start();
     this.context.subscriptions.push({ dispose: () => this.backgroundAgent.dispose() });
+    this.taskDagDiagnostics.register(this.context);
+    const workspace = vscode.workspace.workspaceFolders?.[0];
+    if (workspace) {
+      const tasksWatcher = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(workspace, '.copilotPlus/builds/**/tasks.json')
+      );
+      const refreshTasks = (uri: vscode.Uri) => {
+        void this.buildExecutor.refreshValidationForTasksFile(uri);
+      };
+      tasksWatcher.onDidChange(refreshTasks);
+      tasksWatcher.onDidCreate(refreshTasks);
+      tasksWatcher.onDidDelete(refreshTasks);
+      this.context.subscriptions.push(tasksWatcher);
+    }
   }
 
   static async create(context: vscode.ExtensionContext): Promise<AppServices> {

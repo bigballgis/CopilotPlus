@@ -87,7 +87,8 @@
 | 2.8.3 | Conversation：消息气泡 + Markdown 渲染 + toolkit 控件 | R-INT-2 | ✅ |
 | 2.8.4 | Tab Workspace：shared 组件 + 统一 Tab/Panel 样式 | R-INT-3 | ✅ |
 | 2.8.5 | Control Console React 化 + 分组折叠 | R-INT-9 | ✅ |
-| 2.8.6 | Task DAG / Doc 树可视化（对齐 R-INT-4/5/6） | R-INT-4–6 | ⬜ |
+| 2.8.6 | Task DAG / Doc 树可视化（对齐 R-INT-4/5/6） | R-INT-4–6 | ✅ |
+| 2.8.7 | Conversation Continue + Step picker 控件 | R-WF-2.8–2.9 | ✅ |
 
 ---
 
@@ -122,7 +123,7 @@
 | 序号 | 需求 | 状态 |
 |------|------|------|
 | 5.1 | R-WF-1,2 Design 四步 | ✅ 委派 + 步骤持久化 + Continue/Step picker |
-| 5.2 | R-WF-3 Task DAG | ⬜ |
+| 5.2 | R-WF-3 Task DAG | ✅ 校验 + 并发 + 诊断 + Blocked 传播 |
 | 5.3 | R-WF-4 Build 六步 | ⬜ |
 | 5.4 | R-WF-7 Autonomy | ⬜ |
 

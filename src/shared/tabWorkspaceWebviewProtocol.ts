@@ -33,6 +33,30 @@ export interface TabWorkspaceLabels {
   manualCommands: string;
   ready: string;
   noDeployRuns: string;
+  taskDagTitle: string;
+  taskListTitle: string;
+  architectureDiagram: string;
+  zoomIn: string;
+  zoomOut: string;
+  fitView: string;
+  requirementTree: string;
+  requirementPreview: string;
+  editDoc: string;
+  selectDocHint: string;
+  lateralEdge: string;
+  hierarchicalEdge: string;
+  columnId: string;
+  columnTitle: string;
+  columnAgent: string;
+  columnStatus: string;
+  columnActions: string;
+  openDoc: string;
+}
+
+export interface DocLateralLinkWire {
+  targetPath: string;
+  targetTitle: string;
+  linkType: string;
 }
 
 export interface DocTreeNodeWire {
@@ -40,7 +64,14 @@ export interface DocTreeNodeWire {
   title: string;
   level: string;
   reviewBadge?: 'green' | 'yellow' | 'red';
+  lateralLinks: DocLateralLinkWire[];
   children: DocTreeNodeWire[];
+}
+
+export interface DocDiagramEdgeWire {
+  from: string;
+  to: string;
+  kind: 'hierarchical' | 'lateral';
 }
 
 export interface TaskRowWire {
@@ -48,7 +79,14 @@ export interface TaskRowWire {
   title: string;
   agent: string;
   status: string;
+  dependsOn: string[];
+  elapsedMs?: number;
   canRollback: boolean;
+}
+
+export interface TaskEdgeWire {
+  from: string;
+  to: string;
 }
 
 export interface ComposerSnapshotWire {
@@ -64,7 +102,9 @@ export interface TaskPanelWire {
   status: string;
   lastMessage: string;
   runningTaskIds: string[];
+  validationErrors: Array<{ taskId?: string; message: string }>;
   tasks: TaskRowWire[];
+  edges: TaskEdgeWire[];
   composer: ComposerSnapshotWire;
 }
 
@@ -89,6 +129,7 @@ export interface DocPanelWire {
   heading: string;
   docCount: number;
   tree: DocTreeNodeWire[];
+  diagramEdges: DocDiagramEdgeWire[];
   emptyText: string;
 }
 
@@ -103,12 +144,16 @@ export interface TabWorkspaceStateSync {
   deploy: DeployPanelWire;
 }
 
-export type TabWorkspaceHostMessage = TabWorkspaceStateSync;
+export type TabWorkspaceHostMessage =
+  | TabWorkspaceStateSync
+  | { type: 'docPreview'; path: string; title: string; markdown: string };
 
 export type TabWorkspaceWebviewMessage =
   | { type: 'ready' }
   | { type: 'selectTab'; tab: TabId }
   | { type: 'openDoc'; path: string }
+  | { type: 'selectDoc'; path: string }
+  | { type: 'editDoc'; path: string }
   | { type: 'buildAction'; action: string; taskId?: string }
   | {
       type: 'composerAction';

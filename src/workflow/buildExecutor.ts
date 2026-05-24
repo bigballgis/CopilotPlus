@@ -6,7 +6,8 @@ import { SubAgentRunner } from '../agents/subAgentRunner';
 import type { BuildManifest, BuildStatus } from './buildTypes';
 import { newBuildId } from './buildTypes';
 import { TaskDagStore } from './taskDagStore';
-import type { TaskDagFile, TaskNode } from './taskDag';
+import type { DagValidationError, TaskDagFile, TaskNode, TaskDagValidationContext } from './taskDag';
+import { allTasksTerminal, hasSchedulableWork } from './taskDag';
 import { t } from '../platform/l10n';
 
 export interface BuildSnapshot {
@@ -14,6 +15,7 @@ export interface BuildSnapshot {
   status: BuildStatus;
   dag: TaskDagFile | undefined;
   runningTaskIds: string[];
+  validationErrors: DagValidationError[];
   lastMessage?: string;
 }
 
@@ -28,6 +30,7 @@ export class BuildExecutor {
   private cancelSource: vscode.CancellationTokenSource | undefined;
   private listeners = new Set<ChangeListener>();
   private lastMessage = '';
+  private lastValidationErrors: DagValidationError[] = [];
 
   constructor(
     private readonly app: AppServices,
@@ -88,19 +91,63 @@ export class BuildExecutor {
       status: this.status,
       dag: undefined,
       runningTaskIds: [...this.running],
+      validationErrors: this.lastValidationErrors,
       lastMessage: this.lastMessage,
     };
   }
 
   async getSnapshotAsync(): Promise<BuildSnapshot> {
     const dag = this.activeBuildId ? await this.store.load(this.activeBuildId) : undefined;
+    if (this.activeBuildId) {
+      await this.validateBuild(this.activeBuildId, dag);
+    }
     return {
       buildId: this.activeBuildId,
       status: this.status,
       dag,
       runningTaskIds: [...this.running],
+      validationErrors: this.lastValidationErrors,
       lastMessage: this.lastMessage,
     };
+  }
+
+  async refreshValidationForTasksFile(uri: vscode.Uri): Promise<void> {
+    const normalized = uri.fsPath.replace(/\\/g, '/');
+    const match = normalized.match(/\/\.copilotPlus\/builds\/([^/]+)\/tasks\.json$/);
+    if (!match) {
+      return;
+    }
+    const buildId = match[1];
+    const dag = await this.store.load(buildId);
+    await this.validateBuild(buildId, dag);
+    if (buildId === this.activeBuildId) {
+      this.notify();
+    }
+  }
+
+  private validationContext(): TaskDagValidationContext {
+    const paths = new Set(
+      this.app.docs
+        .getEntries()
+        .filter((entry) => entry.valid)
+        .map((entry) => entry.relativePath.replace(/\\/g, '/'))
+    );
+    return { knownScopeDocs: paths };
+  }
+
+  private async validateBuild(
+    buildId: string,
+    dag?: TaskDagFile
+  ): Promise<DagValidationError[]> {
+    const loaded = dag ?? (await this.store.load(buildId));
+    if (!loaded) {
+      this.lastValidationErrors = [{ message: 'tasks.json not found' }];
+      await this.app.taskDagDiagnostics.publish(buildId, this.lastValidationErrors);
+      return this.lastValidationErrors;
+    }
+    this.lastValidationErrors = this.store.validate(loaded, this.validationContext());
+    await this.app.taskDagDiagnostics.publish(buildId, this.lastValidationErrors);
+    return this.lastValidationErrors;
   }
 
   async pickOrCreateBuild(): Promise<string | undefined> {
@@ -135,7 +182,7 @@ export class BuildExecutor {
         },
       ],
     };
-    const errors = this.store.validate(sample);
+    const errors = this.store.validate(sample, this.validationContext());
     if (errors.length) {
       void vscode.window.showErrorMessage(errors.map((e) => e.message).join('\n'));
       return undefined;
@@ -144,6 +191,7 @@ export class BuildExecutor {
     await this.store.save(buildId, sample);
     await this.store.saveManifest(buildId, { id: buildId, status: 'Idle' });
     this.activeBuildId = buildId;
+    await this.validateBuild(buildId, sample);
     this.notify();
     return buildId;
   }
@@ -165,7 +213,7 @@ export class BuildExecutor {
       return false;
     }
 
-    const errors = this.store.validate(dag);
+    const errors = await this.validateBuild(id, dag);
     if (errors.length) {
       void vscode.window.showErrorMessage(
         t('build.taskDagInvalid', errors.map((e) => e.message).join('\n'))
@@ -247,10 +295,18 @@ export class BuildExecutor {
           .filter((t) => !this.running.has(t.id));
 
         if (ready.length === 0 && this.running.size === 0) {
+          dag.tasks = this.store.markReadyStatuses(dag.tasks);
+          await this.store.save(buildId, dag);
+
+          if (hasSchedulableWork(dag.tasks)) {
+            await sleep(500);
+            continue;
+          }
+
           const allDone = dag.tasks.every(
             (t) => t.status === 'Done' || t.status === 'Skipped' || t.status === 'RolledBack'
           );
-          this.status = 'Completed';
+          this.status = allDone ? 'Completed' : 'Failed';
           if (allDone) {
             await this.store.saveManifest(buildId, {
               id: buildId,
@@ -258,7 +314,10 @@ export class BuildExecutor {
               completedAt: new Date().toISOString(),
             });
             this.setMessage('Build completed');
+            void this.promptDeployStage();
             void this.runSelfReflection(buildId, dag.tasks.length, 'Completed');
+          } else if (allTasksTerminal(dag.tasks)) {
+            this.setMessage(t('build.stoppedWithFailures'));
           }
           break;
         }
@@ -334,6 +393,17 @@ export class BuildExecutor {
     } finally {
       this.running.delete(task.id);
       this.notify();
+    }
+  }
+
+  private async promptDeployStage(): Promise<void> {
+    const choice = await vscode.window.showInformationMessage(
+      t('build.promptDeploy'),
+      t('build.advanceDeploy'),
+      t('common.cancel')
+    );
+    if (choice === t('build.advanceDeploy')) {
+      await this.app.stages.transition('Deploy');
     }
   }
 

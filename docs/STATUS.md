@@ -1,9 +1,8 @@
 # Copilot Plus — 进度总览
 
 > **最后更新**：2026-05-23  
-> **当前阶段**：Phase 2.8 — UI Experience（UI session）  
-> **本 session 下一项（功能）**：Phase 5.2 Task DAG 执行 / R-WF-3 深化  
-> **UI session 下一项**：2.8.6 Task DAG / Doc 树可视化 + Conversation Continue/Step picker 按钮
+> **当前阶段**：Phase 5 — Workflow  
+> **本 session 下一项（功能）**：R-WF-4 Build 六步深化（Tester 重试 / Reviewer Blocked）
 
 ---
 
@@ -12,9 +11,9 @@
 | Phase | 名称 | 进度 | 状态 |
 |-------|------|------|------|
 | 0–9 | 全部 Phase | — | ✅ 完成 |
-| 2.8 | UI Experience | 2.8.1–2.8.5 | 🔄 进行中（UI session） |
+| 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 
-**单元测试**：133/133 通过  
+**单元测试**：135/135 通过  
 **需求覆盖率（粗算）**：~96%
 
 ---
@@ -23,10 +22,13 @@
 
 | 模块 | 交付 | 需求 |
 |------|------|------|
+| Task DAG 执行深化 | scope 校验 + Problem Pane 诊断 + 依赖失败 Blocked + Deploy 提示 | R-WF-3 |
 | Background Agent | 空闲检测 + 7 类任务 + 暂停/恢复 + Decision 队列 + Control Console 状态 | R-AG-9 |
 | Design 工作流 Continue/Step picker | 产物完整性门禁 + 协议/命令 + 面板刷新 | R-WF-2.8–2.9 |
 | UI 设计系统 Phase 2.8 | `webview-ui/shared` theme + toolkit + codicons + 消息气泡/Markdown | R-INT-2 / R-INT-3 / R-PLAT-9 |
 | Control Console React | 折叠分组 + stateSync + toolkit 按钮 | R-INT-9 |
+| Panel 可视化 | Task DAG + Architecture 图 + Requirement 预览 | R-INT-4–6 |
+| Conversation 工作流控件 | Continue + Step picker + 步骤门禁提示 | R-WF-2.8–2.9 |
 | Multi-Agent Verification | N 路并行 + majority/arbiter/union + Decision 升级 + audit | R-AG-8 |
 | Conversation React | `webview-ui/` Vite+React + 消息协议 + 宿主 stateSync | R-INT-2 / R-PLAT-9 |
 | Tab Workspace React | 五 Tab React + snapshot 协议 + Composer/Build/Deploy 面板 | R-INT-3 |
@@ -58,7 +60,9 @@
 
 | 日期 | 内容 |
 |------|------|
-| 2026-05-23 | Background Agent（空闲触发 + 任务轮转 + Decision 提案 + 首次启用提示） |
+| 2026-05-23 | Phase 2.8.7 Conversation Continue/Step picker UI |
+| 2026-05-23 | Phase 2.8.6 Panel 可视化（Task DAG + Architecture 图 + Requirement 预览） |
+| 2026-05-23 | Task DAG 深化（校验/诊断/Blocked 传播/Build 完成 Deploy 提示） |
 | 2026-05-23 | Multi-Agent Verification（并行候选 + 策略选择 + audit） |
 | 2026-05-23 | Tab Workspace React 化（Task/Architecture/Requirement/Commit/Deploy） |
 | 2026-05-23 | Control Console React 化（折叠分组 + stateSync + toolkit） |

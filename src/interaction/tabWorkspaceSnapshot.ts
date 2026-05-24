@@ -7,11 +7,13 @@ import { t } from '../platform/l10n';
 import type {
   ComposerSnapshotWire,
   DeployPanelWire,
+  DocDiagramEdgeWire,
   DocPanelWire,
   DocTreeNodeWire,
   TabId,
   TabWorkspaceLabels,
   TabWorkspaceStateSync,
+  TaskEdgeWire,
   TaskPanelWire,
 } from '../shared/tabWorkspaceWebviewProtocol';
 
@@ -47,6 +49,24 @@ export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
     manualCommands: t('tabWorkspace.manualCommands'),
     ready: t('tabWorkspace.ready'),
     noDeployRuns: t('tabWorkspace.noDeployRuns'),
+    taskDagTitle: t('tabWorkspace.taskDagTitle'),
+    taskListTitle: t('tabWorkspace.taskListTitle'),
+    architectureDiagram: t('tabWorkspace.architectureDiagram'),
+    zoomIn: t('tabWorkspace.zoomIn'),
+    zoomOut: t('tabWorkspace.zoomOut'),
+    fitView: t('tabWorkspace.fitView'),
+    requirementTree: t('tabWorkspace.requirementTree'),
+    requirementPreview: t('tabWorkspace.requirementPreview'),
+    editDoc: t('tabWorkspace.editDoc'),
+    selectDocHint: t('tabWorkspace.selectDocHint'),
+    lateralEdge: t('tabWorkspace.lateralEdge'),
+    hierarchicalEdge: t('tabWorkspace.hierarchicalEdge'),
+    columnId: t('tabWorkspace.columnId'),
+    columnTitle: t('tabWorkspace.columnTitle'),
+    columnAgent: t('tabWorkspace.columnAgent'),
+    columnStatus: t('tabWorkspace.columnStatus'),
+    columnActions: t('tabWorkspace.columnActions'),
+    openDoc: t('tabWorkspace.openDoc'),
   };
 }
 
@@ -57,13 +77,14 @@ export function buildTabWorkspaceStateSync(
 ): TabWorkspaceStateSync {
   const labels = buildTabWorkspaceLabels();
   const tree = app.docs.getTree();
+  const idToPath = buildIdToPathMap(tree);
   return {
     type: 'stateSync',
     activeTab,
     labels,
     task: buildTaskPanel(app, build),
-    architecture: buildDocPanel(tree, labels.architectureDocs, app, labels),
-    requirement: buildDocPanel(tree, labels.requirementDocs, app, labels),
+    architecture: buildDocPanel(tree, labels.architectureDocs, app, labels, idToPath),
+    requirement: buildDocPanel(tree, labels.requirementDocs, app, labels, idToPath),
     commitPlaceholder: labels.commitPlaceholder,
     deploy: buildDeployPanel(app, labels),
   };
@@ -71,18 +92,28 @@ export function buildTabWorkspaceStateSync(
 
 function buildTaskPanel(app: AppServices, build: BuildSnapshot | undefined): TaskPanelWire {
   const composer = app.composer.getSnapshot();
+  const tasks = build?.dag?.tasks ?? [];
+  const edges: TaskEdgeWire[] = [];
+  for (const task of tasks) {
+    for (const dep of task.depends_on) {
+      edges.push({ from: dep, to: task.id });
+    }
+  }
   return {
     buildId: build?.buildId ?? '(none)',
     status: build?.status ?? 'Idle',
     lastMessage: build?.lastMessage ?? '',
     runningTaskIds: build?.runningTaskIds ?? [],
-    tasks: (build?.dag?.tasks ?? []).map((task) => ({
+    validationErrors: build?.validationErrors ?? [],
+    tasks: tasks.map((task) => ({
       id: task.id,
       title: task.title,
       agent: task.agent,
       status: task.status,
+      dependsOn: task.depends_on,
       canRollback: task.status === 'Done' || task.status === 'Failed',
     })),
+    edges,
     composer: buildComposerSnapshot(composer),
   };
 }
@@ -103,13 +134,16 @@ function buildDocPanel(
   tree: DocTreeNode[],
   heading: string,
   app: AppServices,
-  labels: TabWorkspaceLabels
+  labels: TabWorkspaceLabels,
+  idToPath: Map<string, string>
 ): DocPanelWire {
   const docCount = countNodes(tree);
+  const serialized = serializeDocTree(tree, app, idToPath);
   return {
     heading,
     docCount,
-    tree: serializeDocTree(tree, app),
+    tree: serialized.tree,
+    diagramEdges: serialized.edges,
     emptyText: labels.noDocTree.replace('{0}', heading),
   };
 }
@@ -133,18 +167,64 @@ function buildDeployPanel(app: AppServices, labels: TabWorkspaceLabels): DeployP
   };
 }
 
-function serializeDocTree(nodes: DocTreeNode[], app: AppServices): DocTreeNodeWire[] {
-  return nodes.map((node) => {
+function serializeDocTree(
+  nodes: DocTreeNode[],
+  app: AppServices,
+  idToPath: Map<string, string>
+): { tree: DocTreeNodeWire[]; edges: DocDiagramEdgeWire[] } {
+  const edges: DocDiagramEdgeWire[] = [];
+
+  const walk = (node: DocTreeNode, parentPath?: string): DocTreeNodeWire => {
+    if (parentPath) {
+      edges.push({ from: parentPath, to: node.path, kind: 'hierarchical' });
+    }
+    for (const link of node.lateral ?? []) {
+      const targetPath = idToPath.get(link.target);
+      if (targetPath && targetPath !== node.path) {
+        edges.push({ from: node.path, to: targetPath, kind: 'lateral' });
+      }
+    }
     const entry = app.docs.getByPath(node.path);
     const reviewBadge = entry ? app.docs.reviewBadge(entry) : undefined;
+    const lateralLinks = (node.lateral ?? [])
+      .map((link) => {
+        const targetPath = idToPath.get(link.target);
+        if (!targetPath) {
+          return undefined;
+        }
+        const targetEntry = app.docs.getByPath(targetPath);
+        return {
+          targetPath,
+          targetTitle: targetEntry?.frontmatter.title ?? link.target,
+          linkType: link.type,
+        };
+      })
+      .filter((l): l is NonNullable<typeof l> => l !== undefined);
+
     return {
       path: node.path,
       title: node.title,
       level: node.level,
       reviewBadge,
-      children: serializeDocTree(node.children, app),
+      lateralLinks,
+      children: node.children.map((child) => walk(child, node.path)),
     };
-  });
+  };
+
+  return {
+    tree: nodes.map((node) => walk(node)),
+    edges,
+  };
+}
+
+function buildIdToPathMap(nodes: DocTreeNode[]): Map<string, string> {
+  const map = new Map<string, string>();
+  const visit = (node: DocTreeNode) => {
+    map.set(node.id, node.path);
+    node.children.forEach(visit);
+  };
+  nodes.forEach(visit);
+  return map;
 }
 
 function countNodes(nodes: DocTreeNode[]): number {
