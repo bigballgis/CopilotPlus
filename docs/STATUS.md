@@ -126,8 +126,7 @@
 
 | 日期 | 内容 |
 |------|------|
-| 2026-05-23 | R-INT-5.4 Architecture 图 Export SVG/PNG + fit-to-view 自适应缩放 |
-| 2026-05-23 | R-INT-5.4 Architecture 图导出（Export SVG/PNG + SaveDialog + diagramExport） |
+| 2026-05-23 | R-INT-5.4 Architecture 图导出（Export SVG/PNG + fit-to-view + SaveDialog + diagramExport） |
 | 2026-05-23 | R-INT-12.8 fork DAG 重启恢复（reconcileForkDag + loadDag 持久化对齐 forks.json） |
 | 2026-05-23 | R-DOCS-6.2–6.5 子树 rename/move 路径迁移 + delete subtree；R-DOCS-14.6 Summary 补全；R-INT-5 Architecture 完整预览 |
 | 2026-05-23 | verify:docs-smoke 扩展（treeOps 路径迁移/链接清理 + summarySection + preview nav） |
