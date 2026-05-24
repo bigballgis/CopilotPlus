@@ -8,6 +8,8 @@ import { ExplorerAgent } from '../agents/explorerAgent';
 import { PostEditTracker } from '../agents/postEditVerification';
 import { DiffReviewService } from '../editing/diffReview';
 import { CheckpointService } from '../editing/checkpoint';
+import { CommitHistoryService } from '../editing/commitHistory';
+import { extractTaskId } from '../editing/commitHistoryParse';
 import { ProposedContentProvider } from '../editing/proposedContentProvider';
 import { InlineEditService } from '../editing/inlineEdit';
 import { DecisionCenter } from '../interaction/decisionCenter';
@@ -40,6 +42,7 @@ export class AppServices {
   readonly primaryAgent: PrimaryAgent;
   readonly subAgentRunner: SubAgentRunner;
   readonly checkpoints: CheckpointService;
+  readonly commitHistory: CommitHistoryService;
   readonly postEdit: PostEditTracker;
   readonly diffReview: DiffReviewService;
   readonly inlineEdit: InlineEditService;
@@ -70,6 +73,7 @@ export class AppServices {
   readonly buildIsolation: BuildIsolationService;
   readonly drift: DriftService;
   private ciSession: CiSession | undefined;
+  private toolExecutionContext: { taskId?: string; stage?: string } = {};
 
   private constructor(
     private readonly context: vscode.ExtensionContext,
@@ -81,6 +85,7 @@ export class AppServices {
     this.subAgentRunner = new SubAgentRunner(this, context.extensionUri);
     this.primaryAgent = new PrimaryAgent(context.extensionUri, this);
     this.checkpoints = new CheckpointService();
+    this.commitHistory = new CommitHistoryService();
     this.responseCache = new ResponseCacheService(platform);
     this.responseCacheInvalidation = new ResponseCacheInvalidation(this.responseCache);
     const invalidateCache = (rel: string) => {
@@ -135,6 +140,7 @@ export class AppServices {
     await this.mcp.initialize();
     await this.knowledge.initialize(this.context);
     await this.stages.load();
+    await this.commitHistory.load();
     await this.deploy.load();
     this.docs.startWatching(this.context);
     void this.docs.ensureDefaultSystem();
@@ -180,6 +186,36 @@ export class AppServices {
     const app = new AppServices(context, platform, proposedContent);
     await app.initialize();
     return app;
+  }
+
+  setToolExecutionContext(context: { taskId?: string; stage?: string }): void {
+    this.toolExecutionContext = { ...context };
+  }
+
+  clearToolExecutionContext(): void {
+    this.toolExecutionContext = {};
+  }
+
+  getToolExecutionContext(): { taskId?: string; stage?: string } {
+    return { ...this.toolExecutionContext };
+  }
+
+  async recordCopilotCommit(params: {
+    hash: string;
+    message: string;
+    taskId?: string;
+    stage?: string;
+    filesChanged?: number;
+  }): Promise<void> {
+    const checkpointId = await this.checkpoints.findLatestForTask(params.taskId);
+    await this.commitHistory.record({
+      hash: params.hash,
+      message: params.message,
+      stage: params.stage ?? this.stages.getStage(),
+      taskId: params.taskId ?? extractTaskId(params.message),
+      filesChanged: params.filesChanged ?? 0,
+      checkpointId,
+    });
   }
 
   getCiSession(): CiSession | undefined {

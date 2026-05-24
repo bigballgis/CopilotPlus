@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：查漏补缺 — F5 手动冒烟（Drift Agent 一致性 + Resolve）
-> **本 session 下一项（功能）**：F5 手动冒烟 #8–15（含 Architect Compact + @archive mention）
+> **本 session 下一项（功能）**：F5 手动冒烟 #8–17（含 Commit 面板 + Architect Compact + @archive mention）
 
 ---
 
@@ -24,9 +24,10 @@
 | 12 | Code_Mismatch | Problem 面板诊断 + `doc.drift.suspected` hook |
 | 13 | 代码归属状态栏 | 聚焦代码文件时显示 System › Module › Feature › Component |
 | 14 | Architecture Stale 徽章 | 过期文档显示 Stale + 子树 Compact 一键触发 |
-| 15 | Scope 引用追踪 | Sub-Agent / @doc 后 `last_referenced_at` 更新，Stale 状态刷新 |
+| 15 | Scope 引用追踪 | Design layer walk / Sub-Agent / @doc 后 `last_referenced_at` 更新，Stale 状态刷新 |
 | 16 | Architect Compact | `copilotPlus.docs.compact` → Architect 计划 → 审批后 archive/merge/delete |
 | 17 | @archive mention | Conversation 中 `@archive:…` 可附加归档文档内容 |
+| 18 | Commit 面板 | Tab Commit 列表 + diff 预览 + Checkpoint 回滚 + Rolled back 徽章 |
 
 ---
 
@@ -38,7 +39,7 @@
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 | 1 | Platform 补全 | 1.1–1.9 | ✅ 完成 |
 
-**单元测试**：228/228 通过  
+**单元测试**：235/235 通过  
 **需求覆盖率（粗算）**：~97%
 
 ---
@@ -47,7 +48,7 @@
 
 | 模块 | 交付 | 需求 |
 |------|------|------|
-| Mentions 七类 | @file/folder/symbol/selection/doc/web/skill + 25% 限额 + 预算确认 | R-CTX-1 |
+| Mentions 八类 | @file/folder/symbol/selection/doc/web/skill/archive + 25% 限额 + 预算确认 | R-CTX-1 |
 | Codebase Index | gitignore 过滤 + 语义/800 分块 + 增量 FS 更新 + 持久化加载 | R-CTX-2 |
 | RAG 混合检索 | BM25+RRF(k=60)+rerank + 6/4 配额 + heading/link 元数据 + rag.enabled | R-CTX-3 / R-CTX-6 |
 | Context Budget | 七级优先级裁剪 + Session cap + 摘要 80% 触发 + Tier M/L 策略 | R-CTX-4 / R-CTX-7 / R-CTX-8 |
@@ -56,6 +57,9 @@
 | Agent 一致性检查 | Reviewer/Architect 子代理 + verdict 解析 + Decision + Problem 面板 + Build 预算 | R-DOCS-12.3–12.8 |
 | Review badge + 代码归属 | 审查徽章 + 状态栏 Layer Walk + orphan hook + Sub-Agent 未审阅提示 | R-DOCS-10.4–10.5 / R-DOCS-11.6 |
 | 文档生命周期 | last_referenced_at + Stale 徽章 + Architect Compact + @archive mention | R-DOCS-9.1–9.6 |
+| 代码归属索引 | CodeOwnershipIndex 缓存 + 索引/文档变更刷新 + resolveOwnership | R-DOCS-11.1 |
+| Scope + 预览增强 | secondary_parents 纳入 scope + Requirement breadcrumb + doc_write 尺寸结构化错误 | R-DOCS-3.2 / R-DOCS-5.1 / R-DOCS-8.2 |
+| Commit 面板 | CommitHistoryService + git_commit 记录 + diff 预览 + Checkpoint 回滚 | R-INT-7 |
 | Build 限额 | 工具调用/时长上限 + Decision + Stop All + 限额显示 | R-WF-8 |
 | Autonomy Levels | Manual Build/Deploy 全工具 Decision + deny list + Full_Auto Diff 绕过 + Control Console 选择器 | R-WF-7 |
 | Build 六步流水线 | Coder/Tester/Reviewer/Committer + 3 轮测试 + Decision | R-WF-4 |
@@ -98,7 +102,8 @@
 
 | 日期 | 内容 |
 |------|------|
-| 2026-05-23 | R-DOCS-9.2–9.5 Architect Compact 计划 + @archive mention（解析/执行/checkpoint + 归档文档树过滤） |
+| 2026-05-23 | R-DOCS-5.1/3.2/8.2 secondary_parents scope + Requirement breadcrumb + document_too_large 结构化 + verify:docs-smoke |
+| 2026-05-23 | R-INT-7 Commit 面板（CommitHistoryService + Tab UI diff/过滤/Checkpoint 回滚）+ R-DOCS-11.1 代码归属索引提交 |
 | 2026-05-23 | R-DOCS-14.3 / R-DOCS-11.4 代码 Layer Walk（兄弟文件 + shared co-owner）+ drift merge 提取 + Console Resolve 刷新 |
 | 2026-05-23 | R-DOCS-10.2/11.3/11.6 doc_write 自动审阅标记 + Problem 面板静态诊断 + Architecture 层级路径 + Agent drift 合并修复 |
 | 2026-05-23 | R-DOCS-9.1/9.6 文档生命周期（last_referenced_at 追踪 + Architecture Stale 徽章 + 子树 Compact） |

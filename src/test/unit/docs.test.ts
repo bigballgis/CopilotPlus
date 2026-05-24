@@ -2,9 +2,9 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseDocRelativePath, pathForDoc, systemDocPath } from '../../docs/paths.js';
 import { composeDocument, normalizeFrontmatter } from '../../docs/frontmatterSerialize.js';
-import { validateFrontmatter } from '../../docs/frontmatter.js';
-import { resolveScope } from '../../docs/scopeResolution.js';
-import { resolveOwners } from '../../docs/ownershipIndex.js';
+import { validateDocumentSize, validateFrontmatter } from '../../docs/frontmatter.js';
+import { resolveScope, buildDocBreadcrumb } from '../../docs/scopeResolution.js';
+import { resolveOwners, CodeOwnershipIndex } from '../../docs/ownershipIndex.js';
 import type { DocEntry } from '../../docs/documentTreeService.js';
 
 describe('R-DOCS-1 paths', () => {
@@ -52,6 +52,44 @@ describe('R-DOCS-5 scope resolution', () => {
     assert.ok(paths.includes('.copilotPlus/docs/system/app/auth/login.md'));
     assert.ok(paths.includes('.copilotPlus/docs/system/app/billing.md'));
   });
+
+  it('includes secondary_parents as lateral scope', () => {
+    const entries: DocEntry[] = [
+      entry('.copilotPlus/docs/system/app.md', 'app', 'system', '', ['auth']),
+      entry('.copilotPlus/docs/system/app/auth.md', 'auth', 'module', 'app', ['login']),
+      entry(
+        '.copilotPlus/docs/system/app/auth/login.md',
+        'login',
+        'feature',
+        'auth',
+        [],
+        undefined,
+        undefined,
+        undefined,
+        ['billing']
+      ),
+      entry('.copilotPlus/docs/system/app/billing.md', 'billing', 'module', 'app', []),
+    ];
+
+    const scope = resolveScope('.copilotPlus/docs/system/app/auth/login.md', entries);
+    const paths = scope.map((s) => s.document_path);
+    assert.ok(paths.includes('.copilotPlus/docs/system/app/billing.md'));
+    const billing = scope.find((s) => s.document_path.includes('billing.md'));
+    assert.equal(billing?.link_type, 'lateral');
+  });
+
+  it('builds hierarchical breadcrumb', () => {
+    const entries: DocEntry[] = [
+      entry('.copilotPlus/docs/system/app.md', 'app', 'system', '', ['auth']),
+      entry('.copilotPlus/docs/system/app/auth.md', 'auth', 'module', 'app', ['login']),
+      entry('.copilotPlus/docs/system/app/auth/login.md', 'login', 'feature', 'auth', []),
+    ];
+    const crumbs = buildDocBreadcrumb('.copilotPlus/docs/system/app/auth/login.md', entries);
+    assert.deepEqual(
+      crumbs.map((c) => c.title),
+      ['app', 'auth', 'login']
+    );
+  });
 });
 
 describe('R-DOCS-11 ownership', () => {
@@ -67,6 +105,42 @@ describe('R-DOCS-11 ownership', () => {
     assert.equal(shared.conflict, true);
     assert.equal(shared.owners.length, 2);
   });
+
+  it('CodeOwnershipIndex caches lookups for indexed paths', () => {
+    const entries: DocEntry[] = [
+      entry('.copilotPlus/docs/system/app/a.md', 'a', 'component', 'f1', [], undefined, ['src/a/**']),
+    ];
+    const index = new CodeOwnershipIndex();
+    index.rebuild(entries, ['src/a/foo.ts', 'src/other.ts']);
+
+    const owned = index.lookup('src/a/foo.ts');
+    assert.ok(owned);
+    assert.equal(owned!.orphan, false);
+    assert.deepEqual(owned!.owners, ['a']);
+
+    assert.equal(index.lookup('src/other.ts')!.orphan, true);
+
+    index.updateFile('src/a/foo.ts', [
+      ...entries,
+      entry('.copilotPlus/docs/system/app/b.md', 'b', 'component', 'f2', [], undefined, ['src/a/**'], 'exclusive'),
+    ]);
+    assert.equal(index.lookup('src/a/foo.ts')!.conflict, true);
+
+    index.removeFile('src/a/foo.ts');
+    assert.equal(index.lookup('src/a/foo.ts'), undefined);
+  });
+});
+
+describe('R-DOCS-8 document size', () => {
+  it('returns structured document_too_large violation', () => {
+    const result = validateDocumentSize('component', 'x'.repeat(1001));
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.reason, 'document_too_large');
+      assert.equal(result.cap, 1000);
+      assert.equal(result.actual, 1001);
+    }
+  });
 });
 
 function entry(
@@ -77,7 +151,8 @@ function entry(
   children: string[],
   lateral?: DocEntry['frontmatter']['lateral'],
   code_paths?: string[],
-  code_owner_authority?: 'exclusive' | 'shared'
+  code_owner_authority?: 'exclusive' | 'shared',
+  secondary_parents?: string[]
 ): DocEntry {
   return {
     relativePath,
@@ -91,6 +166,7 @@ function entry(
       parent,
       children,
       lateral,
+      secondary_parents,
       code_paths,
       code_owner_authority,
       ai_generated: true,

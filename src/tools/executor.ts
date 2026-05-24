@@ -6,11 +6,15 @@ import * as path from 'path';
 import type { AppServices } from '../app/appServices';
 import type { DocumentTreeService } from '../docs/documentTreeService';
 import { composeDocument, normalizeFrontmatter } from '../docs/frontmatterSerialize';
-import { parseFrontmatter, validateFrontmatter } from '../docs/frontmatter';
+import { parseFrontmatter, validateDocumentSize, validateFrontmatter, type DocLevel } from '../docs/frontmatter';
 import { applyEdits, type PatchEdit } from './applyPatchLogic';
 import { SUB_AGENT_ALLOWLISTS } from './registry';
 import { isToolVisible } from '../platform/toolPermissions';
 import { runBash } from './bashRunner';
+import {
+  parseFilesChangedFromStat,
+  parseGitCommitHash,
+} from '../editing/commitHistoryParse';
 import {
   getDefinition,
   getDiagnostics,
@@ -23,7 +27,9 @@ import { requiresAutonomyApproval, shouldBypassDiffReview } from '../workflow/au
 import { matchesCommandDenyList } from '../platform/configuration';
 import { t } from '../platform/l10n';
 
-export type ToolResult = { ok: true; data: unknown } | { ok: false; reason: string; pattern?: string };
+export type ToolResult =
+  | { ok: true; data: unknown }
+  | { ok: false; reason: string; pattern?: string; cap?: number; actual?: number };
 
 const EXPLORER_PARENT_ROLES = new Set([
   'Coder',
@@ -286,6 +292,15 @@ export class ToolExecutor {
       return { ok: false, reason: 'invalid_frontmatter' };
     }
     const fm = normalizeFrontmatter(parsed.frontmatter as unknown as Record<string, unknown>);
+    const sizeCheck = validateDocumentSize(fm.level as DocLevel, parsed.body);
+    if (!sizeCheck.ok) {
+      return {
+        ok: false,
+        reason: sizeCheck.reason,
+        cap: sizeCheck.cap,
+        actual: sizeCheck.actual,
+      };
+    }
     const validation = validateFrontmatter(fm as unknown as Record<string, unknown>, parsed.body);
     if (!validation.valid) {
       return { ok: false, reason: validation.errors.join(', ') };
@@ -556,7 +571,41 @@ export class ToolExecutor {
 
   private async gitCommit(args: Record<string, unknown>): Promise<ToolResult> {
     const message = String(args.message ?? 'Copilot Plus commit');
-    return this.gitCommand(`git add -A && git commit -m ${JSON.stringify(message)}`);
+    const paths = Array.isArray(args.paths)
+      ? args.paths.map((value) => String(value)).filter(Boolean)
+      : undefined;
+    const stageCmd =
+      paths && paths.length > 0
+        ? `git add ${paths.map((p) => JSON.stringify(p)).join(' ')}`
+        : 'git add -A';
+    const result = await this.gitCommand(`${stageCmd} && git commit -m ${JSON.stringify(message)}`);
+    if (result.ok) {
+      await this.recordSuccessfulGitCommit(message, result.data);
+    }
+    return result;
+  }
+
+  private async recordSuccessfulGitCommit(message: string, data: unknown): Promise<void> {
+    const bash = data as { stdout?: string; stderr?: string };
+    const combined = `${bash.stdout ?? ''}\n${bash.stderr ?? ''}`;
+    const hash = parseGitCommitHash(combined);
+    if (!hash) {
+      return;
+    }
+    const ctx = this.app.getToolExecutionContext();
+    const root = this.workspaceRoot();
+    let filesChanged = 0;
+    if (root) {
+      const stat = await runBash(`git show --shortstat -s ${hash}`, root);
+      filesChanged = parseFilesChangedFromStat(stat.stdout);
+    }
+    await this.app.recordCopilotCommit({
+      hash,
+      message,
+      taskId: ctx.taskId,
+      stage: ctx.stage,
+      filesChanged,
+    });
   }
 
   private async gitCommand(command: string): Promise<ToolResult> {

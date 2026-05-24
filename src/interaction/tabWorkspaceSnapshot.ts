@@ -16,6 +16,7 @@ import type {
   TabWorkspaceStateSync,
   TaskEdgeWire,
   TaskPanelWire,
+  CommitPanelWire,
   CodeLayerPathWire,
 } from '../shared/tabWorkspaceWebviewProtocol';
 import { isDocumentStale } from '../docs/docLifecycle';
@@ -53,6 +54,12 @@ export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
     requirementDocs: t('tabWorkspace.requirementDocs'),
     noDocTree: t('tabWorkspace.noDocTree', '{0}'),
     commitPlaceholder: t('tabWorkspace.commitPlaceholder'),
+    commitFilter: t('tabWorkspace.commitFilter'),
+    commitNoEntries: t('tabWorkspace.commitNoEntries'),
+    commitDiffEmpty: t('tabWorkspace.commitDiffEmpty'),
+    commitRolledBackBadge: t('tabWorkspace.commitRolledBackBadge'),
+    commitConfirmRollback: t('tabWorkspace.commitConfirmRollback'),
+    commitFilesChanged: t('tabWorkspace.commitFilesChanged'),
     generateManifest: t('tabWorkspace.generateManifest'),
     applyManifest: t('tabWorkspace.applyManifest'),
     manualCommands: t('tabWorkspace.manualCommands'),
@@ -68,6 +75,7 @@ export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
     requirementPreview: t('tabWorkspace.requirementPreview'),
     editDoc: t('tabWorkspace.editDoc'),
     selectDocHint: t('tabWorkspace.selectDocHint'),
+    docBreadcrumb: t('tabWorkspace.docBreadcrumb'),
     lateralEdge: t('tabWorkspace.lateralEdge'),
     hierarchicalEdge: t('tabWorkspace.hierarchicalEdge'),
     columnId: t('tabWorkspace.columnId'),
@@ -112,7 +120,7 @@ export function buildTabWorkspaceStateSync(
     task: buildTaskPanel(app, build),
     architecture: buildDocPanel(tree, labels.architectureDocs, app, labels, idToPath, true),
     requirement: buildDocPanel(tree, labels.requirementDocs, app, labels, idToPath, false),
-    commitPlaceholder: labels.commitPlaceholder,
+    commit: buildCommitPanel(app, labels),
     deploy: buildDeployPanel(app, labels),
   };
 }
@@ -200,7 +208,7 @@ function buildActiveCodeLayer(app: AppServices): CodeLayerPathWire | undefined {
   if (rel.startsWith('.copilotPlus/')) {
     return undefined;
   }
-  const layerPath = resolveCodeLayerPath(rel, app.docs.getEntries());
+  const layerPath = resolveCodeLayerPath(rel, app.docs.getEntries(), app.indexManager.resolveOwnership(rel));
   if (layerPath.orphan) {
     return { file: rel, segments: '', orphan: true };
   }
@@ -222,6 +230,22 @@ function buildActiveCodeLayer(app: AppServices): CodeLayerPathWire | undefined {
     orphan: false,
     componentPath: layerPath.component.path,
     coOwnerTitles: layerPath.coComponents?.map((c) => c.title),
+  };
+}
+
+function buildCommitPanel(app: AppServices, labels: TabWorkspaceLabels): CommitPanelWire {
+  return {
+    commits: app.commitHistory.list().map((entry) => ({
+      hash: entry.hash,
+      timestamp: entry.timestamp,
+      message: entry.message,
+      stage: entry.stage,
+      taskId: entry.taskId,
+      filesChanged: entry.filesChanged,
+      rolledBackAt: entry.rolledBackAt,
+      canRollback: !entry.rolledBackAt,
+    })),
+    emptyText: labels.commitNoEntries,
   };
 }
 

@@ -10,6 +10,36 @@ export interface OwnershipResult {
   orphan: boolean;
 }
 
+/** Precomputed file → ownership map — R-DOCS-11.1 */
+export class CodeOwnershipIndex {
+  private byFile = new Map<string, OwnershipResult>();
+
+  rebuild(entries: DocEntry[], codePaths: string[]): void {
+    this.byFile.clear();
+    for (const file of codePaths) {
+      const norm = normalizeWorkspacePath(file);
+      this.byFile.set(norm, resolveOwners(norm, entries));
+    }
+  }
+
+  lookup(filePath: string): OwnershipResult | undefined {
+    return this.byFile.get(normalizeWorkspacePath(filePath));
+  }
+
+  updateFile(filePath: string, entries: DocEntry[]): void {
+    const norm = normalizeWorkspacePath(filePath);
+    this.byFile.set(norm, resolveOwners(norm, entries));
+  }
+
+  removeFile(filePath: string): void {
+    this.byFile.delete(normalizeWorkspacePath(filePath));
+  }
+
+  size(): number {
+    return this.byFile.size;
+  }
+}
+
 export function buildOwnershipIndex(entries: DocEntry[]): Map<string, OwnershipResult> {
   const index = new Map<string, OwnershipResult>();
   const components = entries.filter((e) => e.valid && e.frontmatter.level === 'component');

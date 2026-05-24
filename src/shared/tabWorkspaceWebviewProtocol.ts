@@ -34,6 +34,12 @@ export interface TabWorkspaceLabels {
   requirementDocs: string;
   noDocTree: string;
   commitPlaceholder: string;
+  commitFilter: string;
+  commitNoEntries: string;
+  commitDiffEmpty: string;
+  commitRolledBackBadge: string;
+  commitConfirmRollback: string;
+  commitFilesChanged: string;
   generateManifest: string;
   applyManifest: string;
   manualCommands: string;
@@ -49,6 +55,7 @@ export interface TabWorkspaceLabels {
   requirementPreview: string;
   editDoc: string;
   selectDocHint: string;
+  docBreadcrumb: string;
   lateralEdge: string;
   hierarchicalEdge: string;
   columnId: string;
@@ -179,6 +186,22 @@ export interface DocPanelWire {
   activeCodeLayer?: CodeLayerPathWire;
 }
 
+export interface CommitEntryWire {
+  hash: string;
+  timestamp: string;
+  message: string;
+  stage: string;
+  taskId?: string;
+  filesChanged: number;
+  rolledBackAt?: string;
+  canRollback: boolean;
+}
+
+export interface CommitPanelWire {
+  commits: CommitEntryWire[];
+  emptyText: string;
+}
+
 export interface TabWorkspaceStateSync {
   type: 'stateSync';
   activeTab: TabId;
@@ -190,14 +213,21 @@ export interface TabWorkspaceStateSync {
   task: TaskPanelWire;
   architecture: DocPanelWire;
   requirement: DocPanelWire;
-  commitPlaceholder: string;
+  commit: CommitPanelWire;
   deploy: DeployPanelWire;
+}
+
+export interface DocBreadcrumbWire {
+  path: string;
+  title: string;
+  level: string;
 }
 
 export type TabWorkspaceHostMessage =
   | TabWorkspaceStateSync
-  | { type: 'docPreview'; path: string; title: string; markdown: string }
-  | { type: 'taskLog'; taskId: string; content: string };
+  | { type: 'docPreview'; path: string; title: string; markdown: string; breadcrumb?: DocBreadcrumbWire[] }
+  | { type: 'taskLog'; taskId: string; content: string }
+  | { type: 'commitDiff'; hash: string; diff: string };
 
 export type TabWorkspaceWebviewMessage =
   | { type: 'ready' }
@@ -213,6 +243,7 @@ export type TabWorkspaceWebviewMessage =
       files?: string[];
     }
   | { type: 'compactDocSubtree'; path: string }
-  | { type: 'selectModel'; modelId: string };
+  | { type: 'selectModel'; modelId: string }
+  | { type: 'commitAction'; action: 'select' | 'rollback'; hash: string };
 
 export const TAB_IDS: TabId[] = ['task', 'architecture', 'requirement', 'commit', 'deploy'];

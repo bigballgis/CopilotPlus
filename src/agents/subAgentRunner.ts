@@ -97,26 +97,31 @@ export class SubAgentRunner {
     temperature = 0,
     candidateIndex = 0
   ): Promise<SubAgentRunResult> {
-    const promptFile = roleToPromptFile(role);
-    const systemPrompt = await loadAgentPrompt(this.extensionUri, promptFile);
-    const userPrompt = await this.buildTaskPrompt(role, task, buildId);
-    const toolIds = this.app.tools.getEffectiveTools(role);
-    const taskId = candidateIndex === 0 ? task.id : `${task.id}-c${candidateIndex}`;
+    this.app.setToolExecutionContext({ taskId: task.id, stage: this.app.stages.getStage() });
+    try {
+      const promptFile = roleToPromptFile(role);
+      const systemPrompt = await loadAgentPrompt(this.extensionUri, promptFile);
+      const userPrompt = await this.buildTaskPrompt(role, task, buildId);
+      const toolIds = this.app.tools.getEffectiveTools(role);
+      const taskId = candidateIndex === 0 ? task.id : `${task.id}-c${candidateIndex}`;
 
-    const result = await this.loop.run({
-      role,
-      buildId,
-      taskId,
-      systemPrompt,
-      userPrompt,
-      toolIds,
-      token,
-      onStatus,
-      temperature,
-      maxToolCalls: this.resolveMaxToolCalls(),
-    });
+      const result = await this.loop.run({
+        role,
+        buildId,
+        taskId,
+        systemPrompt,
+        userPrompt,
+        toolIds,
+        token,
+        onStatus,
+        temperature,
+        maxToolCalls: this.resolveMaxToolCalls(),
+      });
 
-    return toRunResult(result);
+      return toRunResult(result);
+    } finally {
+      this.app.clearToolExecutionContext();
+    }
   }
 
   /** R-AG-3.1 / R-WF-2 — Design-stage sub-agent with scope + layer walk */
@@ -616,6 +621,14 @@ export class SubAgentRunner {
 
       const commitVerdict = parseCommitterVerdict(committerResult.finalAnswer);
       if (commitVerdict.committed) {
+        if (commitVerdict.commitHash) {
+          await this.app.recordCopilotCommit({
+            hash: commitVerdict.commitHash,
+            message: task.title,
+            taskId: task.id,
+            stage: 'Build',
+          });
+        }
         return { ok: true, finalAnswer: committerResult.finalAnswer };
       }
 

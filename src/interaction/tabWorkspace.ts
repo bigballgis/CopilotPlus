@@ -2,6 +2,7 @@
 
 import * as vscode from 'vscode';
 import type { AppServices } from '../app/appServices';
+import { buildDocBreadcrumb } from '../docs/scopeResolution';
 import type { BuildSnapshot } from '../workflow/buildExecutor';
 import { getTabWorkspaceWebviewHtml } from './webviewBundle';
 import { buildTabWorkspaceStateSync } from './tabWorkspaceSnapshot';
@@ -23,6 +24,7 @@ export class TabWorkspaceProvider {
     this.app.buildExecutor.onChange(() => void this.syncWebviewState());
     this.app.platform.models.onDidChange(() => void this.syncWebviewState());
     this.app.drift.onChange(() => void this.syncWebviewState());
+    this.app.commitHistory.onChange(() => void this.syncWebviewState());
   }
 
   bindEditorRefresh(context: vscode.ExtensionContext): void {
@@ -95,6 +97,10 @@ export class TabWorkspaceProvider {
       if (msg.type === 'selectModel' && msg.modelId) {
         await this.app.platform.models.pickModel(msg.modelId);
         await this.syncWebviewState();
+        return;
+      }
+      if (msg.type === 'commitAction') {
+        await this.handleCommitAction(msg.action, msg.hash);
       }
     });
 
@@ -148,7 +154,36 @@ export class TabWorkspaceProvider {
       path: relativePath,
       title: entry.frontmatter.title,
       markdown: entry.body,
+      breadcrumb: buildDocBreadcrumb(relativePath, this.app.docs.getEntries()),
     });
+  }
+
+  private async handleCommitAction(action: 'select' | 'rollback', hash: string): Promise<void> {
+    if (action === 'select') {
+      const diff = await this.app.commitHistory.fetchDiff(hash);
+      this.postMessage({ type: 'commitDiff', hash, diff });
+      return;
+    }
+    const entry = this.app.commitHistory.get(hash);
+    if (!entry) {
+      return;
+    }
+    const confirm = await vscode.window.showWarningMessage(
+      t('tabWorkspace.commitConfirmRollback', entry.hash.slice(0, 7), entry.message),
+      { modal: true },
+      t('tabWorkspace.rollback')
+    );
+    if (confirm !== t('tabWorkspace.rollback')) {
+      return;
+    }
+    const result = await this.app.commitHistory.rollbackCommit(hash, this.app.checkpoints);
+    if (result.ok) {
+      await this.app.hooks.fire('rollback.completed', { hash, taskId: entry.taskId });
+      void vscode.window.showInformationMessage(t('tabWorkspace.commitRollbackDone', entry.hash.slice(0, 7)));
+    } else {
+      void vscode.window.showErrorMessage(result.reason ?? 'rollback_failed');
+    }
+    await this.syncWebviewState();
   }
 
   private async handleComposerAction(action: string, goal?: string, files?: string[]): Promise<void> {

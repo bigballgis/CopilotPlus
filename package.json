@@ -507,7 +507,8 @@
     "verify:onnx-addon": "tsc -p tsconfig.test.json && node scripts/verify-onnx-addon.mjs",
     "verify:i18n-a11y": "node scripts/audit-i18n-a11y.mjs",
     "verify:f5": "node scripts/verify-f5.mjs",
-    "test": "npm run test:unit && npm run verify:ci-headless && npm run verify:onnx-addon && npm run verify:i18n-a11y && npm run compile && npm run verify:f5",
+    "verify:docs-smoke": "node scripts/verify-docs-smoke.mjs",
+    "test": "npm run test:unit && npm run verify:ci-headless && npm run verify:onnx-addon && npm run verify:i18n-a11y && npm run compile && npm run verify:f5 && npm run verify:docs-smoke",
     "lint": "eslint src --ext ts",
     "package": "vsce package"
   },

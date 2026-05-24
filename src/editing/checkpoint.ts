@@ -56,6 +56,42 @@ export class CheckpointService {
     return id;
   }
 
+  async list(): Promise<CheckpointRecord[]> {
+    const root = this.checkpointRoot();
+    if (!root) {
+      return [];
+    }
+    let entries: string[];
+    try {
+      entries = await fs.readdir(root);
+    } catch {
+      return [];
+    }
+    const records: CheckpointRecord[] = [];
+    for (const id of entries.filter((entry) => entry.startsWith('ckpt-'))) {
+      try {
+        const manifest = JSON.parse(
+          await fs.readFile(path.join(root, id, 'manifest.json'), 'utf8')
+        ) as CheckpointRecord;
+        records.push(manifest);
+      } catch {
+        // skip corrupt checkpoint
+      }
+    }
+    return records.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  }
+
+  async findLatestForTask(taskId?: string): Promise<string | undefined> {
+    const records = await this.list();
+    if (taskId) {
+      const match = records.find((record) => record.taskId === taskId);
+      if (match) {
+        return match.id;
+      }
+    }
+    return records[0]?.id;
+  }
+
   async restore(checkpointId: string): Promise<string[]> {
     const root = this.checkpointRoot();
     if (!root) {

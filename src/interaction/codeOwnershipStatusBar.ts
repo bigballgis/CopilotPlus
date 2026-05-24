@@ -34,7 +34,7 @@ export class CodeOwnershipStatusBar {
       return;
     }
 
-    const layerPath = resolveCodeLayerPath(rel, this.app.docs.getEntries());
+    const layerPath = resolveCodeLayerPath(rel, this.app.docs.getEntries(), this.app.indexManager.resolveOwnership(rel));
     if (layerPath.orphan) {
       this.item.text = t('ownership.statusBarOrphan');
       this.item.tooltip = t('ownership.statusBarOrphanTip', rel);

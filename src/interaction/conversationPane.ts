@@ -28,7 +28,7 @@ import {
 } from '../context/contextBudget';
 import { resolveContextTier } from '../context/contextTier';
 import { buildModuleFrontmatterContext, resolveEffectiveSessionCap } from '../context/tierPolicy';
-import { buildLayerWalkForDoc } from '../docs/scopeResolution';
+import { buildLayerWalkForDoc, resolveScope } from '../docs/scopeResolution';
 import { buildScopePreheatKey, runScopePreheat } from '../context/scopePreheat';
 import { estimateTokens } from '../platform/chatClient';
 import { t } from '../platform/l10n';
@@ -342,6 +342,8 @@ export class ConversationPaneProvider {
     }
 
     if (scopeDocPath) {
+      const scope = resolveScope(scopeDocPath, docEntries);
+      void this.app.docs.touchLastReferenced(scope.map((s) => s.document_path));
       const layerWalk = buildLayerWalkForDoc(scopeDocPath, docEntries, tier);
       const layerText = layerWalk.map((entry) => `### ${entry.documentPath}\n${entry.content}`).join('\n\n');
       if (layerText.trim()) {

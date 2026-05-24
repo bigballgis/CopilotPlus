@@ -70,7 +70,46 @@ export function resolveScope(startPath: string, entries: DocEntry[], maxDocs = 1
     }
   }
 
+  // R-DOCS-5.1(d) — secondary parents treated as references lateral links
+  for (const parentId of start.frontmatter.secondary_parents ?? []) {
+    const secondary = entries.find((e) => e.frontmatter.id === parentId);
+    if (secondary) {
+      add(secondary, 'lateral');
+    }
+  }
+
   return result;
+}
+
+export interface DocBreadcrumbSegment {
+  path: string;
+  title: string;
+  level: string;
+}
+
+/** R-DOCS-3.2 — hierarchical breadcrumb from system down to document */
+export function buildDocBreadcrumb(startPath: string, entries: DocEntry[]): DocBreadcrumbSegment[] {
+  const norm = startPath.replace(/\\/g, '/');
+  const start = entries.find((e) => e.relativePath === norm);
+  if (!start) {
+    return [];
+  }
+
+  const chain: DocEntry[] = [];
+  let cur: DocEntry | undefined = start;
+  while (cur) {
+    chain.unshift(cur);
+    if (!cur.frontmatter.parent) {
+      break;
+    }
+    cur = entries.find((e) => e.frontmatter.id === cur!.frontmatter.parent);
+  }
+
+  return chain.map((e) => ({
+    path: e.relativePath,
+    title: e.frontmatter.title,
+    level: e.frontmatter.level,
+  }));
 }
 
 export function buildLayerWalkForDoc(startPath: string, entries: DocEntry[], tier: ContextTier) {

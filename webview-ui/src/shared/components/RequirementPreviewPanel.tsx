@@ -1,5 +1,5 @@
 import { VSCodeButton } from '@vscode/webview-ui-toolkit/react';
-import type { DocTreeNodeWire, TabWorkspaceLabels } from '@shared/tabWorkspaceWebviewProtocol';
+import type { DocTreeNodeWire, DocBreadcrumbWire, TabWorkspaceLabels } from '@shared/tabWorkspaceWebviewProtocol';
 import { ActionBar } from './ActionBar';
 import { DocTreePicker } from './DocTreePicker';
 import { MarkdownBody } from './MarkdownBody';
@@ -11,6 +11,7 @@ interface RequirementPreviewPanelProps {
   selectedPath?: string;
   previewTitle?: string;
   previewMarkdown?: string;
+  breadcrumb?: DocBreadcrumbWire[];
   onSelectDoc: (path: string) => void;
 }
 
@@ -20,6 +21,7 @@ export function RequirementPreviewPanel({
   selectedPath,
   previewTitle,
   previewMarkdown,
+  breadcrumb,
   onSelectDoc,
 }: RequirementPreviewPanelProps): JSX.Element {
   if (panel.docCount === 0) {
@@ -63,6 +65,22 @@ export function RequirementPreviewPanel({
         </div>
         {previewTitle && previewMarkdown ? (
           <>
+            {breadcrumb && breadcrumb.length > 0 ? (
+              <nav className="cp-breadcrumb" aria-label={labels.docBreadcrumb}>
+                {breadcrumb.map((seg, i) => (
+                  <span key={seg.path} className="cp-breadcrumb-segment">
+                    {i > 0 ? <span className="cp-breadcrumb-sep" aria-hidden="true"> › </span> : null}
+                    <button
+                      type="button"
+                      className={`cp-breadcrumb-link${seg.path === selectedPath ? ' cp-breadcrumb-current' : ''}`}
+                      onClick={() => onSelectDoc(seg.path)}
+                    >
+                      {seg.title}
+                    </button>
+                  </span>
+                ))}
+              </nav>
+            ) : null}
             <p className="cp-meta">{previewTitle}</p>
             <div className="cp-req-preview-body">
               <MarkdownBody

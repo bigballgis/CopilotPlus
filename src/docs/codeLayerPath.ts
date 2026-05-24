@@ -1,7 +1,7 @@
 /** Code file → layer walk path — R-DOCS-11.6 */
 
 import type { DocEntry } from './documentTreeService';
-import { resolveOwners } from './ownershipIndex';
+import { resolveOwners, type OwnershipResult } from './ownershipIndex';
 
 export interface LayerDocRef {
   id: string;
@@ -20,8 +20,12 @@ export interface CodeLayerPath {
   conflict: boolean;
 }
 
-export function resolveCodeLayerPath(filePath: string, entries: DocEntry[]): CodeLayerPath {
-  const ownership = resolveOwners(filePath, entries);
+export function resolveCodeLayerPath(
+  filePath: string,
+  entries: DocEntry[],
+  ownershipOverride?: OwnershipResult
+): CodeLayerPath {
+  const ownership = ownershipOverride ?? resolveOwners(filePath, entries);
   const result: CodeLayerPath = {
     file: filePath.replace(/\\/g, '/'),
     orphan: ownership.orphan,

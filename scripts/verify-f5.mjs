@@ -25,6 +25,21 @@ const REQUIRED_EXPORTS = [
   'getControlConsoleWebviewHtml',
 ];
 
+const DOCS_LIFECYCLE_MARKERS = [
+  { file: 'src/shared/tabWorkspaceWebviewProtocol.ts', tokens: ['stale?: boolean', "type: 'compactDocSubtree'"] },
+  { file: 'src/docs/ownershipIndex.ts', tokens: ['class CodeOwnershipIndex', 'rebuild('] },
+  { file: 'src/context/indexManager.ts', tokens: ['resolveOwnership(', 'refreshOwnershipIndex'] },
+  { file: 'src/interaction/conversationPane.ts', tokens: ['touchLastReferenced', 'resolveScope'] },
+  { file: 'src/docs/documentTreeService.ts', tokens: ['touchLastReferenced'] },
+];
+
+const COMMIT_PANEL_MARKERS = [
+  { file: 'src/editing/commitHistory.ts', tokens: ['class CommitHistoryService', 'rollbackCommit'] },
+  { file: 'src/shared/tabWorkspaceWebviewProtocol.ts', tokens: ['CommitPanelWire', "type: 'commitAction'"] },
+  { file: 'src/interaction/tabWorkspaceSnapshot.ts', tokens: ['buildCommitPanel'] },
+  { file: 'webview-ui/src/tabWorkspace/App.tsx', tokens: ['function CommitPanel'] },
+];
+
 async function main() {
   const errors = [];
 
@@ -44,6 +59,15 @@ async function main() {
   for (const name of REQUIRED_EXPORTS) {
     if (!bundleSource.includes(`export function ${name}`)) {
       errors.push(`webviewBundle.ts missing export: ${name}`);
+    }
+  }
+
+  for (const { file, tokens } of [...DOCS_LIFECYCLE_MARKERS, ...COMMIT_PANEL_MARKERS]) {
+    const source = await fs.readFile(path.join(root, file), 'utf8');
+    for (const token of tokens) {
+      if (!source.includes(token)) {
+        errors.push(`${file} missing marker: ${token}`);
+      }
     }
   }
 

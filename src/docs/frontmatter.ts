@@ -34,6 +34,24 @@ const BODY_CAPS: Record<DocLevel, number> = {
   component: 1000,
 };
 
+export interface DocumentSizeViolation {
+  reason: 'document_too_large';
+  cap: number;
+  actual: number;
+  level: DocLevel;
+}
+
+export function validateDocumentSize(
+  level: DocLevel,
+  body: string
+): { ok: true } | ({ ok: false } & DocumentSizeViolation) {
+  const cap = BODY_CAPS[level];
+  if (body.length > cap) {
+    return { ok: false, reason: 'document_too_large', cap, actual: body.length, level };
+  }
+  return { ok: true };
+}
+
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
@@ -84,8 +102,11 @@ export function validateFrontmatter(raw: Record<string, unknown>, body = ''): Va
     errors.push('description exceeds 500 characters');
   }
 
-  if (typeof level === 'string' && level in BODY_CAPS && body.length > BODY_CAPS[level as DocLevel]) {
-    errors.push(`body exceeds cap for ${level}`);
+  if (typeof level === 'string' && level in BODY_CAPS) {
+    const size = validateDocumentSize(level as DocLevel, body);
+    if (!size.ok) {
+      errors.push(`document_too_large: cap ${size.cap}, actual ${size.actual}`);
+    }
   }
 
   if (!body.includes('## Summary')) {

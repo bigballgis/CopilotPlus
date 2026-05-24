@@ -7,6 +7,7 @@ import { COPILOT_PLUS_HOME } from '../shared/constants';
 import { chunkMarkdownDoc, chunkSourceFile, isIndexableCodeFile } from './chunking';
 import { collectDocLinkTargets } from './docLinkMetadata';
 import { GitignoreStore, shouldSkipCodeIndexPath } from './gitignoreFilter';
+import { CodeOwnershipIndex, resolveOwners, type OwnershipResult } from '../docs/ownershipIndex';
 import type { IndexChunk, IndexState } from './types';
 import { UnifiedRetrieval } from './unifiedRetrieval';
 import type { DocEntry, DocumentTreeService } from '../docs/documentTreeService';
@@ -38,6 +39,7 @@ export class IndexManager {
   private pendingDocPaths = new Set<string>();
   private rebuildInFlight = false;
   private lastEmbeddingSignature?: string;
+  private readonly ownershipIndex = new CodeOwnershipIndex();
 
   constructor(
     private readonly platform: PlatformServices,
@@ -51,6 +53,22 @@ export class IndexManager {
 
   listIndexedCodePaths(): string[] {
     return [...new Set(this.codeChunks.map((chunk) => chunk.path))];
+  }
+
+  /** R-DOCS-11.1 — cached ownership lookup refreshed with code index */
+  resolveOwnership(filePath: string): OwnershipResult {
+    return (
+      this.ownershipIndex.lookup(filePath) ??
+      resolveOwners(filePath, this.docs.getEntries())
+    );
+  }
+
+  getOwnershipIndexSize(): number {
+    return this.ownershipIndex.size();
+  }
+
+  private refreshOwnershipIndex(): void {
+    this.ownershipIndex.rebuild(this.docs.getEntries(), this.listIndexedCodePaths());
   }
 
   getResolution(): EmbeddingResolution {
@@ -92,6 +110,8 @@ export class IndexManager {
       this.state.docs = 'Building';
     }
     await this.loadPersistedIndexes();
+    this.refreshOwnershipIndex();
+    this.watchers.push(this.docs.onChange(() => this.refreshOwnershipIndex()));
     this.watchWorkspace(context);
     this.scheduleStartupRebuild();
   }
@@ -111,6 +131,7 @@ export class IndexManager {
       this.retrieval.setCodeChunks(this.codeChunks);
       this.state.codeChunks = this.codeChunks.length;
       this.state.code = 'Ready';
+      this.refreshOwnershipIndex();
 
       if (this.platform.getSettings().ragEnabled) {
         this.docChunks = await this.buildDocIndex();
@@ -327,6 +348,7 @@ export class IndexManager {
         this.state.codeChunks = this.codeChunks.length;
         await this.persist(root, CODE_INDEX, this.codeChunks);
         this.state.code = 'Ready';
+        this.refreshOwnershipIndex();
       }
 
       if (docPaths.length && this.platform.getSettings().ragEnabled) {
@@ -340,6 +362,7 @@ export class IndexManager {
         this.state.docChunks = this.docChunks.length;
         await this.persist(root, DOC_INDEX, this.docChunks);
         this.state.docs = 'Ready';
+        this.refreshOwnershipIndex();
       }
 
       this.state.embeddedChunks =
@@ -441,6 +464,7 @@ export class IndexManager {
     }
     this.retrieval.setCodeChunks(this.codeChunks);
     this.state.codeChunks = this.codeChunks.length;
+    this.ownershipIndex.removeFile(norm);
     const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (root) {
       await this.persist(root, CODE_INDEX, this.codeChunks);

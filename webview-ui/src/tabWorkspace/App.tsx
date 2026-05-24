@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { VSCodeButton, VSCodeDropdown, VSCodeOption, VSCodeTextArea } from '@vscode/webview-ui-toolkit/react';
 import type {
+  DocBreadcrumbWire,
   TabId,
   TabWorkspaceHostMessage,
   TabWorkspaceLabels,
@@ -49,6 +50,12 @@ const DEFAULT_LABELS: TabWorkspaceLabels = {
   requirementDocs: 'Requirement documents',
   noDocTree: 'No documents yet.',
   commitPlaceholder: 'Commit history placeholder.',
+  commitFilter: 'Filter commits…',
+  commitNoEntries: 'No Copilot Plus commits recorded yet.',
+  commitDiffEmpty: 'Select a commit to preview its diff.',
+  commitRolledBackBadge: 'Rolled back',
+  commitConfirmRollback: 'Restore checkpoint for commit {0}?',
+  commitFilesChanged: '{0} files',
   generateManifest: 'Generate Manifest',
   applyManifest: 'Apply Manifest',
   manualCommands: 'Manual commands:',
@@ -64,6 +71,7 @@ const DEFAULT_LABELS: TabWorkspaceLabels = {
   requirementPreview: 'Preview',
   editDoc: 'Edit',
   selectDocHint: 'Select a document to preview.',
+  docBreadcrumb: 'Document hierarchy',
   lateralEdge: 'Lateral link',
   hierarchicalEdge: 'Hierarchy',
   columnId: 'Id',
@@ -110,7 +118,7 @@ const EMPTY_SYNC: TabWorkspaceStateSync = {
   },
   architecture: { heading: 'Architecture', docCount: 0, tree: [], diagramEdges: [], emptyText: 'No docs' },
   requirement: { heading: 'Requirement', docCount: 0, tree: [], diagramEdges: [], emptyText: 'No docs' },
-  commitPlaceholder: DEFAULT_LABELS.commitPlaceholder,
+  commit: { commits: [], emptyText: DEFAULT_LABELS.commitNoEntries },
   deploy: {
     target: 'Local',
     mode: 'Manual',
@@ -381,6 +389,98 @@ function TaskPanel({
   );
 }
 
+function CommitPanel({
+  state,
+  selectedHash,
+  diffPreview,
+  onSelect,
+}: {
+  state: TabWorkspaceStateSync;
+  selectedHash?: string;
+  diffPreview: string;
+  onSelect: (hash: string) => void;
+}): JSX.Element {
+  const { labels, commit } = state;
+  const [filter, setFilter] = useState('');
+
+  const query = filter.trim().toLowerCase();
+  const rows = commit.commits.filter((entry) => {
+    if (!query) {
+      return true;
+    }
+    return (
+      entry.message.toLowerCase().includes(query) ||
+      entry.stage.toLowerCase().includes(query) ||
+      entry.taskId?.toLowerCase().includes(query) ||
+      entry.hash.startsWith(query)
+    );
+  });
+
+  return (
+    <>
+      <input
+        aria-label={labels.commitFilter}
+        className="cp-filter"
+        placeholder={labels.commitFilter}
+        type="search"
+        value={filter}
+        onChange={(event) => setFilter(event.target.value)}
+      />
+      {rows.length > 0 ? (
+        <table className="cp-table">
+          <thead>
+            <tr>
+              <th>Hash</th>
+              <th>Stage</th>
+              <th>Task</th>
+              <th>Message</th>
+              <th>Files</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((entry) => (
+              <tr
+                key={entry.hash}
+                className={selectedHash === entry.hash ? 'cp-row-selected' : undefined}
+                onClick={() => onSelect(entry.hash)}
+              >
+                <td>
+                  <code>{entry.hash.slice(0, 7)}</code>
+                  {entry.rolledBackAt ? (
+                    <span className="cp-badge">{labels.commitRolledBackBadge}</span>
+                  ) : null}
+                </td>
+                <td>{entry.stage}</td>
+                <td>{entry.taskId ?? '—'}</td>
+                <td>{entry.message}</td>
+                <td>{labels.commitFilesChanged.replace('{0}', String(entry.filesChanged))}</td>
+                <td>
+                  {entry.canRollback ? (
+                    <VSCodeButton
+                      appearance="secondary"
+                      aria-label={`${labels.rollback} ${entry.hash.slice(0, 7)}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        postToHost({ type: 'commitAction', action: 'rollback', hash: entry.hash });
+                      }}
+                    >
+                      {labels.rollback}
+                    </VSCodeButton>
+                  ) : null}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="cp-meta">{commit.emptyText}</p>
+      )}
+      <pre className="cp-log">{diffPreview || labels.commitDiffEmpty}</pre>
+    </>
+  );
+}
+
 function DeployPanel({ state }: { state: TabWorkspaceStateSync }): JSX.Element {
   const { labels, deploy } = state;
   return (
@@ -454,13 +554,19 @@ function PanelBody({
   onSelectDoc,
   taskLog,
   onCloseTaskLog,
+  selectedCommitHash,
+  commitDiff,
+  onSelectCommit,
 }: {
   state: TabWorkspaceStateSync;
   selectedDocPath?: string;
-  docPreview?: { path: string; title: string; markdown: string };
+  docPreview?: { path: string; title: string; markdown: string; breadcrumb?: DocBreadcrumbWire[] };
   onSelectDoc: (path: string) => void;
   taskLog?: { taskId: string; content: string };
   onCloseTaskLog: () => void;
+  selectedCommitHash?: string;
+  commitDiff: string;
+  onSelectCommit: (hash: string) => void;
 }): JSX.Element {
   switch (state.activeTab) {
     case 'task':
@@ -509,11 +615,19 @@ function PanelBody({
           selectedPath={selectedDocPath}
           previewTitle={docPreview?.title}
           previewMarkdown={docPreview?.markdown}
+          breadcrumb={docPreview?.breadcrumb}
           onSelectDoc={onSelectDoc}
         />
       );
     case 'commit':
-      return <p className="cp-meta">{state.commitPlaceholder}</p>;
+      return (
+        <CommitPanel
+          state={state}
+          selectedHash={selectedCommitHash}
+          diffPreview={commitDiff}
+          onSelect={onSelectCommit}
+        />
+      );
     case 'deploy':
       return <DeployPanel state={state} />;
   }
@@ -522,8 +636,12 @@ function PanelBody({
 export function App(): JSX.Element {
   const [state, setState] = useState<TabWorkspaceStateSync>(EMPTY_SYNC);
   const [selectedDocPath, setSelectedDocPath] = useState<string | undefined>();
-  const [docPreview, setDocPreview] = useState<{ path: string; title: string; markdown: string } | undefined>();
+  const [docPreview, setDocPreview] = useState<
+    { path: string; title: string; markdown: string; breadcrumb?: DocBreadcrumbWire[] } | undefined
+  >();
   const [taskLog, setTaskLog] = useState<{ taskId: string; content: string } | undefined>();
+  const [selectedCommitHash, setSelectedCommitHash] = useState<string | undefined>();
+  const [commitDiff, setCommitDiff] = useState('');
 
   const handleSelectDoc = (path: string) => {
     setSelectedDocPath(path);
@@ -543,11 +661,17 @@ export function App(): JSX.Element {
           path: event.data.path,
           title: event.data.title,
           markdown: event.data.markdown,
+          breadcrumb: event.data.breadcrumb,
         });
         return;
       }
       if (event.data?.type === 'taskLog') {
         setTaskLog({ taskId: event.data.taskId, content: event.data.content });
+        return;
+      }
+      if (event.data?.type === 'commitDiff') {
+        setSelectedCommitHash(event.data.hash);
+        setCommitDiff(event.data.diff);
       }
     };
     window.addEventListener('message', onMessage);
@@ -603,6 +727,13 @@ export function App(): JSX.Element {
           onSelectDoc={handleSelectDoc}
           taskLog={taskLog}
           onCloseTaskLog={() => setTaskLog(undefined)}
+          selectedCommitHash={selectedCommitHash}
+          commitDiff={commitDiff}
+          onSelectCommit={(hash) => {
+            setSelectedCommitHash(hash);
+            setCommitDiff('');
+            postToHost({ type: 'commitAction', action: 'select', hash });
+          }}
         />
       </PanelShell>
     </div>

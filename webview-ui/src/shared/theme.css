@@ -84,6 +84,43 @@
   opacity: 0.85;
 }
 
+.cp-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.cp-breadcrumb-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+  font: inherit;
+}
+
+.cp-breadcrumb-link:hover {
+  text-decoration: underline;
+}
+
+.cp-breadcrumb-current {
+  color: var(--vscode-foreground);
+  font-weight: 600;
+  cursor: default;
+}
+
+.cp-breadcrumb-current:hover {
+  text-decoration: none;
+}
+
+.cp-breadcrumb-sep {
+  opacity: 0.65;
+  user-select: none;
+}
+
 .cp-chip-row {
   display: flex;
   flex-wrap: wrap;
