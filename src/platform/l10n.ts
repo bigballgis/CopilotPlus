@@ -45,6 +45,8 @@ export const FALLBACK: Record<string, string> = {
   'docs.assignOrphan': 'Assign orphan code to a Component document',
   'docs.assignOrphanNoEditor': 'Open a code file to assign orphan ownership.',
   'docs.assignOrphanNotOrphan': 'No orphan drift item for {0}. Run consistency check first.',
+  'docs.namingCollisionQuestion':
+    'Document id "{0}" is similar to existing "{1}". Reuse the existing document, force create, or cancel?',
   'ownership.statusBar': 'Owner: {0}',
   'ownership.statusBarOrphan': 'Orphan code',
   'ownership.statusBarOrphanTip': '{0} — no Component doc owns this file',

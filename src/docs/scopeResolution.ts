@@ -4,7 +4,13 @@ import type { DocEntry } from './documentTreeService';
 import { buildLayerWalk, type LayerWalkEntry } from './layerWalk';
 import { resolveOwners } from './ownershipIndex';
 import { matchesGlob } from '../platform/sensitiveFiles';
+import { computeLateralDepth } from './lateralDepth';
 import type { ContextTier } from '../shared/types';
+
+export interface ResolveScopeOptions {
+  maxLateralDepth?: number;
+  resolveId?: (id: string) => string;
+}
 
 export interface ScopeDoc {
   document_path: string;
@@ -13,7 +19,21 @@ export interface ScopeDoc {
   link_type: 'hierarchical' | 'lateral' | 'root';
 }
 
-export function resolveScope(startPath: string, entries: DocEntry[], maxDocs = 100): ScopeDoc[] {
+export function scopeResolveOptions(
+  maxLateralDepth: number,
+  resolveId: (id: string) => string = (id) => id
+): ResolveScopeOptions {
+  return { maxLateralDepth, resolveId };
+}
+
+export function resolveScope(
+  startPath: string,
+  entries: DocEntry[],
+  maxDocs = 100,
+  options: ResolveScopeOptions = {}
+): ScopeDoc[] {
+  const resolveId = options.resolveId ?? ((id: string) => id);
+  const maxLateralDepth = options.maxLateralDepth ?? Number.MAX_SAFE_INTEGER;
   const start = entries.find((e) => e.relativePath === startPath.replace(/\\/g, '/'));
   if (!start) {
     return [];
@@ -63,19 +83,25 @@ export function resolveScope(startPath: string, entries: DocEntry[], maxDocs = 1
   };
   descend(start);
 
-  for (const link of start.frontmatter.lateral ?? []) {
-    const target = entries.find((e) => e.frontmatter.id === link.target);
-    if (target) {
-      add(target, 'lateral');
+  const addLateralTarget = (targetId: string) => {
+    const resolved = resolveId(targetId);
+    const target = entries.find((e) => e.valid && e.frontmatter.id === resolved);
+    if (!target) {
+      return;
     }
+    if (computeLateralDepth(start, target, entries) > maxLateralDepth) {
+      return;
+    }
+    add(target, 'lateral');
+  };
+
+  for (const link of start.frontmatter.lateral ?? []) {
+    addLateralTarget(link.target);
   }
 
   // R-DOCS-5.1(d) — secondary parents treated as references lateral links
   for (const parentId of start.frontmatter.secondary_parents ?? []) {
-    const secondary = entries.find((e) => e.frontmatter.id === parentId);
-    if (secondary) {
-      add(secondary, 'lateral');
-    }
+    addLateralTarget(parentId);
   }
 
   return result;

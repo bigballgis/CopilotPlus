@@ -140,13 +140,22 @@ export function buildControlConsoleStateSync(app: AppServices): ControlConsoleSt
         ownershipConflict: driftSummary.ownershipConflict,
         pendingQueue: driftSummary.pendingQueue,
       },
-      items: driftItems.slice(0, 20).map((item) => ({
-        id: item.id,
-        type: item.type,
-        layer: item.layer,
-        target: item.target,
-        detail: item.detail,
-      })),
+      items: [
+        ...app.namingAliases.getRecentRewrites().slice(0, 5).map((rewrite, index) => ({
+          id: `alias-${index}-${rewrite.documentPath}`,
+          type: 'Alias_Rewrite',
+          layer: rewrite.field,
+          target: rewrite.documentPath,
+          detail: `${rewrite.fromId} → ${rewrite.toId}`,
+        })),
+        ...driftItems.slice(0, 20).map((item) => ({
+          id: item.id,
+          type: item.type,
+          layer: item.layer,
+          target: item.target,
+          detail: item.detail,
+        })),
+      ].slice(0, 20),
     },
     indexing: {
       embeddingMode: idx.embeddingMode,

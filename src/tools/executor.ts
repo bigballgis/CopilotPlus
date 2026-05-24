@@ -6,7 +6,8 @@ import * as path from 'path';
 import type { AppServices } from '../app/appServices';
 import type { DocumentTreeService } from '../docs/documentTreeService';
 import { composeDocument, normalizeFrontmatter } from '../docs/frontmatterSerialize';
-import { parseFrontmatter, validateDocumentSize, validateFrontmatter, type DocLevel } from '../docs/frontmatter';
+import { findLateralDepthViolations } from '../docs/lateralDepth';
+import { findNamingCollision } from '../docs/namingConsistency';
 import { applyEdits, type PatchEdit } from './applyPatchLogic';
 import { SUB_AGENT_ALLOWLISTS } from './registry';
 import { isToolVisible } from '../platform/toolPermissions';
@@ -285,13 +286,64 @@ export class ToolExecutor {
   }
 
   private async docWrite(args: Record<string, unknown>): Promise<ToolResult> {
-    const docPath = String(args.path ?? '');
+    let docPath = String(args.path ?? '');
     const content = String(args.content ?? '');
     const parsed = parseFrontmatter(content);
     if (!parsed.frontmatter) {
       return { ok: false, reason: 'invalid_frontmatter' };
     }
-    const fm = normalizeFrontmatter(parsed.frontmatter as unknown as Record<string, unknown>);
+    let fm = normalizeFrontmatter(parsed.frontmatter as unknown as Record<string, unknown>);
+    const existing = this.docs.getByPath(docPath);
+    const entries = this.docs.getEntries();
+    const maxLateralDepth = this.app.platform.getSettings().maxLateralDepth;
+    const resolveId = (id: string) => this.app.namingAliases.resolve(id);
+
+    const draftEntry = {
+      relativePath: docPath,
+      frontmatter: fm,
+      body: parsed.body,
+      valid: true,
+      errors: [],
+    };
+    const lateralViolations = findLateralDepthViolations(draftEntry, entries, maxLateralDepth, resolveId);
+    if (lateralViolations.length > 0) {
+      const first = lateralViolations[0]!;
+      return {
+        ok: false,
+        reason: 'lateral_depth_exceeded',
+        cap: first.maxDepth,
+        actual: first.depth,
+      };
+    }
+
+    const namingChanged =
+      !existing ||
+      fm.title !== existing.frontmatter.title ||
+      fm.parent !== existing.frontmatter.parent ||
+      fm.id !== existing.frontmatter.id;
+    if (namingChanged) {
+      const collision = findNamingCollision(fm, entries, existing?.frontmatter.id);
+      if (collision) {
+        const response = await this.app.decisions.ask({
+          id: `naming-${fm.id}-${Date.now()}`,
+          taskId: this.app.getToolExecutionContext().taskId,
+          question: t('docs.namingCollisionQuestion', fm.id, collision.frontmatter.id),
+          options: ['Reuse_Existing', 'Force_Create', 'Cancel'],
+          defaultOption: 'Reuse_Existing',
+          timeoutSec: this.app.platform.getSettings().decisionTimeoutSec,
+        });
+        const selected = response.selected;
+        if (selected === 'Cancel') {
+          return { ok: false, reason: 'user_rejected' };
+        }
+        if (selected === 'Reuse_Existing') {
+          docPath = collision.relativePath;
+          fm = { ...fm, id: collision.frontmatter.id, parent: collision.frontmatter.parent };
+        }
+      }
+    }
+
+    const composed = composeDocument(fm, parsed.body);
     const sizeCheck = validateDocumentSize(fm.level as DocLevel, parsed.body);
     if (!sizeCheck.ok) {
       return {
@@ -305,7 +357,7 @@ export class ToolExecutor {
     if (!validation.valid) {
       return { ok: false, reason: validation.errors.join(', ') };
     }
-    const ok = await this.docs.writeWithReview(docPath, content, 'doc_write');
+    const ok = await this.docs.writeWithReview(docPath, composed, 'doc_write');
     return ok ? { ok: true, data: { path: docPath } } : { ok: false, reason: 'user_rejected' };
   }
 

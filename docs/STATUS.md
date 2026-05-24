@@ -40,7 +40,7 @@
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 | 1 | Platform 补全 | 1.1–1.9 | ✅ 完成 |
 
-**单元测试**：237/237 通过  
+**单元测试**：244/244 通过  
 **需求覆盖率（粗算）**：~97%
 
 ---
@@ -60,6 +60,9 @@
 | 文档生命周期 | last_referenced_at + Stale 徽章 + Architect Compact + @archive mention | R-DOCS-9.1–9.6 |
 | 代码归属索引 | CodeOwnershipIndex 缓存 + 索引/文档变更刷新 + resolveOwnership | R-DOCS-11.1 |
 | Scope + 预览增强 | secondary_parents 纳入 scope + Requirement breadcrumb + doc_write 尺寸结构化错误 | R-DOCS-3.2 / R-DOCS-5.1 / R-DOCS-8.2 |
+| 横向链接深度 | maxLateralDepth 配置 + scope 过滤 + doc_write 校验 | R-DOCS-4 |
+| 文档命名一致性 | Levenshtein/标题重叠 Decision + naming_aliases.json + 链接重写 | R-DOCS-7 |
+| 命名与横向链接 | maxLateralDepth + naming_aliases + 命名碰撞 Decision + Alias 诊断 | R-DOCS-4 / R-DOCS-7 |
 | Commit 面板 | CommitHistoryService + git_commit 记录 + diff 预览 + Checkpoint 回滚 | R-INT-7 |
 | Decision Center | 持久化 decisions.json + Console 列表/倒计时 + Bulk approve + transcript 记录 | R-INT-10 / R-INT-11 |
 | Build 限额 | 工具调用/时长上限 + Decision + Stop All + 限额显示 | R-WF-8 |
@@ -104,7 +107,8 @@
 
 | 日期 | 内容 |
 |------|------|
-| 2026-05-23 | R-INT-10/11 Decision Center（decisions.json 持久化 + Console 列表/倒计时/Bulk approve + transcript） |
+| 2026-05-23 | R-DOCS-4/7 横向链接深度 + naming_aliases 自动重写 + doc_write 命名碰撞 Decision |
+| 2026-05-23 | R-DOCS-4/7 横向链接深度 + 文档命名一致性（Decision、aliases、scope 过滤、Compaction 注册别名） |
 | 2026-05-23 | R-INT-7 Commit 面板（CommitHistoryService + Tab UI diff/过滤/Checkpoint 回滚）+ R-DOCS-11.1 代码归属索引提交 |
 | 2026-05-23 | R-DOCS-14.3 / R-DOCS-11.4 代码 Layer Walk（兄弟文件 + shared co-owner）+ drift merge 提取 + Console Resolve 刷新 |
 | 2026-05-23 | R-DOCS-10.2/11.3/11.6 doc_write 自动审阅标记 + Problem 面板静态诊断 + Architecture 层级路径 + Agent drift 合并修复 |

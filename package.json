@@ -279,6 +279,13 @@
           "minimum": 30,
           "maximum": 365
         },
+        "copilotPlus.docs.maxLateralDepth": {
+          "type": "number",
+          "default": 4,
+          "minimum": 4,
+          "maximum": 8,
+          "description": "Maximum lateral link depth between documents (R-DOCS-4.1)."
+        },
         "copilotPlus.docs.consistencyCheckBudget": {
           "type": "number",
           "default": 50,

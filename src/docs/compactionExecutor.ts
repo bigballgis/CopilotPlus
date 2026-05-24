@@ -1,6 +1,7 @@
 /** Apply approved compaction plans — R-DOCS-9.4 */
 
 import type { AppServices } from '../app/appServices';
+import * as vscode from 'vscode';
 import type { CompactionPlanItem } from './compactionPlan';
 import { composeDocument } from './frontmatterSerialize';
 
@@ -82,6 +83,8 @@ async function mergeIntoParent(app: AppServices, item: CompactionPlanItem): Prom
     children: (parent.frontmatter.children ?? []).filter((id) => id !== child.frontmatter.id),
   };
   await app.docs.writeRaw(parentPath, composeDocument(parentFm, mergedBody));
+  app.namingAliases.register(child.frontmatter.id, parent.frontmatter.id);
+  await app.namingAliases.save(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
   await app.docs.archiveDocument(item.documentPath);
   await app.docs.scan();
   return true;

@@ -13,6 +13,7 @@ import {
 import { composeDocument, defaultBody, normalizeFrontmatter, serializeFrontmatter } from './frontmatterSerialize';
 import { computeReviewBadge, shouldAutoMarkReviewedOnAccept, type ReviewBadge } from './reviewBadge';
 import { isDocumentStale, collectSubtreeDocPaths } from './docLifecycle';
+import { NamingAliasStore } from './namingAliases';
 import { docsRoot, parseDocRelativePath, pathForDoc, systemDocPath } from './paths';
 import type { DiffReviewService } from '../editing/diffReview';
 
@@ -39,7 +40,10 @@ export class DocumentTreeService {
   private readonly onChangeEmitter = new vscode.EventEmitter<void>();
   readonly onChange = this.onChangeEmitter.event;
 
-  constructor(private readonly diffReview?: DiffReviewService) {}
+  constructor(
+    private readonly diffReview?: DiffReviewService,
+    private readonly namingAliases?: NamingAliasStore
+  ) {}
 
   startWatching(context: vscode.ExtensionContext): void {
     const root = this.workspaceRoot();
@@ -60,13 +64,17 @@ export class DocumentTreeService {
   }
 
   async scan(): Promise<DocEntry[]> {
-    const root = this.docsAbsoluteRoot();
-    if (!root) {
+    return this.scanEntries(false);
+  }
+
+  private async scanEntries(aliasSynced: boolean): Promise<DocEntry[]> {
+    const docsRootPath = this.docsAbsoluteRoot();
+    if (!docsRootPath) {
       this.cache = [];
       return [];
     }
     const entries: DocEntry[] = [];
-    await this.walkMd(root, async (abs, rel) => {
+    await this.walkMd(docsRootPath, async (abs, rel) => {
       const workspaceRel = path.posix.join('.copilotPlus', 'docs', rel.replace(/\\/g, '/'));
       const content = await fs.readFile(abs, 'utf8');
       const parsed = parseFrontmatter(content);
@@ -81,6 +89,19 @@ export class DocumentTreeService {
         errors: parsed.errors,
       });
     });
+
+    if (!aliasSynced && this.namingAliases) {
+      const workspaceRoot = this.workspaceRoot();
+      if (workspaceRoot) {
+        this.namingAliases.clearRewrites();
+        await this.namingAliases.load(workspaceRoot);
+        const updated = await this.namingAliases.syncDocumentLinks(this, entries);
+        if (updated > 0) {
+          return this.scanEntries(true);
+        }
+      }
+    }
+
     this.cache = entries;
     this.onChangeEmitter.fire();
     return entries;

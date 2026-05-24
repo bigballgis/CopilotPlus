@@ -90,6 +90,26 @@ describe('R-DOCS-5 scope resolution', () => {
       ['app', 'auth', 'login']
     );
   });
+
+  it('filters lateral scope by max depth', () => {
+    const entries: DocEntry[] = [
+      entry('.copilotPlus/docs/system/app.md', 'app', 'system', '', ['auth', 'billing']),
+      entry('.copilotPlus/docs/system/app/auth.md', 'auth', 'module', 'app', ['login']),
+      entry('.copilotPlus/docs/system/app/auth/login.md', 'login', 'feature', 'auth', [], [
+        { target: 'billing', type: 'references' },
+      ]),
+      entry('.copilotPlus/docs/system/app/billing.md', 'billing', 'module', 'app', []),
+    ];
+
+    const full = resolveScope('.copilotPlus/docs/system/app/auth/login.md', entries, 100, {
+      maxLateralDepth: 8,
+    });
+    const filtered = resolveScope('.copilotPlus/docs/system/app/auth/login.md', entries, 100, {
+      maxLateralDepth: 2,
+    });
+    assert.ok(full.some((s) => s.document_path.includes('billing.md')));
+    assert.ok(!filtered.some((s) => s.document_path.includes('billing.md')));
+  });
 });
 
 describe('R-DOCS-11 ownership', () => {

@@ -4,6 +4,8 @@
 import { resolveScope, buildDocBreadcrumb } from '../dist-test/docs/scopeResolution.js';
 import { validateDocumentSize } from '../dist-test/docs/frontmatter.js';
 import { CodeOwnershipIndex } from '../dist-test/docs/ownershipIndex.js';
+import { computeLateralDepth } from '../dist-test/docs/lateralDepth.js';
+import { NamingAliasStore } from '../dist-test/docs/namingAliases.js';
 
 const errors = [];
 
@@ -65,6 +67,26 @@ index.rebuild(
 );
 assert(index.lookup('src/a/foo.ts')?.orphan === false, 'ownership index lookup failed');
 
+const aliasStore = new NamingAliasStore();
+aliasStore.register('legacy', 'current');
+assert(aliasStore.resolve('legacy') === 'current', 'naming alias resolve failed');
+
+const depthEntries = [
+  entry('.copilotPlus/docs/system/app.md', 'app', 'system', '', ['auth', 'billing']),
+  entry('.copilotPlus/docs/system/app/auth.md', 'auth', 'module', 'app', ['login']),
+  {
+    ...entry('.copilotPlus/docs/system/app/auth/login.md', 'login', 'feature', 'auth', []),
+    frontmatter: {
+      ...entry('.copilotPlus/docs/system/app/auth/login.md', 'login', 'feature', 'auth', []).frontmatter,
+      lateral: [{ target: 'billing', type: 'references' }],
+    },
+  },
+  entry('.copilotPlus/docs/system/app/billing.md', 'billing', 'module', 'app', []),
+];
+const login = depthEntries.find((e) => e.frontmatter.id === 'login');
+const billing = depthEntries.find((e) => e.frontmatter.id === 'billing');
+assert(login && billing && computeLateralDepth(login, billing, depthEntries) === 3, 'lateral depth invalid');
+
 if (errors.length > 0) {
   console.error('DOCS smoke verification FAILED (run npm run compile first)');
   for (const err of errors) {
@@ -73,4 +95,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log('DOCS smoke verification OK (scope, breadcrumb, size cap, ownership index)');
+console.log('DOCS smoke verification OK (scope, breadcrumb, size cap, ownership, aliases, lateral depth)');

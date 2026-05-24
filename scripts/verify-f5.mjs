@@ -47,6 +47,13 @@ const DECISION_CENTER_MARKERS = [
   { file: 'webview-ui/src/controlConsole/App.tsx', tokens: ['cp-decision-list', 'bulkApproveDecisions'] },
 ];
 
+const DOCS_NAMING_MARKERS = [
+  { file: 'src/docs/namingConsistency.ts', tokens: ['findNamingCollision', 'levenshtein'] },
+  { file: 'src/docs/namingAliases.ts', tokens: ['NamingAliasStore', 'syncDocumentLinks'] },
+  { file: 'src/docs/lateralDepth.ts', tokens: ['computeLateralDepth', 'findLateralDepthViolations'] },
+  { file: 'src/tools/executor.ts', tokens: ['lateral_depth_exceeded', 'Reuse_Existing'] },
+];
+
 async function main() {
   const errors = [];
 
@@ -69,7 +76,7 @@ async function main() {
     }
   }
 
-  for (const { file, tokens } of [...DOCS_LIFECYCLE_MARKERS, ...COMMIT_PANEL_MARKERS, ...DECISION_CENTER_MARKERS]) {
+  for (const { file, tokens } of [...DOCS_LIFECYCLE_MARKERS, ...COMMIT_PANEL_MARKERS, ...DECISION_CENTER_MARKERS, ...DOCS_NAMING_MARKERS]) {
     const source = await fs.readFile(path.join(root, file), 'utf8');
     for (const token of tokens) {
       if (!source.includes(token)) {

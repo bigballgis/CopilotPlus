@@ -354,7 +354,11 @@ async function resolveOneMention(
     }
     case 'doc': {
       const doc = await app.docs.read(attachment.target);
-      const scope = resolveScope(attachment.target, app.docs.getEntries());
+      const settings = app.platform.getSettings();
+      const scope = resolveScope(attachment.target, app.docs.getEntries(), 100, {
+        maxLateralDepth: settings.maxLateralDepth,
+        resolveId: (id) => app.namingAliases.resolve(id),
+      });
       void app.docs.touchLastReferenced(scope.map((s) => s.document_path));
       const scopeBlock = scope.length ? `\n\nScope:\n${formatScopeBlock(scope)}` : '';
       const body = `${doc.frontmatter.title}\n${doc.body}${scopeBlock}`;

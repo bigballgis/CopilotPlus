@@ -342,7 +342,11 @@ export class ConversationPaneProvider {
     }
 
     if (scopeDocPath) {
-      const scope = resolveScope(scopeDocPath, docEntries);
+      const settings = this.app.platform.getSettings();
+      const scope = resolveScope(scopeDocPath, docEntries, 100, {
+        maxLateralDepth: settings.maxLateralDepth,
+        resolveId: (id) => this.app.namingAliases.resolve(id),
+      });
       void this.app.docs.touchLastReferenced(scope.map((s) => s.document_path));
       const layerWalk = buildLayerWalkForDoc(scopeDocPath, docEntries, tier);
       const layerText = layerWalk.map((entry) => `### ${entry.documentPath}\n${entry.content}`).join('\n\n');

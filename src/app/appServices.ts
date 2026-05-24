@@ -36,6 +36,7 @@ import { BackgroundAgentService } from '../agents/backgroundAgentService';
 import { BuildIsolationService } from '../workflow/buildIsolationService';
 import type { CiSession } from '../cli/ciSession';
 import { DriftService } from '../docs/driftService';
+import { NamingAliasStore } from '../docs/namingAliases';
 
 export class AppServices {
   readonly platform: PlatformServices;
@@ -72,6 +73,7 @@ export class AppServices {
   readonly taskDagDiagnostics: TaskDagDiagnostics;
   readonly buildIsolation: BuildIsolationService;
   readonly drift: DriftService;
+  readonly namingAliases: NamingAliasStore;
   private ciSession: CiSession | undefined;
   private toolExecutionContext: { taskId?: string; stage?: string } = {};
 
@@ -95,6 +97,7 @@ export class AppServices {
     this.diffReview = new DiffReviewService(this.checkpoints, proposedContent, invalidateCache);
     this.inlineEdit = new InlineEditService(platform, this.diffReview, this.responseCache);
     this.decisions = new DecisionCenter();
+    this.namingAliases = new NamingAliasStore();
     this.buildIsolation = new BuildIsolationService(
       () => this.platform.getSettings(),
       this.decisions
@@ -102,7 +105,7 @@ export class AppServices {
     this.hooks = new HookService(context);
     this.skills = new SkillService(context);
     this.stages = new StageManager(this.hooks);
-    this.docs = new DocumentTreeService(this.diffReview);
+    this.docs = new DocumentTreeService(this.diffReview, this.namingAliases);
     this.localEmbeddingAddon = new LocalEmbeddingAddon(
       context,
       () => this.platform.getSettings().embeddingAddonUrl,

@@ -979,7 +979,7 @@ export class SubAgentRunner {
     const model = await this.app.platform.models.resolveSelectionForSurface('subAgent');
     const tierOverride = this.app.platform.getSettings().tierOverride;
     const tier = model ? this.app.platform.models.getContextTier(model, tierOverride) : ('M' as const);
-    const scope = resolveScope(task.scope_doc, entries, scopeMaxDocs(tier));
+    const scope = this.resolveTaskScope(task.scope_doc, entries, scopeMaxDocs(tier));
     await this.recordScopeReferences(scope);
     const scopeBlock = scope
       .map((s) => `- [${s.link_type}] ${s.title} (${s.document_path})`)
@@ -1028,7 +1028,7 @@ ${intent === 'generate'
     const model = await this.app.platform.models.resolveSelectionForSurface('subAgent');
     const tierOverride = this.app.platform.getSettings().tierOverride;
     const tier = model ? this.app.platform.models.getContextTier(model, tierOverride) : ('M' as const);
-    const scope = resolveScope(task.scope_doc, entries, scopeMaxDocs(tier));
+    const scope = this.resolveTaskScope(task.scope_doc, entries, scopeMaxDocs(tier));
     await this.recordScopeReferences(scope);
     const layerWalk = buildLayerWalkForDoc(task.scope_doc, entries, tier);
 
@@ -1078,7 +1078,7 @@ Respond with a concise final answer for the Conversation Pane. Use tools when yo
     const model = await this.app.platform.models.resolveSelectionForSurface('subAgent');
     const tierOverride = this.app.platform.getSettings().tierOverride;
     const tier = model ? this.app.platform.models.getContextTier(model, tierOverride) : ('M' as const);
-    const scope = resolveScope(task.scope_doc, entries, scopeMaxDocs(tier));
+    const scope = this.resolveTaskScope(task.scope_doc, entries, scopeMaxDocs(tier));
     await this.recordScopeReferences(scope);
     const layerWalk = buildLayerWalkForDoc(task.scope_doc, entries, tier);
     const scopeBlock = scope
@@ -1123,7 +1123,7 @@ Apply doc_write or write_file for proposed fixes. Summarize what you changed whe
     const model = await this.app.platform.models.resolveSelectionForSurface('subAgent');
     const tierOverride = this.app.platform.getSettings().tierOverride;
     const tier = model ? this.app.platform.models.getContextTier(model, tierOverride) : ('M' as const);
-    const scope = resolveScope(task.scope_doc, entries, scopeMaxDocs(tier));
+    const scope = this.resolveTaskScope(task.scope_doc, entries, scopeMaxDocs(tier));
     await this.recordScopeReferences(scope);
     const layerWalk = buildLayerWalkForDoc(task.scope_doc, entries, tier);
     const scopeBlock = scope
@@ -1151,12 +1151,20 @@ Return the JSON verdict object described above. Do not modify files.
 `.trim();
   }
 
+  private resolveTaskScope(startPath: string, entries: ReturnType<AppServices['docs']['getEntries']>, maxDocs: number): ScopeDoc[] {
+    const settings = this.app.platform.getSettings();
+    return resolveScope(startPath, entries, maxDocs, {
+      maxLateralDepth: settings.maxLateralDepth,
+      resolveId: (id) => this.app.namingAliases.resolve(id),
+    });
+  }
+
   private async buildTaskPrompt(role: string, task: TaskNode, buildId: string): Promise<string> {
     const entries = this.app.docs.getEntries();
     const model = await this.app.platform.models.resolveSelectionForSurface('subAgent');
     const tierOverride = this.app.platform.getSettings().tierOverride;
     const tier = model ? this.app.platform.models.getContextTier(model, tierOverride) : ('M' as const);
-    const scope = resolveScope(task.scope_doc, entries, scopeMaxDocs(tier));
+    const scope = this.resolveTaskScope(task.scope_doc, entries, scopeMaxDocs(tier));
     await this.recordScopeReferences(scope);
     const layerWalk = buildLayerWalkForDoc(task.scope_doc, entries, tier);
 
@@ -1177,6 +1185,7 @@ Return the JSON verdict object described above. Do not modify files.
         : '';
     const scopeFile = scopeEntry?.relativePath ?? task.scope_doc.replace(/^\.copilotPlus\/docs\//, 'src/');
     const knowledgeBlock = await this.app.knowledge.buildContextBlock(scopeFile, task.id, tier);
+    const aliasBlock = this.app.namingAliases.compressForPrompt();
 
     return `
 Workflow stage: ${role === 'Deployer' ? 'Deploy' : 'Build'}
@@ -1201,6 +1210,9 @@ ${componentCodeBlock ? `${componentCodeBlock}\n` : ''}
 ${knowledgeBlock || '(none)'}
 
 ${formatUnreviewedDocNotice(entries)}
+
+## Naming aliases
+${aliasBlock || '(none)'}
 
 ## Task inputs
 ${JSON.stringify(task.inputs, null, 2)}
