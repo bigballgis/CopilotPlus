@@ -50,6 +50,16 @@
         "category": "Copilot Plus"
       },
       {
+        "command": "copilotPlus.docs.runConsistencyCheck",
+        "title": "Copilot Plus: Run Consistency Check",
+        "category": "Copilot Plus"
+      },
+      {
+        "command": "copilotPlus.docs.openDriftView",
+        "title": "Copilot Plus: Open Drift View",
+        "category": "Copilot Plus"
+      },
+      {
         "command": "copilotPlus.openDecisionCenter",
         "title": "Copilot Plus: Open Decision Center",
         "category": "Copilot Plus"
@@ -478,13 +488,14 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "node esbuild.js && npm run compile:webview",
-    "compile:webview": "vite build --config webview-ui/vite.config.ts && vite build --config webview-ui/vite.tab.config.ts && node scripts/copy-webview-assets.mjs",
+    "compile:webview": "vite build --config webview-ui/vite.config.ts && vite build --config webview-ui/vite.tab.config.ts && vite build --config webview-ui/vite.control.config.ts && node scripts/copy-webview-assets.mjs",
     "watch": "node esbuild.js --watch",
     "test:unit": "tsc -p tsconfig.test.json && node --test \"dist-test/test/unit/*.test.js\"",
     "verify:ci-headless": "tsc -p tsconfig.test.json && node scripts/verify-ci-headless.mjs",
     "verify:onnx-addon": "tsc -p tsconfig.test.json && node scripts/verify-onnx-addon.mjs",
     "verify:i18n-a11y": "node scripts/audit-i18n-a11y.mjs",
-    "test": "npm run test:unit && npm run verify:ci-headless && npm run verify:onnx-addon && npm run verify:i18n-a11y",
+    "verify:f5": "node scripts/verify-f5.mjs",
+    "test": "npm run test:unit && npm run verify:ci-headless && npm run verify:onnx-addon && npm run verify:i18n-a11y && npm run compile && npm run verify:f5",
     "lint": "eslint src --ext ts",
     "package": "vsce package"
   },

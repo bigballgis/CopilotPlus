@@ -12,6 +12,7 @@ import {
   DecisionStatusBar,
   registerDecisionCenterCommands,
 } from '../interaction/decisionStatusBar';
+import { DriftStatusBar } from '../interaction/driftStatusBar';
 import { getTabWorkspace, openWorkspace } from '../interaction/workspace';
 import { registerTabCompletion } from '../editing/tabCompletion';
 import { registerTabCompletionPrefetch } from '../editing/tabCompletionPrefetch';
@@ -44,12 +45,18 @@ export async function activatePlatform(context: vscode.ExtensionContext): Promis
     registrations.push(
       vscode.window.registerWebviewViewProvider(
         ControlConsoleProvider.viewId,
-        new ControlConsoleProvider(app)
+        (() => {
+          const provider = new ControlConsoleProvider(context.extensionUri, app);
+          registrations.push(...provider.disposables);
+          return provider;
+        })()
       )
     );
     registrations.push(...registerDecisionCenterCommands(app.decisions));
     const statusBar = new DecisionStatusBar(app.decisions);
+    const driftStatusBar = new DriftStatusBar(app.drift);
     context.subscriptions.push({ dispose: () => statusBar.dispose() });
+    context.subscriptions.push({ dispose: () => driftStatusBar.dispose() });
     context.subscriptions.push(
       app.buildExecutor.onChange(() => {
         getTabWorkspace()?.refresh();

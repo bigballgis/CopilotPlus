@@ -36,3 +36,18 @@ export function getTabWorkspaceWebviewHtml(
     scripts: [scriptUri.toString()],
   });
 }
+
+export function getControlConsoleWebviewHtml(
+  webview: vscode.Webview,
+  extensionUri: vscode.Uri,
+  options?: WebviewHtmlOptions
+): string {
+  const scriptUri = uriFor(webview, extensionUri, 'dist', 'webview', 'controlConsole.js');
+  const styleUri = uriFor(webview, extensionUri, 'dist', 'webview', 'controlConsole.css');
+  const body = '<div id="root"></div>';
+  return getWebviewHtml(webview, body, undefined, {
+    ...options,
+    styles: [...sharedStyleUris(webview, extensionUri), styleUri.toString()],
+    scripts: [scriptUri.toString()],
+  });
+}
