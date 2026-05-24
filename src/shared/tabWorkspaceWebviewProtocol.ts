@@ -104,6 +104,8 @@ export interface TabWorkspaceLabels {
   unlinkDoc: string;
   markReviewedDoc: string;
   ensureSummaryDoc: string;
+  renameDoc: string;
+  moveDoc: string;
   reviewBadgeGreen: string;
   reviewBadgeYellow: string;
   reviewBadgeRed: string;
@@ -276,6 +278,7 @@ export type TabWorkspaceHostMessage =
       lateralByType?: Record<string, DocNavLinkWire[]>;
       hasChildren?: boolean;
       canCreateChild?: boolean;
+      canMove?: boolean;
       reviewBadge?: ReviewBadge;
       subtreeDocCount?: number;
       missingSummary?: boolean;
@@ -294,7 +297,9 @@ export type DocTreePanelAction =
   | 'markReviewed'
   | 'link'
   | 'unlink'
-  | 'ensureSummary';
+  | 'ensureSummary'
+  | 'rename'
+  | 'move';
 
 export type TabWorkspaceWebviewMessage =
   | { type: 'ready' }

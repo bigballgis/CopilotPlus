@@ -20,6 +20,7 @@ interface RequirementPreviewPanelProps {
   lateralByType?: Record<string, DocNavLinkWire[]>;
   hasChildren?: boolean;
   canCreateChild?: boolean;
+  canMove?: boolean;
   missingSummary?: boolean;
   reviewBadge?: 'green' | 'yellow' | 'red';
   onSelectDoc: (path: string) => void;
@@ -37,6 +38,7 @@ export function RequirementPreviewPanel({
   lateralByType,
   hasChildren,
   canCreateChild,
+  canMove,
   missingSummary,
   reviewBadge,
   onSelectDoc,
@@ -73,6 +75,7 @@ export function RequirementPreviewPanel({
           lateralByType={lateralByType}
           hasChildren={hasChildren}
           canCreateChild={canCreateChild}
+          canMove={canMove}
           missingSummary={missingSummary}
           reviewBadge={reviewBadge}
           onSelectDoc={onSelectDoc}

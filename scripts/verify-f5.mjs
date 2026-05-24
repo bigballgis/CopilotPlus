@@ -57,10 +57,10 @@ const DOCS_NAMING_MARKERS = [
 
 const DOCS_TREE_OPS_MARKERS = [
   { file: 'src/docs/treeOps.ts', tokens: ['renameDocumentTree', 'moveDocumentTree', 'deleteDocumentTree'] },
-  { file: 'src/docs/docTreeCommands.ts', tokens: ['runCreateChildDoc', 'runDocTreeAction'] },
+  { file: 'src/docs/docTreeCommands.ts', tokens: ['runCreateChildDoc', 'runDocTreeAction', "case 'rename'", "case 'move'"] },
   { file: 'src/shared/tabWorkspaceWebviewProtocol.ts', tokens: ["type: 'docTreeAction'", 'DocTreePanelAction'] },
   { file: 'webview-ui/src/shared/components/DocPreviewContent.tsx', tokens: ['DocPreviewContent', 'cp-doc-preview-body'] },
-  { file: 'webview-ui/src/shared/components/DocTreeActionBar.tsx', tokens: ['ensureSummaryDoc', 'onAction'] },
+  { file: 'webview-ui/src/shared/components/DocTreeActionBar.tsx', tokens: ['ensureSummaryDoc', 'renameDoc', 'moveDoc', 'onAction'] },
   { file: 'src/docs/summarySection.ts', tokens: ['upsertSummarySection', 'SUMMARY_MIN_CHARS'] },
 ];
 

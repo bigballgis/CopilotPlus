@@ -122,6 +122,8 @@ const DEFAULT_LABELS: TabWorkspaceLabels = {
   unlinkDoc: 'Unlink',
   markReviewedDoc: 'Mark reviewed',
   ensureSummaryDoc: 'Add summary',
+  renameDoc: 'Rename',
+  moveDoc: 'Move',
   reviewBadgeGreen: 'Reviewed within 30 days',
   reviewBadgeYellow: 'Reviewed 30–90 days ago or feature/component doc',
   reviewBadgeRed: 'Not reviewed or review older than 90 days',
@@ -639,6 +641,7 @@ function PanelBody({
     lateralByType?: Record<string, DocNavLinkWire[]>;
     hasChildren?: boolean;
     canCreateChild?: boolean;
+    canMove?: boolean;
     reviewBadge?: 'green' | 'yellow' | 'red';
     missingSummary?: boolean;
   };
@@ -701,6 +704,7 @@ function PanelBody({
                 lateralByType={docPreview.lateralByType}
                 hasChildren={docPreview.hasChildren}
                 canCreateChild={docPreview.canCreateChild}
+                canMove={docPreview.canMove}
                 missingSummary={docPreview.missingSummary}
                 reviewBadge={docPreview.reviewBadge}
                 onSelectDoc={onSelectDoc}
@@ -723,6 +727,7 @@ function PanelBody({
           lateralByType={docPreview?.lateralByType}
           hasChildren={docPreview?.hasChildren}
           canCreateChild={docPreview?.canCreateChild}
+          canMove={docPreview?.canMove}
           reviewBadge={docPreview?.reviewBadge}
           missingSummary={docPreview?.missingSummary}
           onSelectDoc={onSelectDoc}
@@ -797,6 +802,7 @@ export function App(): JSX.Element {
           lateralByType: event.data.lateralByType,
           hasChildren: event.data.hasChildren,
           canCreateChild: event.data.canCreateChild,
+          canMove: event.data.canMove,
           reviewBadge: event.data.reviewBadge,
           missingSummary: event.data.missingSummary,
         });

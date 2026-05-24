@@ -185,6 +185,7 @@ export class TabWorkspaceProvider {
       lateralByType: nav.lateralByType,
       hasChildren: (entry.frontmatter.children?.length ?? 0) > 0,
       canCreateChild: !!childLevel,
+      canMove: entry.frontmatter.level !== 'system',
       reviewBadge: this.app.docs.reviewBadge(entry),
       subtreeDocCount,
       missingSummary:

@@ -123,6 +123,8 @@ export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
     unlinkDoc: t('tabWorkspace.unlinkDoc'),
     markReviewedDoc: t('tabWorkspace.markReviewedDoc'),
     ensureSummaryDoc: t('tabWorkspace.ensureSummaryDoc'),
+    renameDoc: t('tabWorkspace.renameDoc'),
+    moveDoc: t('tabWorkspace.moveDoc'),
     reviewBadgeGreen: t('tabWorkspace.reviewBadgeGreen'),
     reviewBadgeYellow: t('tabWorkspace.reviewBadgeYellow'),
     reviewBadgeRed: t('tabWorkspace.reviewBadgeRed'),

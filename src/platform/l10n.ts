@@ -78,6 +78,8 @@ export const FALLBACK: Record<string, string> = {
   'docs.ensureSummaryAlreadyValid': 'Summary already valid for {0}',
   'docs.ensureSummarySystemExempt': 'System documents do not require a ## Summary section.',
   'tabWorkspace.ensureSummaryDoc': 'Add summary',
+  'tabWorkspace.renameDoc': 'Rename',
+  'tabWorkspace.moveDoc': 'Move',
   'tabWorkspace.createChildDoc': 'Add child',
   'tabWorkspace.deleteDoc': 'Delete',
   'tabWorkspace.deleteSubtree': 'Delete subtree',

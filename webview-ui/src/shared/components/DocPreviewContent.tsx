@@ -20,6 +20,7 @@ export interface DocPreviewContentProps {
   lateralByType?: Record<string, DocNavLinkWire[]>;
   hasChildren?: boolean;
   canCreateChild?: boolean;
+  canMove?: boolean;
   missingSummary?: boolean;
   reviewBadge?: 'green' | 'yellow' | 'red';
   onSelectDoc: (path: string) => void;
@@ -52,6 +53,7 @@ export function DocPreviewContent({
   lateralByType,
   hasChildren,
   canCreateChild,
+  canMove,
   missingSummary,
   reviewBadge,
   onSelectDoc,
@@ -69,6 +71,7 @@ export function DocPreviewContent({
           selectedPath={selectedPath}
           hasChildren={hasChildren}
           canCreateChild={canCreateChild}
+          canMove={canMove}
           missingSummary={missingSummary}
           onAction={onDocTreeAction}
           onEdit={() => postToHost({ type: 'editDoc', path: selectedPath })}

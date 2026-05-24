@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import type { AppServices } from '../app/appServices';
 import { getTabWorkspace } from '../interaction/workspace';
+import type { DocTreePanelAction } from '../shared/tabWorkspaceWebviewProtocol';
 import type { LateralLink } from './frontmatter';
 import { childLevelFor } from './treeOps';
 import { collectSubtreeDocPaths } from './docLifecycle';
@@ -261,7 +262,7 @@ export async function runEnsureSummary(app: AppServices, docPath?: string): Prom
 
 export async function runDocTreeAction(
   app: AppServices,
-  action: 'createChild' | 'delete' | 'markReviewed' | 'link' | 'unlink' | 'ensureSummary',
+  action: DocTreePanelAction,
   docPath: string
 ): Promise<void> {
   switch (action) {
@@ -270,6 +271,12 @@ export async function runDocTreeAction(
       break;
     case 'delete':
       await runDeleteDoc(app, docPath);
+      break;
+    case 'rename':
+      await runRenameDoc(app, docPath);
+      break;
+    case 'move':
+      await runMoveDoc(app, docPath);
       break;
     case 'markReviewed': {
       const reviewer =

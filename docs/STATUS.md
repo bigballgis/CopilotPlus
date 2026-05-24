@@ -30,7 +30,7 @@
 | 18 | Commit 面板 | Tab Commit 列表 + diff 预览 + Checkpoint 回滚 + Rolled back 徽章 |
 | 19 | Decision Center | Control Console 待决列表 + 倒计时 + Bulk approve + 重启恢复 |
 | 20 | Requirement 子链接预览 | 选中文档后显示 Immediate children + Lateral links（按 type 分组） |
-| 21 | 文档树 CRUD | Requirement/Architecture 面板 + 命令面板：创建子文档 / 删除叶节点 / 链接 / 取消链接 / 重命名 / 移动 |
+| 21 | 文档树 CRUD | Requirement/Architecture 预览操作栏：Rename/Move/Add child/Delete/Link/Unlink/Mark reviewed；System 文档隐藏 Move |
 | 22 | Agent Fork | Task 面板 View logs → 迭代 Fork from here → 新 Task + 虚线分叉边 + forks.json 持久化 |
 | 23 | 子树 rename/move | 有子文档时重命名 module/feature 应同步迁移子路径；预览标题显示审查徽章 |
 | 24 | 子树 delete + Summary | Delete subtree 整棵删除；缺/短 ## Summary → Add summary → Diff Review 后 Drift 清除 |
@@ -74,7 +74,7 @@
 | 文档树体量 | Console Indexing 分级 chars/tokens + 500k 软限 + doc_link 工具 | R-DOCS-8.4 / R-TOOL-7 |
 | Requirement 预览导航 | 子文档列表 + lateral 按 type 分组 + breadcrumb 点击跳转 | R-DOCS-3.3 / R-DOCS-4.4 |
 | 文档树 telemetry | docs.tree.size 月度节流 + tokenEstimate / softLimitExceeded | R-DOCS-8.5 / R-PLAT-7 |
-| 文档树 CRUD | treeOps 重命名/移动/删除/取消链接 + 6 条命令 + Requirement/Architecture 面板操作 | R-DOCS-6 |
+| 文档树 CRUD | treeOps + 命令面板 + Requirement/Architecture 预览操作栏 Rename/Move（System 不可 Move） | R-DOCS-6 |
 | Agent Replay/Fork | taskFork + 迭代 transcript + Fork UI + forks.json 恢复 DAG + >20 警告 | R-INT-12 |
 | 子树路径迁移 | rename/move 递归更新 descendant 路径 + mapSubtreePaths + 链接 patch | R-DOCS-6.2–6.3 |
 | 子树 delete | deleteDocumentTree 整棵删除 + patchLinksForRemovedIds + Delete subtree 确认 | R-DOCS-6.5 |
@@ -130,6 +130,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | R-DOCS-6 预览面板 Rename/Move 按钮（DocTreeActionBar + runDocTreeAction + canMove） |
 | 2026-05-23 | R-WF-6 Stage transition gates（Design→Build / Build→Deploy 条件 + Build→Design 运行中确认暂停） |
 | 2026-05-23 | R-WF-5.4 Rollback build（逆 DAG 序整 Build 回滚 + Task 面板按钮 + Decision） |
 | 2026-05-23 | R-INT-5.4 Architecture 图导出（Export SVG/PNG + fit-to-view + SaveDialog + diagramExport） |

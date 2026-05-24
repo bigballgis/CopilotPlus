@@ -12,12 +12,15 @@ interface DocTreeActionBarProps {
     | 'unlinkDoc'
     | 'markReviewedDoc'
     | 'ensureSummaryDoc'
+    | 'renameDoc'
+    | 'moveDoc'
     | 'editDoc'
     | 'openDoc'
   >;
   selectedPath: string;
   hasChildren?: boolean;
   canCreateChild?: boolean;
+  canMove?: boolean;
   missingSummary?: boolean;
   onAction: (action: DocTreePanelAction) => void;
   onEdit: () => void;
@@ -29,6 +32,7 @@ export function DocTreeActionBar({
   selectedPath,
   hasChildren,
   canCreateChild,
+  canMove = true,
   missingSummary,
   onAction,
   onEdit,
@@ -61,6 +65,14 @@ export function DocTreeActionBar({
       <VSCodeButton appearance="secondary" aria-label={labels.unlinkDoc} onClick={() => onAction('unlink')}>
         {labels.unlinkDoc}
       </VSCodeButton>
+      <VSCodeButton appearance="secondary" aria-label={labels.renameDoc} onClick={() => onAction('rename')}>
+        {labels.renameDoc}
+      </VSCodeButton>
+      {canMove ? (
+        <VSCodeButton appearance="secondary" aria-label={labels.moveDoc} onClick={() => onAction('move')}>
+          {labels.moveDoc}
+        </VSCodeButton>
+      ) : null}
       <VSCodeButton appearance="secondary" aria-label={labels.markReviewedDoc} onClick={() => onAction('markReviewed')}>
         {labels.markReviewedDoc}
       </VSCodeButton>
