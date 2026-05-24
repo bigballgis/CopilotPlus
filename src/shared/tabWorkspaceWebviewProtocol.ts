@@ -1,5 +1,7 @@
 /** Host ↔ Tab Workspace webview message protocol — R-INT-3 */
 
+import type { ModelOptionWire } from './types';
+
 export type TabId = 'task' | 'architecture' | 'requirement' | 'commit' | 'deploy';
 
 export interface TabWorkspaceLabels {
@@ -64,6 +66,9 @@ export interface TabWorkspaceLabels {
   closeLog: string;
   noTaskLog: string;
   openDoc: string;
+  selectModel: string;
+  selectModelAria: string;
+  noModelsAvailable: string;
 }
 
 export interface DocLateralLinkWire {
@@ -163,6 +168,10 @@ export interface TabWorkspaceStateSync {
   type: 'stateSync';
   activeTab: TabId;
   labels: TabWorkspaceLabels;
+  models: ModelOptionWire[];
+  selectedModelId: string;
+  modelsAvailable: boolean;
+  modelUnavailableNotice?: string;
   task: TaskPanelWire;
   architecture: DocPanelWire;
   requirement: DocPanelWire;
@@ -187,6 +196,7 @@ export type TabWorkspaceWebviewMessage =
       action: string;
       goal?: string;
       files?: string[];
-    };
+    }
+  | { type: 'selectModel'; modelId: string };
 
 export const TAB_IDS: TabId[] = ['task', 'architecture', 'requirement', 'commit', 'deploy'];

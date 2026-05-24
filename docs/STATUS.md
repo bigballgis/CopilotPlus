@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：Phase 6 — Context / RAG  
-> **本 session 下一项（功能）**：Phase 7+ 补全或 Phase 1 Platform 补全
+> **本 session 下一项（功能）**：端到端 F5 验收 / 查漏补缺
 
 ---
 
@@ -12,8 +12,9 @@
 |-------|------|------|------|
 | 0–9 | 全部 Phase | — | ✅ 完成 |
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
+| 1 | Platform 补全 | 1.1–1.9 | ✅ 完成 |
 
-**单元测试**：193/193 通过  
+**单元测试**：195/195 通过  
 **需求覆盖率（粗算）**：~96%
 
 ---
@@ -26,6 +27,7 @@
 | Codebase Index | gitignore 过滤 + 语义/800 分块 + 增量 FS 更新 + 持久化加载 | R-CTX-2 |
 | RAG 混合检索 | BM25+RRF(k=60)+rerank + 6/4 配额 + heading/link 元数据 + rag.enabled | R-CTX-3 / R-CTX-6 |
 | Context Budget | 七级优先级裁剪 + Session cap + 摘要 80% 触发 + Tier M/L 策略 | R-CTX-4 / R-CTX-7 / R-CTX-8 |
+| Platform 补全 | 授权失效取消请求 + Conversation/Tab 模型 picker + PLAN 同步 | R-PLAT-2 / R-PLAT-3 |
 | Build 限额 | 工具调用/时长上限 + Decision + Stop All + 限额显示 | R-WF-8 |
 | Autonomy Levels | Manual Build/Deploy 全工具 Decision + deny list + Full_Auto Diff 绕过 + Control Console 选择器 | R-WF-7 |
 | Build 六步流水线 | Coder/Tester/Reviewer/Committer + 3 轮测试 + Decision | R-WF-4 |
@@ -68,6 +70,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | R-PLAT-2/3 Platform 补全（授权失效取消请求 + 头部模型 picker + Phase 1 PLAN 同步） |
 | 2026-05-23 | R-CTX-4/7/8 Context Budget + 摘要 + Tier 策略（优先级裁剪 + Session cap + Tier 显示） |
 | 2026-05-23 | R-CTX-3/6 RAG 混合检索（RRF+rerank+doc 元数据+rag.enabled 代码索引保留） |
 | 2026-05-23 | R-CTX-2 Codebase Index（gitignore + 语义分块 + 增量更新 + 持久化） |

@@ -44,15 +44,15 @@
 
 | 序号 | 需求 | 交付文件（计划） | 验收方式 | 状态 |
 |------|------|------------------|----------|------|
-| 1.1 | R-PLAT-1 | `src/platform/activation.ts`, manifest engines | F5 激活 <5s；旧版 VS Code 拒绝 | ⬜ 未开始 |
-| 1.2 | R-PLAT-2 | `src/platform/copilotAuth.ts` | 无 Copilot 时 1s 内提示登录 | ⬜ 未开始 |
-| 1.3 | R-PLAT-3 | `src/platform/modelPicker.ts` | 模型列表 + workspace 持久化 | ⬜ 未开始 |
-| 1.4 | R-PLAT-4 | `package.json` contributes 完整 settings | settings UI 可见全部 copilotPlus.* | ⬜ 未开始 |
-| 1.5 | R-PLAT-6 | `src/platform/sensitiveFiles.ts` | .env 等不匹配进 context | ⬜ 未开始 |
-| 1.6 | R-PLAT-10 | `src/platform/toolPermissions.ts` | allow/ask/deny 三级解析 | ⬜ 未开始 |
-| 1.7 | R-PLAT-8 | `src/platform/errors.ts` | 离线/限流/重试 UI | ⬜ 未开始 |
-| 1.8 | R-PLAT-7 | `src/platform/telemetry.ts` | 无内容字段；可关闭 | ⬜ 未开始 |
-| 1.9 | R-PLAT-9 | `l10n/` bundle 骨架 | 无硬编码 UI 字符串 | ⬜ 未开始 |
+| 1.1 | R-PLAT-1 | `src/platform/activation.ts`, manifest engines | F5 激活 <5s；旧版 VS Code 拒绝 | ✅ |
+| 1.2 | R-PLAT-2 | `src/platform/copilotAuth.ts` | 无 Copilot 时 1s 内提示登录 | ✅ |
+| 1.3 | R-PLAT-3 | `src/platform/modelService.ts` | 模型列表 + workspace 持久化 + 头部 picker | ✅ |
+| 1.4 | R-PLAT-4 | `package.json` contributes 完整 settings | settings UI 可见全部 copilotPlus.* | ✅ |
+| 1.5 | R-PLAT-6 | `src/platform/sensitiveFiles.ts` | .env 等不匹配进 context | ✅ |
+| 1.6 | R-PLAT-10 | `src/platform/toolPermissions.ts` | allow/ask/deny 三级解析 | ✅ |
+| 1.7 | R-PLAT-8 | `src/platform/errors.ts` | 离线/限流/重试 UI | ✅ |
+| 1.8 | R-PLAT-7 | `src/platform/telemetry.ts` | 无内容字段；可关闭 | ✅ |
+| 1.9 | R-PLAT-9 | `l10n/` bundle 骨架 | 无硬编码 UI 字符串 | ✅ |
 
 **Phase 1 完成定义**：上述 1.1–1.6 为必须；1.7–1.9 可跟 M1 并行。
 
@@ -65,13 +65,13 @@
 
 | 序号 | 需求 | 交付物 | 状态 |
 |------|------|--------|------|
-| 2.1 | R-INT-1 | `copilotPlus.openWorkspace` 左右分栏 | ⬜ |
+| 2.1 | R-INT-1 | `copilotPlus.openWorkspace` 左右分栏 | ✅ |
 | 2.2 | R-INT-2 | Conversation Pane webview + session 持久化 | ✅ React webview |
 | 2.3 | R-INT-3 | Tab Workspace 五 Tab + 快捷键 | ✅ React webview |
-| 2.4 | R-INT-9 | Control Console 各 section 骨架 | ⬜ |
-| 2.5 | R-INT-10 | Decision Notification 封装 | ⬜ |
-| 2.6 | R-INT-11 | Decision Center | ⬜ |
-| 2.7 | R-INT-4–8 | 各 Panel 最小可用 UI | ⬜ |
+| 2.4 | R-INT-9 | Control Console 各 section 骨架 | ✅ React 化 |
+| 2.5 | R-INT-10 | Decision Notification 封装 | ✅ |
+| 2.6 | R-INT-11 | Decision Center | ✅ |
+| 2.7 | R-INT-4–8 | 各 Panel 最小可用 UI | ✅ |
 
 ---
 

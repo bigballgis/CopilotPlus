@@ -8,6 +8,7 @@ import { SensitiveFileGuard } from './sensitiveFiles';
 import { TelemetryService, isGlobalTelemetryEnabled } from './telemetry';
 import { NetworkMonitor } from './errors';
 import { resolveToolPermission, type PermissionResolution } from './toolPermissions';
+import { ModelRequestCoordinator } from './modelRequestCoordinator';
 import { t } from './l10n';
 
 export class PlatformServices {
@@ -17,8 +18,10 @@ export class PlatformServices {
   readonly sensitiveFiles: SensitiveFileGuard;
   readonly telemetry: TelemetryService;
   readonly network: NetworkMonitor;
+  readonly modelRequests: ModelRequestCoordinator;
 
   private settings: ReturnType<ConfigurationService['read']>;
+  private readonly entitlementLostHandlers = new Set<() => void>();
 
   constructor(private readonly context: vscode.ExtensionContext) {
     this.config = new ConfigurationService((key, reason) => {
@@ -30,7 +33,17 @@ export class PlatformServices {
     this.sensitiveFiles = new SensitiveFileGuard();
     this.telemetry = new TelemetryService(() => this.isTelemetryOn());
     this.network = new NetworkMonitor();
+    this.modelRequests = new ModelRequestCoordinator();
     this.applySettings();
+  }
+
+  onEntitlementLost(handler: () => void): vscode.Disposable {
+    this.entitlementLostHandlers.add(handler);
+    return {
+      dispose: () => {
+        this.entitlementLostHandlers.delete(handler);
+      },
+    };
   }
 
   register(): vscode.Disposable[] {
@@ -44,6 +57,16 @@ export class PlatformServices {
 
     disposables.push(
       this.auth.watchEntitlement(() => {
+        this.modelRequests.cancelAll();
+        for (const handler of this.entitlementLostHandlers) {
+          handler();
+        }
+        void this.models.refresh();
+      })
+    );
+
+    disposables.push(
+      vscode.lm.onDidChangeChatModels(() => {
         void this.models.refresh();
       })
     );

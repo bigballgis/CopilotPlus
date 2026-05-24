@@ -81,6 +81,9 @@ export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
     closeLog: t('tabWorkspace.closeLog'),
     noTaskLog: t('tabWorkspace.noTaskLog'),
     openDoc: t('tabWorkspace.openDoc'),
+    selectModel: t('models.selectModel'),
+    selectModelAria: t('models.selectModelAria'),
+    noModelsAvailable: t('models.noModelsAvailable'),
   };
 }
 
@@ -96,6 +99,7 @@ export function buildTabWorkspaceStateSync(
     type: 'stateSync',
     activeTab,
     labels,
+    ...app.platform.models.getHeaderState(),
     task: buildTaskPanel(app, build),
     architecture: buildDocPanel(tree, labels.architectureDocs, app, labels, idToPath),
     requirement: buildDocPanel(tree, labels.requirementDocs, app, labels, idToPath),

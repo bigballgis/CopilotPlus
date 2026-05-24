@@ -6,6 +6,11 @@ export type AutonomyLevel = 'Manual' | 'Approve_Edits' | 'Approve_Commands' | 'F
 
 export type ToolPermission = 'allow' | 'ask' | 'deny';
 
+export interface ModelOptionWire {
+  id: string;
+  name: string;
+}
+
 export type ModelSurface =
   | 'inlineEdit'
   | 'tabCompletion'

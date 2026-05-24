@@ -54,6 +54,10 @@ export class SpeculativeService {
     this.pool.discardExcept(key);
   }
 
+  cancelAll(): void {
+    this.pool.cancelAll();
+  }
+
   private recordTokens(estimatedTokens: number): void {
     this.tokenSink?.(applySpeculativeTokenDiscount(estimatedTokens));
   }

@@ -145,6 +145,14 @@ export class AppServices {
     );
     this.backgroundAgent.start();
     this.context.subscriptions.push({ dispose: () => this.backgroundAgent.dispose() });
+    this.context.subscriptions.push(
+      this.platform.onEntitlementLost(() => {
+        this.speculative.cancelAll();
+        this.backgroundAgent.cancelInFlight();
+        void this.buildExecutor.stopAll();
+        this.composer.cancel();
+      })
+    );
     void this.buildIsolation.pruneCompletedWorktrees();
     this.taskDagDiagnostics.register(this.context);
     const workspace = vscode.workspace.workspaceFolders?.[0];

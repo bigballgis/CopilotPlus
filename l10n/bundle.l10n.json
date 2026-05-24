@@ -1,5 +1,10 @@
 {
   "auth.consentRequired": "Language model access consent is required for Copilot Plus.",
+  "models.selectModel": "Model",
+  "models.selectModelAria": "Select Copilot model",
+  "models.pickPlaceholder": "Select Copilot model",
+  "models.noModelsAvailable": "No Copilot models are available. Sign in to GitHub Copilot.",
+  "models.substituteNotice": "Model \"{0}\" is unavailable; using \"{1}\".",
   "auth.entitlementRequired": "An active GitHub Copilot subscription is required.",
   "auth.signInAction": "Sign in to GitHub Copilot",
   "activation.failed": "Copilot Plus failed to activate: {0}",

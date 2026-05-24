@@ -77,6 +77,10 @@ export class BackgroundAgentService {
     this.disposables = [];
   }
 
+  cancelInFlight(): void {
+    this.cancelSource?.cancel();
+  }
+
   recordActivity(): void {
     this.lastActivityMs = Date.now();
     if (this.phase === 'running') {

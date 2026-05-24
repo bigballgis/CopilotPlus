@@ -20,6 +20,7 @@ export class TabWorkspaceProvider {
   ) {
     this.app.composer.onChange(() => void this.syncWebviewState());
     this.app.buildExecutor.onChange(() => void this.syncWebviewState());
+    this.app.platform.models.onDidChange(() => void this.syncWebviewState());
   }
 
   async show(column: vscode.ViewColumn): Promise<void> {
@@ -76,6 +77,11 @@ export class TabWorkspaceProvider {
       }
       if (msg.type === 'composerAction') {
         await this.handleComposerAction(msg.action, msg.goal, msg.files);
+        return;
+      }
+      if (msg.type === 'selectModel' && msg.modelId) {
+        await this.app.platform.models.pickModel(msg.modelId);
+        await this.syncWebviewState();
       }
     });
 

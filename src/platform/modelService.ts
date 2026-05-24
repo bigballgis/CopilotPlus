@@ -2,7 +2,7 @@
 
 import * as vscode from 'vscode';
 import type { ContextTier, ModelOptionWire, ModelSurface } from '../shared/types';
-import { resolveContextTier } from './contextTier';
+import { resolveContextTier } from '../context/contextTier';
 import { CopilotAuthService } from './copilotAuth';
 import { t } from './l10n';
 
