@@ -4,6 +4,7 @@ import type { AppServices } from '../app/appServices';
 import type { DocTreeNode } from '../docs/documentTreeService';
 import type { BuildSnapshot } from '../workflow/buildExecutor';
 import { computeTaskElapsedMs, resolveTaskActions } from '../workflow/taskControls';
+import { countForkTasks, forkEdgesFromTasks } from '../workflow/taskFork';
 import { t } from '../platform/l10n';
 import type {
   ComposerSnapshotWire,
@@ -73,6 +74,7 @@ export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
     fitView: t('tabWorkspace.fitView'),
     requirementTree: t('tabWorkspace.requirementTree'),
     requirementPreview: t('tabWorkspace.requirementPreview'),
+    architecturePreview: t('tabWorkspace.architecturePreview'),
     editDoc: t('tabWorkspace.editDoc'),
     selectDocHint: t('tabWorkspace.selectDocHint'),
     docBreadcrumb: t('tabWorkspace.docBreadcrumb'),
@@ -94,6 +96,12 @@ export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
     taskLogTitle: t('tabWorkspace.taskLogTitle'),
     closeLog: t('tabWorkspace.closeLog'),
     noTaskLog: t('tabWorkspace.noTaskLog'),
+    forkFromHere: t('tabWorkspace.forkFromHere'),
+    forkIterationLabel: t('tabWorkspace.forkIterationLabel'),
+    forkPromptTitle: t('tabWorkspace.forkPromptTitle'),
+    forkPrompt: t('tabWorkspace.forkPrompt'),
+    forkPromptPlaceholder: t('tabWorkspace.forkPromptPlaceholder'),
+    forkWarning: t('tabWorkspace.forkWarning'),
     openDoc: t('tabWorkspace.openDoc'),
     selectModel: t('models.selectModel'),
     selectModelAria: t('models.selectModelAria'),
@@ -105,9 +113,14 @@ export function buildTabWorkspaceLabels(): TabWorkspaceLabels {
     compactSubtreeAria: t('docs.compactSubtreeAria'),
     createChildDoc: t('tabWorkspace.createChildDoc'),
     deleteDoc: t('tabWorkspace.deleteDoc'),
+    deleteSubtree: t('tabWorkspace.deleteSubtree'),
     linkDoc: t('tabWorkspace.linkDoc'),
     unlinkDoc: t('tabWorkspace.unlinkDoc'),
     markReviewedDoc: t('tabWorkspace.markReviewedDoc'),
+    ensureSummaryDoc: t('tabWorkspace.ensureSummaryDoc'),
+    reviewBadgeGreen: t('tabWorkspace.reviewBadgeGreen'),
+    reviewBadgeYellow: t('tabWorkspace.reviewBadgeYellow'),
+    reviewBadgeRed: t('tabWorkspace.reviewBadgeRed'),
   };
 }
 
@@ -139,9 +152,13 @@ function buildTaskPanel(app: AppServices, build: BuildSnapshot | undefined): Tas
   const edges: TaskEdgeWire[] = [];
   for (const task of tasks) {
     for (const dep of task.depends_on) {
-      edges.push({ from: dep, to: task.id });
+      edges.push({ from: dep, to: task.id, kind: 'dependency' });
     }
   }
+  for (const fork of forkEdgesFromTasks(tasks)) {
+    edges.push({ from: fork.from, to: fork.to, kind: 'fork' });
+  }
+  const forkTaskCount = countForkTasks(tasks);
   return {
     buildId: build?.buildId ?? '(none)',
     status: build?.status ?? 'Idle',
@@ -161,7 +178,7 @@ function buildTaskPanel(app: AppServices, build: BuildSnapshot | undefined): Tas
         canResume: actions.canResume,
         canSkip: actions.canSkip,
         canRetry: actions.canRetry,
-        hasLogs: Boolean(task.started_at),
+        hasLogs: Boolean(task.started_at) || task.forked_from_iteration !== undefined,
         canRollback: task.status === 'Done' || task.status === 'Failed',
       };
     }),
@@ -170,6 +187,8 @@ function buildTaskPanel(app: AppServices, build: BuildSnapshot | undefined): Tas
     limits: build?.limits,
     workPath: build?.workPath,
     fallbackNotice: build?.fallbackNotice,
+    forkTaskCount: forkTaskCount > 0 ? forkTaskCount : undefined,
+    forkWarning: forkTaskCount > 20 ? labels.forkWarning.replace('{0}', String(forkTaskCount)) : undefined,
   };
 }
 

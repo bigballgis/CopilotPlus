@@ -24,6 +24,10 @@ export interface TaskNode {
   scope_doc: string;
   /** User paused via Task_Panel — R-INT-4 */
   user_paused?: boolean;
+  /** Originating task when forked — R-INT-12 */
+  parent_task_id?: string;
+  /** Iteration index the fork branched from — R-INT-12 */
+  forked_from_iteration?: number;
   started_at?: string;
   completed_at?: string;
 }

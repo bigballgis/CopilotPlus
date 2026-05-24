@@ -8,7 +8,8 @@ import { newBuildId } from './buildTypes';
 import { TaskDagStore } from './taskDagStore';
 import type { DagValidationError, TaskDagFile, TaskNode, TaskDagValidationContext } from './taskDag';
 import { allTasksTerminal, hasSchedulableWork } from './taskDag';
-import { readTaskTranscriptAt } from './taskTranscript';
+import { readStructuredTaskTranscript, type StructuredTaskTranscript } from './taskTranscript';
+import { createTaskFork } from './taskFork';
 import {
   BuildLimitsTracker,
   interpretBuildLimitDecision,
@@ -430,12 +431,52 @@ export class BuildExecutor {
   }
 
   async getTaskLog(taskId: string): Promise<string> {
+    const structured = await this.getStructuredTaskLog(taskId);
+    return structured.formatted;
+  }
+
+  async getStructuredTaskLog(taskId: string): Promise<StructuredTaskTranscript> {
     const buildId = this.activeBuildId;
     const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!buildId || !root) {
-      return '';
+      return { formatted: '', iterations: [] };
     }
-    return readTaskTranscriptAt(root, buildId, taskId);
+    return readStructuredTaskTranscript(root, buildId, taskId);
+  }
+
+  /** R-INT-12 — fork task transcript at iteration with optional new instruction */
+  async forkTask(taskId: string, iteration: number, instruction?: string): Promise<boolean> {
+    const buildId = this.activeBuildId;
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!buildId || !root) {
+      void vscode.window.showWarningMessage(t('build.noActiveBuild'));
+      return false;
+    }
+
+    const dag = await this.store.load(buildId);
+    const parent = dag?.tasks.find((entry) => entry.id === taskId);
+    if (!parent) {
+      void vscode.window.showWarningMessage(t('build.taskActionBlocked', taskId, 'missing'));
+      return false;
+    }
+
+    try {
+      const { childTask } = await createTaskFork({
+        workspaceRoot: root,
+        buildId,
+        parent,
+        iteration,
+        instruction,
+      });
+      await this.store.addTask(buildId, childTask);
+      this.setMessage(t('build.taskForked', childTask.id, taskId, String(iteration)));
+      this.notify();
+      return true;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      void vscode.window.showErrorMessage(t('build.taskForkFailed', taskId, reason));
+      return false;
+    }
   }
 
   hasRunningTasks(): boolean {

@@ -16,8 +16,7 @@ import { DocTreePicker } from '@ui/components/DocTreePicker';
 import { Icon } from '@ui/components/Icon';
 import { PanelShell } from '@ui/components/PanelShell';
 import { RequirementPreviewPanel } from '@ui/components/RequirementPreviewPanel';
-import { DocNavPreview } from '@ui/components/DocNavPreview';
-import { DocTreeActionBar } from '@ui/components/DocTreeActionBar';
+import { DocPreviewContent } from '@ui/components/DocPreviewContent';
 import { StatusChip } from '@ui/components/StatusChip';
 import { TabStrip } from '@ui/components/TabStrip';
 import { TaskDagView } from '@ui/components/TaskDagView';
@@ -73,6 +72,7 @@ const DEFAULT_LABELS: TabWorkspaceLabels = {
   fitView: 'Fit view',
   requirementTree: 'Document tree',
   requirementPreview: 'Preview',
+  architecturePreview: 'Document preview',
   editDoc: 'Edit',
   selectDocHint: 'Select a document to preview.',
   docBreadcrumb: 'Document hierarchy',
@@ -94,6 +94,12 @@ const DEFAULT_LABELS: TabWorkspaceLabels = {
   taskLogTitle: 'Task transcript',
   closeLog: 'Close log',
   noTaskLog: 'No transcript recorded for this task yet.',
+  forkFromHere: 'Fork from here',
+  forkIterationLabel: 'Iteration {0}',
+  forkPromptTitle: 'Fork task',
+  forkPrompt: 'Optional new instruction for the forked task',
+  forkPromptPlaceholder: 'Try a different approach…',
+  forkWarning: 'This build has {0} forked tasks — consider consolidating branches.',
   openDoc: 'Open',
   selectModel: 'Model',
   selectModelAria: 'Select Copilot model',
@@ -105,9 +111,14 @@ const DEFAULT_LABELS: TabWorkspaceLabels = {
   compactSubtreeAria: 'Compact stale documents under {0}',
   createChildDoc: 'Add child',
   deleteDoc: 'Delete',
+  deleteSubtree: 'Delete subtree',
   linkDoc: 'Link',
   unlinkDoc: 'Unlink',
   markReviewedDoc: 'Mark reviewed',
+  ensureSummaryDoc: 'Add summary',
+  reviewBadgeGreen: 'Reviewed within 30 days',
+  reviewBadgeYellow: 'Reviewed 30–90 days ago or feature/component doc',
+  reviewBadgeRed: 'Not reviewed or review older than 90 days',
 };
 
 const EMPTY_SYNC: TabWorkspaceStateSync = {
@@ -162,7 +173,7 @@ function TaskPanel({
   onCloseLog,
 }: {
   state: TabWorkspaceStateSync;
-  taskLog?: { taskId: string; content: string };
+  taskLog?: { taskId: string; content: string; iterations: Array<{ iteration: number; preview: string }> };
   onCloseLog: () => void;
 }): JSX.Element {
   const { labels, task } = state;
@@ -182,6 +193,11 @@ function TaskPanel({
       {task.fallbackNotice ? (
         <p className="cp-meta">
           {labels.fallbackNotice}: {task.fallbackNotice}
+        </p>
+      ) : null}
+      {task.forkWarning ? (
+        <p className="cp-meta cp-fork-warning" role="status">
+          {task.forkWarning}
         </p>
       ) : null}
       {task.lastMessage ? <p className="cp-meta">{task.lastMessage}</p> : null}
@@ -297,9 +313,36 @@ function TaskPanel({
               {labels.closeLog}
             </VSCodeButton>
           </div>
-          <pre className="cp-log cp-task-log-body">
-            {taskLog.content.trim() || labels.noTaskLog}
-          </pre>
+          {taskLog.iterations.length > 0 ? (
+            <div className="cp-task-log-iterations">
+              {taskLog.iterations.map((entry) => (
+                <section key={entry.iteration} className="cp-task-log-iteration">
+                  <div className="cp-task-log-iteration-header">
+                    <h5>{labels.forkIterationLabel.replace('{0}', String(entry.iteration))}</h5>
+                    <VSCodeButton
+                      appearance="secondary"
+                      aria-label={`${labels.forkFromHere} ${entry.iteration}`}
+                      onClick={() =>
+                        postToHost({
+                          type: 'buildAction',
+                          action: 'forkFromHere',
+                          taskId: taskLog.taskId,
+                          iteration: entry.iteration,
+                        })
+                      }
+                    >
+                      {labels.forkFromHere}
+                    </VSCodeButton>
+                  </div>
+                  <pre className="cp-log cp-task-log-snippet">{entry.preview.trim()}</pre>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <pre className="cp-log cp-task-log-body">
+              {taskLog.content.trim() || labels.noTaskLog}
+            </pre>
+          )}
         </div>
       ) : null}
 
@@ -581,10 +624,12 @@ function PanelBody({
     lateralByType?: Record<string, DocNavLinkWire[]>;
     hasChildren?: boolean;
     canCreateChild?: boolean;
+    reviewBadge?: 'green' | 'yellow' | 'red';
+    missingSummary?: boolean;
   };
   onSelectDoc: (path: string) => void;
   onDocTreeAction: (action: DocTreePanelAction) => void;
-  taskLog?: { taskId: string; content: string };
+  taskLog?: { taskId: string; content: string; iterations: Array<{ iteration: number; preview: string }> };
   onCloseTaskLog: () => void;
   selectedCommitHash?: string;
   commitDiff: string;
@@ -630,22 +675,21 @@ function PanelBody({
           </div>
           {selectedDocPath && docPreview ? (
             <div className="cp-arch-preview">
-              <DocTreeActionBar
+              <h4 className="cp-viz-title">{state.labels.architecturePreview}</h4>
+              <DocPreviewContent
                 labels={state.labels}
                 selectedPath={selectedDocPath}
-                hasChildren={docPreview.hasChildren}
-                canCreateChild={docPreview.canCreateChild}
-                onAction={onDocTreeAction}
-                onEdit={() => postToHost({ type: 'editDoc', path: selectedDocPath })}
-                onOpen={() => postToHost({ type: 'openDoc', path: selectedDocPath })}
-              />
-              <DocNavPreview
-                labels={state.labels}
-                selectedPath={selectedDocPath}
+                previewTitle={docPreview.title}
+                previewMarkdown={docPreview.markdown}
                 breadcrumb={docPreview.breadcrumb}
                 children={docPreview.children}
                 lateralByType={docPreview.lateralByType}
+                hasChildren={docPreview.hasChildren}
+                canCreateChild={docPreview.canCreateChild}
+                missingSummary={docPreview.missingSummary}
+                reviewBadge={docPreview.reviewBadge}
                 onSelectDoc={onSelectDoc}
+                onDocTreeAction={onDocTreeAction}
               />
             </div>
           ) : null}
@@ -664,6 +708,8 @@ function PanelBody({
           lateralByType={docPreview?.lateralByType}
           hasChildren={docPreview?.hasChildren}
           canCreateChild={docPreview?.canCreateChild}
+          reviewBadge={docPreview?.reviewBadge}
+          missingSummary={docPreview?.missingSummary}
           onSelectDoc={onSelectDoc}
           onDocTreeAction={onDocTreeAction}
         />
@@ -695,10 +741,14 @@ export function App(): JSX.Element {
         lateralByType?: Record<string, DocNavLinkWire[]>;
         hasChildren?: boolean;
         canCreateChild?: boolean;
+        reviewBadge?: 'green' | 'yellow' | 'red';
+        missingSummary?: boolean;
       }
     | undefined
   >();
-  const [taskLog, setTaskLog] = useState<{ taskId: string; content: string } | undefined>();
+  const [taskLog, setTaskLog] = useState<
+    { taskId: string; content: string; iterations: Array<{ iteration: number; preview: string }> } | undefined
+  >();
   const [selectedCommitHash, setSelectedCommitHash] = useState<string | undefined>();
   const [commitDiff, setCommitDiff] = useState('');
 
@@ -732,11 +782,17 @@ export function App(): JSX.Element {
           lateralByType: event.data.lateralByType,
           hasChildren: event.data.hasChildren,
           canCreateChild: event.data.canCreateChild,
+          reviewBadge: event.data.reviewBadge,
+          missingSummary: event.data.missingSummary,
         });
         return;
       }
       if (event.data?.type === 'taskLog') {
-        setTaskLog({ taskId: event.data.taskId, content: event.data.content });
+        setTaskLog({
+          taskId: event.data.taskId,
+          content: event.data.content,
+          iterations: event.data.iterations ?? [],
+        });
         return;
       }
       if (event.data?.type === 'commitDiff') {

@@ -62,6 +62,15 @@ const DOCS_TREE_OPS_MARKERS = [
   { file: 'webview-ui/src/shared/components/DocTreeActionBar.tsx', tokens: ['createChildDoc', 'onAction'] },
 ];
 
+const TASK_FORK_MARKERS = [
+  { file: 'src/workflow/taskFork.ts', tokens: ['createTaskFork', 'forks.json', 'parent_task_id'] },
+  { file: 'src/workflow/taskTranscript.ts', tokens: ['groupTranscriptIterations', 'readStructuredTaskTranscript'] },
+  { file: 'src/workflow/buildExecutor.ts', tokens: ['forkTask', 'getStructuredTaskLog'] },
+  { file: 'src/agents/subAgentLoop.ts', tokens: ["role: 'iteration'", 'loadPersistedMessages'] },
+  { file: 'webview-ui/src/tabWorkspace/App.tsx', tokens: ['forkFromHere', 'cp-task-log-iteration'] },
+  { file: 'webview-ui/src/shared/components/TaskDagView.tsx', tokens: ['cp-dag-edge--fork'] },
+];
+
 async function main() {
   const errors = [];
 
@@ -90,6 +99,7 @@ async function main() {
     ...DECISION_CENTER_MARKERS,
     ...DOCS_NAMING_MARKERS,
     ...DOCS_TREE_OPS_MARKERS,
+    ...TASK_FORK_MARKERS,
   ]) {
     const source = await fs.readFile(path.join(root, file), 'utf8');
     for (const token of tokens) {

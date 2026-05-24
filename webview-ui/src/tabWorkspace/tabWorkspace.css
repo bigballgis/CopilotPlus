@@ -54,8 +54,17 @@
   fill: none;
 }
 
+.cp-dag-edge--fork {
+  stroke: #d29922;
+  stroke-dasharray: 5 4;
+}
+
 .cp-dag-arrowhead {
   fill: var(--vscode-focusBorder);
+}
+
+.cp-dag-arrowhead-fork {
+  fill: #d29922;
 }
 
 .cp-dag-node {
@@ -150,13 +159,24 @@
   min-height: 0;
 }
 
-.cp-req-preview-body {
+.cp-req-preview-body,
+.cp-doc-preview-body {
   max-height: 360px;
   overflow: auto;
   border: 1px solid var(--vscode-panel-border);
   border-radius: 6px;
   padding: 10px;
   background: var(--vscode-editor-background);
+}
+
+.cp-arch-preview {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+.cp-arch-preview .cp-doc-preview-body {
+  max-height: 280px;
 }
 
 .cp-doc-tree-row {
@@ -274,4 +294,34 @@
 .cp-task-log-body {
   max-height: 220px;
   margin: 0;
+}
+
+.cp-task-log-iteration {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  padding: 8px;
+}
+
+.cp-task-log-iteration-header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.cp-task-log-iteration-header h5 {
+  font-size: 12px;
+  margin: 0;
+}
+
+.cp-task-log-snippet {
+  font-size: 11px;
+  max-height: 160px;
+  overflow: auto;
+}
+
+.cp-fork-warning {
+  color: #d29922;
 }

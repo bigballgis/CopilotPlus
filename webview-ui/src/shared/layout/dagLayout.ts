@@ -15,6 +15,7 @@ export interface DagLayoutEdge {
   y1: number;
   x2: number;
   y2: number;
+  kind?: 'dependency' | 'fork';
 }
 
 const NODE_W = 120;
@@ -24,7 +25,7 @@ const GAP_Y = 56;
 
 export function layoutTaskDag(
   tasks: { id: string; title: string; status: string; dependsOn: string[] }[],
-  edges: { from: string; to: string }[]
+  edges: { from: string; to: string; kind?: 'dependency' | 'fork' }[]
 ): { nodes: DagLayoutNode[]; edges: DagLayoutEdge[]; width: number; height: number } {
   if (tasks.length === 0) {
     return { nodes: [], edges: [], width: 0, height: 0 };
@@ -90,6 +91,7 @@ export function layoutTaskDag(
         y1: from.y + NODE_H / 2,
         x2: to.x,
         y2: to.y + NODE_H / 2,
+        kind: edge.kind,
       };
     })
     .filter((e): e is DagLayoutEdge => e !== undefined);

@@ -16,9 +16,10 @@ import {
 } from './toolCallParser';
 
 export interface LoopMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool';
+  role: 'system' | 'user' | 'assistant' | 'tool' | 'iteration';
   content: string;
   toolName?: string;
+  iteration?: number;
 }
 
 export interface AgentLoopOptions {
@@ -72,7 +73,8 @@ export class SubAgentLoop {
     const maxIterations = options.maxIterations ?? 25;
     const maxToolCalls = options.maxToolCalls ?? 80;
     const iterationTimeoutMs = options.iterationTimeoutMs ?? 300_000;
-    const messages: LoopMessage[] = [
+    const existing = await loadPersistedMessages(options.buildId, options.taskId);
+    const messages: LoopMessage[] = existing ?? [
       {
         role: 'system',
         content: `${options.systemPrompt}\n\n${buildToolInstructions(options.toolIds)}`,
@@ -101,7 +103,7 @@ export class SubAgentLoop {
       iterations++;
       options.onStatus?.(`Iteration ${iterations}`);
 
-      const lmMessages = messages.map(toLmMessage);
+      const lmMessages = messages.map(toLmMessage).filter((m): m is vscode.LanguageModelChatMessage => m !== null);
       const model = await this.platform.models.resolveSelectionForSurface('subAgent');
       if (!model) {
         return { finalAnswer: '', toolCalls, iterations, failed: true, reason: 'no_model' };
@@ -134,9 +136,21 @@ export class SubAgentLoop {
       const finalAnswer = parseFinalAnswer(assistantText);
       const calls = dedupeToolCalls(parseToolCalls(assistantText));
       if (finalAnswer !== undefined && calls.length === 0) {
+        messages.push({
+          role: 'iteration',
+          content: `Iteration ${iterations} complete`,
+          iteration: iterations,
+        });
+        await persistMessages(options.buildId, options.taskId, messages);
         return { finalAnswer, toolCalls, iterations, failed: false };
       }
       if (calls.length === 0) {
+        messages.push({
+          role: 'iteration',
+          content: `Iteration ${iterations} complete`,
+          iteration: iterations,
+        });
+        await persistMessages(options.buildId, options.taskId, messages);
         return { finalAnswer: assistantText.trim(), toolCalls, iterations, failed: false };
       }
 
@@ -152,6 +166,12 @@ export class SubAgentLoop {
       await persistMessages(options.buildId, options.taskId, messages);
 
       if (results.some((r) => r.terminalFailure)) {
+        messages.push({
+          role: 'iteration',
+          content: `Iteration ${iterations} complete`,
+          iteration: iterations,
+        });
+        await persistMessages(options.buildId, options.taskId, messages);
         return {
           finalAnswer: '',
           toolCalls,
@@ -160,6 +180,13 @@ export class SubAgentLoop {
           reason: 'repeated_tool_error',
         };
       }
+
+      messages.push({
+        role: 'iteration',
+        content: `Iteration ${iterations} complete`,
+        iteration: iterations,
+      });
+      await persistMessages(options.buildId, options.taskId, messages);
     }
 
     return {
@@ -236,7 +263,10 @@ function isReadOnlyTool(toolId: string): boolean {
   return getDefaultPermission(toolId) === 'allow' && toolId !== 'bash';
 }
 
-function toLmMessage(msg: LoopMessage): vscode.LanguageModelChatMessage {
+function toLmMessage(msg: LoopMessage): vscode.LanguageModelChatMessage | null {
+  if (msg.role === 'iteration') {
+    return null;
+  }
   const prefix = msg.role === 'tool' ? `[tool:${msg.toolName}] ` : '';
   const text = prefix + msg.content;
   switch (msg.role) {
@@ -247,6 +277,27 @@ function toLmMessage(msg: LoopMessage): vscode.LanguageModelChatMessage {
       return vscode.LanguageModelChatMessage.User(text);
     case 'assistant':
       return vscode.LanguageModelChatMessage.Assistant(text);
+  }
+}
+
+async function loadPersistedMessages(
+  buildId: string,
+  taskId: string
+): Promise<LoopMessage[] | undefined> {
+  const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!root) {
+    return undefined;
+  }
+  const file = path.join(root, '.copilotPlus', 'builds', buildId, taskId, 'messages.jsonl');
+  try {
+    const raw = await fs.readFile(file, 'utf8');
+    const lines = raw.split('\n').filter((line) => line.trim());
+    if (lines.length === 0) {
+      return undefined;
+    }
+    return lines.map((line) => JSON.parse(line) as LoopMessage);
+  } catch {
+    return undefined;
   }
 }
 

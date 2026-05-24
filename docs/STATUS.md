@@ -2,7 +2,7 @@
 
 > **最后更新**：2026-05-23  
 > **当前阶段**：查漏补缺 — F5 手动冒烟（Drift Agent 一致性 + Resolve）
-> **本 session 下一项（功能）**：F5 手动冒烟 #8–21（含文档树 CRUD 命令 / 面板操作）
+> **本 session 下一项（功能）**：F5 手动冒烟 #8–22（含 Agent Fork 与文档树 CRUD）
 
 ---
 
@@ -31,6 +31,7 @@
 | 19 | Decision Center | Control Console 待决列表 + 倒计时 + Bulk approve + 重启恢复 |
 | 20 | Requirement 子链接预览 | 选中文档后显示 Immediate children + Lateral links（按 type 分组） |
 | 21 | 文档树 CRUD | Requirement/Architecture 面板 + 命令面板：创建子文档 / 删除叶节点 / 链接 / 取消链接 / 重命名 / 移动 |
+| 22 | Agent Fork | Task 面板 View logs → 迭代 Fork from here → 新 Task + 虚线分叉边 + forks.json 持久化 |
 
 ---
 
@@ -42,7 +43,7 @@
 | 2.8 | UI Experience | 2.8.1–2.8.7 | ✅ 完成 |
 | 1 | Platform 补全 | 1.1–1.9 | ✅ 完成 |
 
-**单元测试**：261/261 通过  
+**单元测试**：269/269 通过  
 **需求覆盖率（粗算）**：~97%
 
 ---
@@ -68,6 +69,7 @@
 | Requirement 预览导航 | 子文档列表 + lateral 按 type 分组 + breadcrumb 点击跳转 | R-DOCS-3.3 / R-DOCS-4.4 |
 | 文档树 telemetry | docs.tree.size 月度节流 + tokenEstimate / softLimitExceeded | R-DOCS-8.5 / R-PLAT-7 |
 | 文档树 CRUD | treeOps 重命名/移动/删除/取消链接 + 6 条命令 + Requirement/Architecture 面板操作 | R-DOCS-6 |
+| Agent Replay/Fork | taskFork + 迭代 transcript + Fork UI + DAG 分叉边 + forks.json + >20 警告 | R-INT-12 |
 | 文档树操作 | rename/move/delete/link + 面板/命令面板 + 链接一致性修复 | R-DOCS-6 |
 | Web 工具 | webfetch（https/15s/截断）+ websearch（可配置 provider） | R-TOOL-12 |
 | LSP 重命名 | lsp_rename → Diff Review + Checkpoint + post_edit | R-TOOL-5.5 |
@@ -116,6 +118,7 @@
 
 | 日期 | 内容 |
 |------|------|
+| 2026-05-23 | R-INT-12 Agent Replay/Fork（taskFork + 迭代 transcript + Fork UI + DAG 分叉边 + forks.json） |
 | 2026-05-23 | R-DOCS-6 文档树 CRUD（treeOps + 命令 + Requirement/Architecture 面板操作 + 链接一致性修复） |
 | 2026-05-23 | R-DOCS-3.3/4.4/8.5 Requirement 子链接预览 + docs.tree.size 月度 telemetry |
 | 2026-05-23 | R-DOCS-4/7 横向链接深度 + naming_aliases 自动重写 + doc_write 命名碰撞 Decision |

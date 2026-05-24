@@ -4,6 +4,8 @@ import type { ModelOptionWire } from './types';
 
 export type TabId = 'task' | 'architecture' | 'requirement' | 'commit' | 'deploy';
 
+export type ReviewBadge = 'green' | 'yellow' | 'red';
+
 export interface TabWorkspaceLabels {
   tablistAria: string;
   tabAria: string;
@@ -53,6 +55,7 @@ export interface TabWorkspaceLabels {
   fitView: string;
   requirementTree: string;
   requirementPreview: string;
+  architecturePreview: string;
   editDoc: string;
   selectDocHint: string;
   docBreadcrumb: string;
@@ -74,6 +77,12 @@ export interface TabWorkspaceLabels {
   taskLogTitle: string;
   closeLog: string;
   noTaskLog: string;
+  forkFromHere: string;
+  forkIterationLabel: string;
+  forkPromptTitle: string;
+  forkPrompt: string;
+  forkPromptPlaceholder: string;
+  forkWarning: string;
   openDoc: string;
   selectModel: string;
   selectModelAria: string;
@@ -85,9 +94,14 @@ export interface TabWorkspaceLabels {
   compactSubtreeAria: string;
   createChildDoc: string;
   deleteDoc: string;
+  deleteSubtree: string;
   linkDoc: string;
   unlinkDoc: string;
   markReviewedDoc: string;
+  ensureSummaryDoc: string;
+  reviewBadgeGreen: string;
+  reviewBadgeYellow: string;
+  reviewBadgeRed: string;
 }
 
 export interface DocNavLinkWire {
@@ -106,7 +120,7 @@ export interface DocTreeNodeWire {
   path: string;
   title: string;
   level: string;
-  reviewBadge?: 'green' | 'yellow' | 'red';
+  reviewBadge?: ReviewBadge;
   stale?: boolean;
   lateralLinks: DocLateralLinkWire[];
   children: DocTreeNodeWire[];
@@ -136,6 +150,12 @@ export interface TaskRowWire {
 export interface TaskEdgeWire {
   from: string;
   to: string;
+  kind?: 'dependency' | 'fork';
+}
+
+export interface TaskLogIterationWire {
+  iteration: number;
+  preview: string;
 }
 
 export interface ComposerSnapshotWire {
@@ -163,6 +183,8 @@ export interface TaskPanelWire {
   };
   workPath?: string;
   fallbackNotice?: string;
+  forkTaskCount?: number;
+  forkWarning?: string;
 }
 
 export interface DeployRunWire {
@@ -248,11 +270,25 @@ export type TabWorkspaceHostMessage =
       lateralByType?: Record<string, DocNavLinkWire[]>;
       hasChildren?: boolean;
       canCreateChild?: boolean;
+      reviewBadge?: ReviewBadge;
+      subtreeDocCount?: number;
+      missingSummary?: boolean;
     }
-  | { type: 'taskLog'; taskId: string; content: string }
+  | {
+      type: 'taskLog';
+      taskId: string;
+      content: string;
+      iterations: TaskLogIterationWire[];
+    }
   | { type: 'commitDiff'; hash: string; diff: string };
 
-export type DocTreePanelAction = 'createChild' | 'delete' | 'markReviewed' | 'link' | 'unlink';
+export type DocTreePanelAction =
+  | 'createChild'
+  | 'delete'
+  | 'markReviewed'
+  | 'link'
+  | 'unlink'
+  | 'ensureSummary';
 
 export type TabWorkspaceWebviewMessage =
   | { type: 'ready' }
@@ -260,7 +296,7 @@ export type TabWorkspaceWebviewMessage =
   | { type: 'openDoc'; path: string }
   | { type: 'selectDoc'; path: string }
   | { type: 'editDoc'; path: string }
-  | { type: 'buildAction'; action: string; taskId?: string }
+  | { type: 'buildAction'; action: string; taskId?: string; iteration?: number }
   | {
       type: 'composerAction';
       action: string;

@@ -4,6 +4,8 @@ import * as vscode from 'vscode';
 import type { AppServices } from '../app/appServices';
 import { buildDocBreadcrumb, buildDocPreviewNav } from '../docs/scopeResolution';
 import { childLevelFor } from '../docs/treeOps';
+import { collectSubtreeDocPaths } from '../docs/docLifecycle';
+import { isSummaryMissingOrInvalid } from '../docs/summarySection';
 import type { BuildSnapshot } from '../workflow/buildExecutor';
 import { getTabWorkspaceWebviewHtml } from './webviewBundle';
 import { buildTabWorkspaceStateSync } from './tabWorkspaceSnapshot';
@@ -84,7 +86,7 @@ export class TabWorkspaceProvider {
         return;
       }
       if (msg.type === 'buildAction') {
-        await this.handleBuildAction(msg.action, msg.taskId);
+        await this.handleBuildAction(msg.action, msg.taskId, msg.iteration);
         return;
       }
       if (msg.type === 'composerAction') {
@@ -167,6 +169,7 @@ export class TabWorkspaceProvider {
     const resolveId = (id: string) => this.app.namingAliases.resolve(id);
     const nav = buildDocPreviewNav(relativePath, entries, resolveId);
     const childLevel = childLevelFor(entry.frontmatter.level);
+    const subtreeDocCount = collectSubtreeDocPaths(relativePath, entries).length;
     this.postMessage({
       type: 'docPreview',
       path: relativePath,
@@ -177,6 +180,10 @@ export class TabWorkspaceProvider {
       lateralByType: nav.lateralByType,
       hasChildren: (entry.frontmatter.children?.length ?? 0) > 0,
       canCreateChild: !!childLevel,
+      reviewBadge: this.app.docs.reviewBadge(entry),
+      subtreeDocCount,
+      missingSummary:
+        entry.frontmatter.level !== 'system' && isSummaryMissingOrInvalid(entry.body),
     });
   }
 
@@ -226,7 +233,11 @@ export class TabWorkspaceProvider {
     await this.syncWebviewState();
   }
 
-  private async handleBuildAction(action: string, taskId?: string): Promise<void> {
+  private async handleBuildAction(
+    action: string,
+    taskId?: string,
+    iteration?: number
+  ): Promise<void> {
     if (action === 'start') {
       await this.app.stages.transition('Build');
       await this.app.buildExecutor.start();
@@ -245,8 +256,17 @@ export class TabWorkspaceProvider {
     } else if (action === 'retry' && taskId) {
       await this.app.buildExecutor.retryTask(taskId);
     } else if (action === 'viewLogs' && taskId) {
-      const content = await this.app.buildExecutor.getTaskLog(taskId);
-      this.postMessage({ type: 'taskLog', taskId, content });
+      await this.postTaskLog(taskId);
+    } else if (action === 'forkFromHere' && taskId && iteration !== undefined) {
+      const instruction = await vscode.window.showInputBox({
+        title: t('tabWorkspace.forkPromptTitle'),
+        prompt: t('tabWorkspace.forkPrompt'),
+        placeHolder: t('tabWorkspace.forkPromptPlaceholder'),
+      });
+      if (instruction !== undefined) {
+        await this.app.buildExecutor.forkTask(taskId, iteration, instruction.trim() || undefined);
+        await this.postTaskLog(taskId);
+      }
     } else if (action === 'deployGenerate') {
       await vscode.commands.executeCommand('copilotPlus.deploy.generateManifest');
     } else if (action === 'deployApply') {
@@ -255,5 +275,18 @@ export class TabWorkspaceProvider {
       await vscode.commands.executeCommand('copilotPlus.deploy.rollback', taskId);
     }
     await this.syncWebviewState();
+  }
+
+  private async postTaskLog(taskId: string): Promise<void> {
+    const structured = await this.app.buildExecutor.getStructuredTaskLog(taskId);
+    this.postMessage({
+      type: 'taskLog',
+      taskId,
+      content: structured.formatted,
+      iterations: structured.iterations.map((entry) => ({
+        iteration: entry.iteration,
+        preview: entry.preview,
+      })),
+    });
   }
 }

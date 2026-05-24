@@ -43,20 +43,23 @@ export function TaskDagView({ title, tasks, edges, runningTaskIds }: TaskDagView
           aria-label={title}
         >
           {layout.edges.map((edge) => (
-            <g key={`${edge.from}-${edge.to}`}>
+            <g key={`${edge.from}-${edge.to}-${edge.kind ?? 'dependency'}`}>
               <line
-                className="cp-dag-edge"
+                className={edge.kind === 'fork' ? 'cp-dag-edge cp-dag-edge--fork' : 'cp-dag-edge'}
                 x1={edge.x1}
                 y1={edge.y1}
                 x2={edge.x2}
                 y2={edge.y2}
-                markerEnd="url(#cp-dag-arrow)"
+                markerEnd={edge.kind === 'fork' ? 'url(#cp-dag-arrow-fork)' : 'url(#cp-dag-arrow)'}
               />
             </g>
           ))}
           <defs>
             <marker id="cp-dag-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
               <path d="M0,0 L6,3 L0,6 Z" className="cp-dag-arrowhead" />
+            </marker>
+            <marker id="cp-dag-arrow-fork" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L6,3 L0,6 Z" className="cp-dag-arrowhead-fork" />
             </marker>
           </defs>
           {layout.nodes.map((node) => (
