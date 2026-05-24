@@ -29,6 +29,20 @@ export class DecisionCenter {
     this.ciResolver = resolver;
   }
 
+  /** Queue a decision without blocking the caller — R-AG-9 background proposals */
+  enqueue(request: DecisionRequest): void {
+    if (this.ciResolver) {
+      try {
+        this.ciResolver.resolve(request);
+      } catch {
+        /* fall through to pending queue in CI fail mode */
+      }
+      return;
+    }
+    this.registerPending(request);
+    this.scheduleTimeout(request);
+  }
+
   async ask(request: DecisionRequest): Promise<DecisionResponse> {
     if (this.ciResolver) {
       try {
@@ -38,6 +52,29 @@ export class DecisionCenter {
         throw err;
       }
     }
+    this.registerPending(request);
+
+    return new Promise<DecisionResponse>((resolve) => {
+      this.resolvers.set(request.id, resolve);
+      this.scheduleTimeout(request);
+    });
+  }
+
+  resolve(id: string, selected: string, timedOut = false): void {
+    const resolver = this.resolvers.get(id);
+    this.pending.delete(id);
+    this.resolvers.delete(id);
+    this.onChangeEmitter.fire(this.pending.size);
+    if (resolver) {
+      resolver({ id, selected, timedOut });
+    }
+  }
+
+  getPending(): DecisionRequest[] {
+    return [...this.pending.values()];
+  }
+
+  private registerPending(request: DecisionRequest): void {
     this.pending.set(request.id, request);
     this.onChangeEmitter.fire(this.pending.size);
 
@@ -46,30 +83,14 @@ export class DecisionCenter {
     } else {
       void vscode.window.setStatusBarMessage(`Copilot Plus: ${this.pending.size}`, 3000);
     }
-
-    return new Promise<DecisionResponse>((resolve) => {
-      this.resolvers.set(request.id, resolve);
-      setTimeout(() => {
-        if (this.pending.has(request.id)) {
-          this.resolve(request.id, request.defaultOption ?? request.options[0] ?? 'Reject', true);
-        }
-      }, request.timeoutSec * 1000);
-    });
   }
 
-  resolve(id: string, selected: string, timedOut = false): void {
-    const resolver = this.resolvers.get(id);
-    if (!resolver) {
-      return;
-    }
-    this.pending.delete(id);
-    this.resolvers.delete(id);
-    this.onChangeEmitter.fire(this.pending.size);
-    resolver({ id, selected, timedOut });
-  }
-
-  getPending(): DecisionRequest[] {
-    return [...this.pending.values()];
+  private scheduleTimeout(request: DecisionRequest): void {
+    setTimeout(() => {
+      if (this.pending.has(request.id)) {
+        this.resolve(request.id, request.defaultOption ?? request.options[0] ?? 'Reject', true);
+      }
+    }, request.timeoutSec * 1000);
   }
 
   private async showNativeNotification(request: DecisionRequest): Promise<void> {

@@ -113,7 +113,7 @@
 | 4.1 | R-TOOL-1–5 | Tool registry + 读/写/LSP | ⬜ |
 | 4.2 | R-TOOL-6–8 | code_search, doc_*, git | ⬜ |
 | 4.3 | R-AG-1–4 | Primary + 委派循环 | ✅ Design 委派 |
-| 4.4 | R-AG-5–9 | Explorer, 背景 agent, replay | ✅ R-AG-8 验证 |
+| 4.4 | R-AG-5–9 | Explorer, 背景 agent, replay | ✅ R-AG-8 验证 + R-AG-9 背景 Agent |
 
 ---
 

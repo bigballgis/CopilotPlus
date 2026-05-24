@@ -215,6 +215,7 @@ export class ConversationPaneProvider {
   }
 
   private async handleSubmit(text: string, webAttachments: MentionAttachment[]): Promise<void> {
+    this.app.backgroundAgent.recordActivity();
     const stage = this.app.stages.getStage();
     if (stage !== 'Design') {
       return;

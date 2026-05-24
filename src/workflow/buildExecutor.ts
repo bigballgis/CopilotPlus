@@ -41,6 +41,10 @@ export class BuildExecutor {
     return this.activeBuildId;
   }
 
+  getBuildStatus(): BuildStatus {
+    return this.status;
+  }
+
   async getTasksDag(): Promise<TaskDagFile | undefined> {
     const active = this.activeBuildId ? await this.store.load(this.activeBuildId) : undefined;
     if (active?.tasks.length) {

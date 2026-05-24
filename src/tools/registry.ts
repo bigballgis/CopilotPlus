@@ -61,6 +61,7 @@ export const SUB_AGENT_ALLOWLISTS: Record<string, readonly string[]> = {
   Designer: ['read_file', 'grep', 'glob', 'list_dir', 'code_search', 'lsp_definition', 'lsp_references', 'doc_read', 'doc_write', 'doc_link', 'question'],
   Task_Planner: ['read_file', 'grep', 'glob', 'list_dir', 'code_search', 'doc_read', 'doc_write', 'doc_link', 'task_create', 'todowrite', 'todoread', 'question'],
   Explorer: ['read_file', 'grep', 'glob', 'list_dir', 'code_search', 'lsp_diagnostics', 'lsp_definition', 'lsp_references', 'lsp_hover', 'doc_read'],
+  Background: ['read_file', 'grep', 'glob', 'list_dir', 'code_search', 'lsp_diagnostics', 'lsp_definition', 'lsp_references', 'lsp_hover', 'doc_read', 'git_status', 'git_diff'],
   Coder: ['read_file', 'write_file', 'apply_patch', 'delete_file', 'grep', 'glob', 'list_dir', 'code_search', 'lsp_diagnostics', 'lsp_definition', 'lsp_references', 'lsp_hover', 'lsp_rename', 'doc_read', 'todowrite', 'todoread', 'bash', 'question', 'propose_memory'],
   Tester: ['read_file', 'grep', 'glob', 'list_dir', 'lsp_diagnostics', 'doc_read', 'run_tests', 'bash', 'question', 'propose_memory'],
   Reviewer: ['read_file', 'grep', 'glob', 'list_dir', 'code_search', 'lsp_diagnostics', 'lsp_definition', 'lsp_references', 'lsp_hover', 'doc_read', 'git_diff', 'question', 'propose_memory'],

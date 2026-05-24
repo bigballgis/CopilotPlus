@@ -17,6 +17,11 @@ export interface ControlConsoleLabels {
   labelContextTier: string;
   labelOffline: string;
   labelPerfBudget: string;
+  labelBackground: string;
+  backgroundIdle: string;
+  backgroundRunning: string;
+  backgroundPaused: string;
+  backgroundDisabled: string;
   labelAutonomy: string;
   labelMode: string;
   labelAddon: string;
@@ -89,6 +94,12 @@ export interface ControlConsoleStateSync {
     offline: boolean;
     nesStatus: string;
     perfBudgetMs: number;
+    backgroundEnabled: boolean;
+    backgroundPhase: string;
+    backgroundTask?: string;
+    backgroundElapsedSec: number;
+    backgroundIdleForSec: number;
+    backgroundLastFinding?: string;
   };
   workflow: {
     stage: string;

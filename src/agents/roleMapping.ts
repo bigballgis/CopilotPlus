@@ -13,6 +13,7 @@ const ROLE_TO_PROMPT: Record<string, string> = {
   Rollback_Operator: 'rollback_operator',
   Deployer: 'deployer',
   Arbiter: 'arbiter',
+  Background: 'background',
 };
 
 export function roleToPromptFile(role: string): string {

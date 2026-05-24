@@ -415,6 +415,39 @@
             "strategy": "majority_vote",
             "disagreementMax": 0.6
           }
+        },
+        "copilotPlus.background.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run background tasks while VS Code is open and you are idle (R-AG-9)"
+        },
+        "copilotPlus.background.idleThreshold": {
+          "type": "number",
+          "default": 300,
+          "minimum": 60,
+          "maximum": 3600,
+          "description": "Seconds of editor/conversation inactivity before background tasks start"
+        },
+        "copilotPlus.background.tasks": {
+          "type": "array",
+          "default": [
+            "doc_drift_scan",
+            "index_rebuild",
+            "dependency_audit"
+          ],
+          "items": {
+            "type": "string",
+            "enum": [
+              "doc_drift_scan",
+              "flaky_test_scan",
+              "dead_code_scan",
+              "dependency_audit",
+              "agents_md_proposal",
+              "lateral_link_proposal",
+              "index_rebuild"
+            ]
+          },
+          "description": "Enabled background task identifiers"
         }
       }
     }

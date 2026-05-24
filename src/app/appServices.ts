@@ -30,6 +30,7 @@ import { McpService } from '../extensibility/mcpService';
 import { KnowledgeService } from '../knowledge/knowledgeService';
 import { SpeculativeService } from '../platform/speculativeService';
 import { DesignWorkflowService } from '../workflow/designWorkflowService';
+import { BackgroundAgentService } from '../agents/backgroundAgentService';
 import type { CiSession } from '../cli/ciSession';
 
 export class AppServices {
@@ -62,6 +63,7 @@ export class AppServices {
   readonly knowledge: KnowledgeService;
   readonly speculative: SpeculativeService;
   readonly designWorkflow: DesignWorkflowService;
+  readonly backgroundAgent: BackgroundAgentService;
   private ciSession: CiSession | undefined;
 
   private constructor(
@@ -105,6 +107,7 @@ export class AppServices {
     this.knowledge = new KnowledgeService(context, platform);
     this.speculative = new SpeculativeService(platform);
     this.designWorkflow = new DesignWorkflowService(this);
+    this.backgroundAgent = new BackgroundAgentService(this, context.extensionUri, context);
   }
 
   async initialize(): Promise<void> {
@@ -132,6 +135,8 @@ export class AppServices {
         }
       })
     );
+    this.backgroundAgent.start();
+    this.context.subscriptions.push({ dispose: () => this.backgroundAgent.dispose() });
   }
 
   static async create(context: vscode.ExtensionContext): Promise<AppServices> {
