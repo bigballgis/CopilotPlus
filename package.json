@@ -347,7 +347,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "node esbuild.js && npm run compile:webview",
-    "compile:webview": "vite build --config webview-ui/vite.config.ts",
+    "compile:webview": "vite build --config webview-ui/vite.config.ts && vite build --config webview-ui/vite.tab.config.ts",
     "watch": "node esbuild.js --watch",
     "test:unit": "tsc -p tsconfig.test.json && node --test dist-test/test/unit/**/*.test.js",
     "verify:ci-headless": "tsc -p tsconfig.test.json && node scripts/verify-ci-headless.mjs",

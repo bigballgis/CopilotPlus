@@ -1,6 +1,7 @@
 /** Shared host ↔ webview message protocol — expand per R-INT modules. */
 
 export type { ConversationHostMessage, ConversationWebviewMessage } from './conversationWebviewProtocol';
+export type { TabWorkspaceHostMessage, TabWorkspaceWebviewMessage, TabId } from './tabWorkspaceWebviewProtocol';
 
 export type WorkflowStage = 'Design' | 'Build' | 'Deploy';
 

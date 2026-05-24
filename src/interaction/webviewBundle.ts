@@ -17,3 +17,18 @@ export function getConversationWebviewHtml(
     scripts: [scriptUri.toString()],
   });
 }
+
+export function getTabWorkspaceWebviewHtml(
+  webview: vscode.Webview,
+  extensionUri: vscode.Uri,
+  options?: WebviewHtmlOptions
+): string {
+  const scriptUri = uriFor(webview, extensionUri, 'dist', 'webview', 'tabWorkspace.js');
+  const styleUri = uriFor(webview, extensionUri, 'dist', 'webview', 'tabWorkspace.css');
+  const body = '<div id="root"></div>';
+  return getWebviewHtml(webview, body, undefined, {
+    ...options,
+    styles: [styleUri.toString()],
+    scripts: [scriptUri.toString()],
+  });
+}
